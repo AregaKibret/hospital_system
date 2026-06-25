@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(where.exe scoop 2>&1; $env:PATH = $env:PATH + \";C:\\\\Users\\\\agi1w\\\\scoop\\\\shims\"; where.exe scoop 2>&1)",
+      "PowerShell(netstat -ano)",
+      "PowerShell(Start-Process -FilePath \"python\" -ArgumentList \"manage.py runserver 8000\" -WorkingDirectory \"c:\\\\Users\\\\agi1w\\\\hospital_system\" -NoNewWindow -PassThru)"
+    ]
+  }
+}

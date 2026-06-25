@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — HMS{% endblock %}
+
+{% block content %}
+
+<!-- Welcome banner -->
+<div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            Welcome, {{ user.first_name|default:user.username }}
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+            {% if user_role_name %}
+            <span class="inline-block font-medium {{ user_role_badge }} px-2 py-0.5 rounded-full mr-1">{{ user_role_name }}</span>
+            {% endif %}
+            {{ user_role_desc }}
+        </p>
+    </div>
+    <!-- Quick stats visible to all -->
+    <div class="flex items-center gap-3">
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-center shadow-sm">
+            <p class="text-xl font-bold text-slate-800 dark:text-white">{{ stats.total_patients }}</p>
+            <p class="text-xs text-slate-400">Total Patients</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-center shadow-sm">
+            <p class="text-xl font-bold text-slate-800 dark:text-white">{{ stats.today_visits }}</p>
+            <p class="text-xs text-slate-400">Total Visits</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-center shadow-sm">
+            <p class="text-xl font-bold text-slate-800 dark:text-white">{{ stats.queue_count }}</p>
+            <p class="text-xs text-slate-400">In Queue</p>
+        </div>
+    </div>
+</div>
+
+<!-- Module cards grid -->
+{% if modules %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+    {% for module in modules %}
+
+    {% if module.available and module.url_name %}
+    <!-- Live module card -->
+    <a href="{% url module.url_name %}"
+       class="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md hover:border-{{ module.color }}-300 dark:hover:border-{{ module.color }}-500 transition-all">
+        <div class="w-11 h-11 bg-{{ module.color }}-100 dark:bg-{{ module.color }}-900/40 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg class="w-5 h-5 text-{{ module.color }}-600 dark:text-{{ module.color }}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ module.icon_path }}"/>
+            </svg>
+        </div>
+        <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-base mb-1">{{ module.title }}</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">{{ module.description }}</p>
+        <div class="mt-3 flex items-center gap-1 text-{{ module.color }}-600 dark:text-{{ module.color }}-400 text-xs font-semibold group-hover:gap-2 transition-all">
+            Open
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </div>
+    </a>
+
+    {% else %}
+    <!-- Coming soon card -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm opacity-75 relative overflow-hidden">
+        <div class="absolute top-3 right-3">
+            <span class="text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-full">Soon</span>
+        </div>
+        <div class="w-11 h-11 bg-{{ module.color }}-100 dark:bg-{{ module.color }}-900/40 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-{{ module.color }}-500 dark:text-{{ module.color }}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ module.icon_path }}"/>
+            </svg>
+        </div>
+        <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-base mb-1">{{ module.title }}</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">{{ module.description }}</p>
+    </div>
+    {% endif %}
+
+    {% endfor %}
+</div>
+
+{% else %}
+<!-- No permissions state -->
+<div class="flex flex-col items-center justify-center min-h-[40vh] text-center">
+    <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">No modules available</h3>
+    <p class="text-slate-400 dark:text-slate-500 text-sm max-w-sm">
+        Your account doesn't have any module permissions yet.
+        Please contact your administrator to get the appropriate role assigned.
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}

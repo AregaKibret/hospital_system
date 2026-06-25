@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} User — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-6 flex items-center gap-3">
+        <a href="{% url 'user_list' %}"
+           class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-400 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-800 dark:text-white">{{ action }} User</h1>
+            {% if target_user %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">{{ target_user.get_full_name|default:target_user.username }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="mb-4 px-4 py-3 rounded-xl text-sm {% if message.tags == 'error' %}bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700{% else %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-sm text-red-700 dark:text-red-300">
+                {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                {% for field in form %}
+                <div {% if field.name == "username" or field.name == "email" %}class="sm:col-span-2"{% endif %}>
+                    <label for="{{ field.id_for_label }}"
+                           class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        {{ field.label }}
+                        {% if field.field.required %}<span class="text-red-500 ml-0.5">*</span>{% endif %}
+                    </label>
+                    <div class="{% if field.errors %}ring-1 ring-red-400 rounded-lg{% endif %}">
+                        {{ field }}
+                    </div>
+                    {% if field.errors %}
+                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ field.errors.0 }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                    <p class="mt-1 text-xs text-slate-400">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+            </div>
+
+            <div class="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
+                <a href="{% url 'user_list' %}"
+                   class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold text-sm transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm">
+                    {{ action }} User
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    select, input[type="text"], input[type="email"], input[type="password"], input[type="checkbox"] {
+        display: block; width: 100%; padding: .55rem .85rem;
+        font-size: .875rem; color: #1e293b; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: .5rem;
+        outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    .dark select, .dark input[type="text"], .dark input[type="email"], .dark input[type="password"] {
+        color: #f1f5f9; background: #1e293b; border-color: #475569;
+    }
+    select:focus, input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+    input[type="checkbox"] { width: auto; display: inline-block; accent-color: #3b82f6; }
+</style>
+{% endblock %}

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — Hospital Management System</title>
+    <script>
+        (function () {
+            var t = localStorage.getItem('hms-theme') || 'light';
+            if (t === 'dark') document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' };</script>
+    <style>
+        input[type="text"], input[type="password"] {
+            display: block; width: 100%; padding: .6rem .85rem;
+            font-size: .9rem; color: #1e293b; background: #fff;
+            border: 1px solid #cbd5e1; border-radius: .5rem;
+            outline: none; transition: border-color .15s, box-shadow .15s;
+        }
+        .dark input[type="text"], .dark input[type="password"] {
+            color: #f1f5f9; background: #1e293b; border-color: #475569;
+        }
+        input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+        .dark input:focus { border-color: #60a5fa; }
+        [data-theme="ocean"] { background-color: #f0f9ff !important; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center antialiased transition-colors duration-200">
+
+    <div class="w-full max-w-md px-4">
+
+        <!-- Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
+
+            <!-- Header band -->
+            <div class="bg-blue-600 px-8 py-8 text-center">
+                <div class="inline-flex items-center justify-center w-14 h-14 bg-white/20 rounded-2xl mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Hospital Management</h1>
+                <p class="text-blue-200 text-sm mt-1">Sign in to your account</p>
+            </div>
+
+            <!-- Form -->
+            <div class="px-8 py-8">
+
+                {% if form.errors %}
+                <div class="mb-5 flex items-start gap-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4">
+                    <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-sm text-red-700 dark:text-red-300">
+                        Invalid username or password. Please try again.
+                    </p>
+                </div>
+                {% endif %}
+
+                {% if messages %}
+                {% for message in messages %}
+                <div class="mb-5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+                    <p class="text-sm text-blue-700 dark:text-blue-300">{{ message }}</p>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next }}">
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                            Username
+                        </label>
+                        {{ form.username }}
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                            Password
+                        </label>
+                        {{ form.password }}
+                    </div>
+
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Role hint -->
+                <div class="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700">
+                    <p class="text-xs text-slate-400 dark:text-slate-500 text-center mb-3">Sample test accounts</p>
+                    <div class="grid grid-cols-2 gap-1.5 text-xs">
+                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-1.5">
+                            <span class="text-slate-500 dark:text-slate-400">Doctor</span>
+                            <span class="float-right font-mono text-slate-700 dark:text-slate-300">bekele.haile</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-1.5">
+                            <span class="text-slate-500 dark:text-slate-400">Nurse</span>
+                            <span class="float-right font-mono text-slate-700 dark:text-slate-300">tigist.alemu</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-1.5">
+                            <span class="text-slate-500 dark:text-slate-400">Reception</span>
+                            <span class="float-right font-mono text-slate-700 dark:text-slate-300">sara.tadesse</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-1.5">
+                            <span class="text-slate-500 dark:text-slate-400">Admin</span>
+                            <span class="float-right font-mono text-slate-700 dark:text-slate-300">admin</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 text-center mt-2">Password: <span class="font-mono">Test@1234</span></p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Theme toggle -->
+        <div class="mt-4 flex justify-center gap-2">
+            <button onclick="setTheme('light')"  data-theme-btn="light"
+                    class="text-xs px-3 py-1 rounded-full bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm border border-slate-200 dark:border-slate-700">
+                Light
+            </button>
+            <button onclick="setTheme('dark')"   data-theme-btn="dark"
+                    class="text-xs px-3 py-1 rounded-full bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm border border-slate-200 dark:border-slate-700">
+                Dark
+            </button>
+            <button onclick="setTheme('ocean')"  data-theme-btn="ocean"
+                    class="text-xs px-3 py-1 rounded-full bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm border border-slate-200 dark:border-slate-700">
+                Ocean
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function setTheme(t) {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', t);
+            if (t === 'dark') document.documentElement.classList.add('dark');
+            localStorage.setItem('hms-theme', t);
+        }
+        document.querySelector('input[name="username"]').focus();
+    </script>
+</body>
+</html>

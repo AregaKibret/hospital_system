@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hospital Management{% endblock %}</title>
+    <!-- Anti-flash: apply saved theme before first paint -->
+    <script>
+        (function () {
+            var t = localStorage.getItem('hms-theme') || 'light';
+            if (t === 'dark') document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    <style>
+        /* ── Light form widgets ─────────────────────────────────────── */
+        .field-wrapper input[type="text"],
+        .field-wrapper input[type="email"],
+        .field-wrapper input[type="date"],
+        .field-wrapper input[type="number"],
+        .field-wrapper input[type="tel"],
+        .field-wrapper select,
+        .field-wrapper textarea {
+            display: block; width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem; line-height: 1.5;
+            color: #1e293b; background-color: #fff;
+            border: 1px solid #cbd5e1; border-radius: 0.5rem;
+            transition: border-color .15s, box-shadow .15s;
+            outline: none; appearance: none; -webkit-appearance: none;
+        }
+        .field-wrapper input:focus,
+        .field-wrapper select:focus,
+        .field-wrapper textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+        }
+        .field-wrapper select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right .6rem center;
+            background-size: 1.1em 1.1em;
+            padding-right: 2.25rem;
+        }
+        .errorlist {
+            margin: .35rem 0 0; padding: 0; list-style: none;
+            color: #dc2626; font-size: .75rem;
+        }
+
+        /* ── Dark form widgets ──────────────────────────────────────── */
+        .dark .field-wrapper input[type="text"],
+        .dark .field-wrapper input[type="email"],
+        .dark .field-wrapper input[type="date"],
+        .dark .field-wrapper input[type="number"],
+        .dark .field-wrapper input[type="tel"],
+        .dark .field-wrapper select,
+        .dark .field-wrapper textarea {
+            color: #f1f5f9;
+            background-color: #334155;
+            border-color: #475569;
+        }
+        .dark .field-wrapper input:focus,
+        .dark .field-wrapper select:focus,
+        .dark .field-wrapper textarea:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+        }
+        .dark .field-wrapper select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+        }
+
+        /* ── Ocean nav (teal gradient header) ──────────────────────── */
+        [data-theme="ocean"] header.hms-nav {
+            background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%) !important;
+            border-bottom-color: transparent !important;
+            box-shadow: 0 2px 12px rgba(8,145,178,.35) !important;
+        }
+        [data-theme="ocean"] .ocean-brand-title { color: #fff !important; }
+        [data-theme="ocean"] .ocean-brand-sub   { color: rgba(255,255,255,.7) !important; }
+        [data-theme="ocean"] .ocean-logo-wrap   { background-color: rgba(255,255,255,.2) !important; }
+        [data-theme="ocean"] .ocean-nav-link {
+            color: rgba(255,255,255,.85) !important;
+        }
+        [data-theme="ocean"] .ocean-nav-link:hover {
+            background-color: rgba(255,255,255,.15) !important;
+            color: #fff !important;
+        }
+
+        /* ── Ocean page & card tints ────────────────────────────────── */
+        [data-theme="ocean"] body        { background-color: #f0f9ff !important; }
+        [data-theme="ocean"] footer.hms-footer {
+            background-color: #ecfeff !important;
+            border-color: #a5f3fc !important;
+        }
+        [data-theme="ocean"] footer.hms-footer p { color: #0e7490 !important; }
+
+        /* ── Theme toggle button styles ─────────────────────────────── */
+        #theme-toggle {
+            display: flex; align-items: center; gap: .2rem;
+            padding: .25rem;
+            background-color: #f1f5f9;
+            border-radius: .75rem;
+        }
+        .dark #theme-toggle { background-color: #1e293b; }
+        [data-theme="ocean"] #theme-toggle { background-color: rgba(255,255,255,.18); }
+
+        [data-theme-btn] {
+            padding: .3rem .55rem;
+            border-radius: .5rem;
+            font-size: .7rem; font-weight: 600;
+            cursor: pointer; border: none;
+            transition: all .15s;
+            color: #94a3b8; background: transparent;
+            letter-spacing: .01em;
+        }
+        [data-theme-btn][data-active="true"] {
+            background-color: #fff;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        }
+        .dark [data-theme-btn]                   { color: #64748b; }
+        .dark [data-theme-btn][data-active="true"] {
+            background-color: #334155; color: #f1f5f9;
+        }
+        [data-theme="ocean"] [data-theme-btn]                    { color: rgba(255,255,255,.65); }
+        [data-theme="ocean"] [data-theme-btn][data-active="true"] {
+            background-color: rgba(255,255,255,.9); color: #0e7490;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 min-h-screen flex flex-col antialiased text-slate-800 dark:text-slate-100 transition-colors duration-200">
+
+    <!-- Top Navigation -->
+    <header class="hms-nav bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm sticky top-0 z-20 transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+
+                <!-- Brand -->
+                <a href="/" class="flex items-center gap-3 group">
+                    <div class="ocean-logo-wrap w-9 h-9 bg-blue-600 group-hover:bg-blue-700 rounded-xl flex items-center justify-center shadow-sm transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="leading-tight">
+                        <div class="ocean-brand-title text-slate-900 dark:text-slate-100 font-bold text-sm tracking-tight">Hospital Management</div>
+                        <div class="ocean-brand-sub text-slate-400 dark:text-slate-500 text-xs">Management System</div>
+                    </div>
+                </a>
+
+                <!-- Nav links + theme toggle + user menu -->
+                <div class="flex items-center gap-2">
+                    <nav class="hidden md:flex items-center gap-1">
+                        <a href="{% url 'dashboard' %}"
+                           class="ocean-nav-link flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                            </svg>
+                            Dashboard
+                        </a>
+                        {% if perms.core.add_patient %}
+                        <a href="{% url 'register_patient' %}"
+                           class="ocean-nav-link flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                            </svg>
+                            Register Patient
+                        </a>
+                        {% endif %}
+                        {% if perms.core.view_patient %}
+                        <a href="{% url 'patient_search' %}"
+                           class="ocean-nav-link flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            Search Patient
+                        </a>
+                        {% endif %}
+                        {% if perms.core.manage_users %}
+                        <a href="{% url 'user_list' %}"
+                           class="ocean-nav-link flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                            Users
+                        </a>
+                        {% endif %}
+                    </nav>
+
+                    <!-- Theme toggle -->
+                    <div id="theme-toggle" aria-label="Switch theme">
+                        <button data-theme-btn="light"  onclick="setTheme('light')"  title="Light theme">Light</button>
+                        <button data-theme-btn="dark"   onclick="setTheme('dark')"   title="Dark theme">Dark</button>
+                        <button data-theme-btn="ocean"  onclick="setTheme('ocean')"  title="Ocean theme">Ocean</button>
+                    </div>
+
+                    <!-- User menu -->
+                    {% if user.is_authenticated %}
+                    <div class="relative ml-1" id="user-menu-wrap">
+                        <button id="user-menu-btn" onclick="toggleUserMenu()"
+                                class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
+                            <div class="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                                <span class="text-xs font-bold text-white">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</span>
+                            </div>
+                            <div class="hidden sm:block text-left">
+                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-none">{{ user.get_full_name|default:user.username }}</p>
+                                {% if user_role_name %}
+                                <p class="text-xs {{ user_role_badge }} px-1.5 rounded-full mt-0.5 inline-block leading-snug">{{ user_role_name }}</p>
+                                {% endif %}
+                            </div>
+                            <svg class="w-3.5 h-3.5 text-slate-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown -->
+                        <div id="user-menu-dropdown"
+                             class="hidden absolute right-0 mt-2 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-1.5 z-50">
+                            <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700">
+                                <p class="text-sm font-semibold text-slate-800 dark:text-white">{{ user.get_full_name|default:user.username }}</p>
+                                <p class="text-xs text-slate-400 mt-0.5">{{ user.email }}</p>
+                                {% if user_role_name %}
+                                <span class="text-xs font-medium {{ user_role_badge }} px-2 py-0.5 rounded-full mt-1 inline-block">{{ user_role_name }}</span>
+                                {% endif %}
+                            </div>
+                            <a href="{% url 'password_change' %}"
+                               class="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                </svg>
+                                Change Password
+                            </a>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                                    </svg>
+                                    Sign Out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}"
+                       class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+                        Sign In
+                    </a>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="hms-footer bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 mt-auto transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p class="text-xs text-slate-400 dark:text-slate-600 text-center">
+                &copy; 2025 Hospital Management System. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        function setTheme(theme) {
+            var html = document.documentElement;
+            html.classList.remove('dark');
+            html.setAttribute('data-theme', theme);
+            if (theme === 'dark') html.classList.add('dark');
+            localStorage.setItem('hms-theme', theme);
+            document.querySelectorAll('[data-theme-btn]').forEach(function (btn) {
+                btn.setAttribute('data-active', btn.getAttribute('data-theme-btn') === theme ? 'true' : 'false');
+            });
+        }
+        // Sync button state on load
+        (function () {
+            var t = localStorage.getItem('hms-theme') || 'light';
+            document.querySelectorAll('[data-theme-btn]').forEach(function (btn) {
+                btn.setAttribute('data-active', btn.getAttribute('data-theme-btn') === t ? 'true' : 'false');
+            });
+        })();
+
+        function toggleUserMenu() {
+            var dd = document.getElementById('user-menu-dropdown');
+            if (dd) dd.classList.toggle('hidden');
+        }
+        document.addEventListener('click', function (e) {
+            var wrap = document.getElementById('user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                var dd = document.getElementById('user-menu-dropdown');
+                if (dd) dd.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

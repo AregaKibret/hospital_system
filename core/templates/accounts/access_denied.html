@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied — HMS{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="text-center max-w-md px-6">
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full mb-6">
+            <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+        </div>
+        <h1 class="text-3xl font-bold text-slate-800 dark:text-white mb-2">Access Denied</h1>
+        <p class="text-slate-500 dark:text-slate-400 mb-2">
+            You don't have permission to access this page.
+        </p>
+        {% if user_role_name %}
+        <p class="text-sm text-slate-400 dark:text-slate-500 mb-6">
+            Your current role is <span class="font-semibold {{ user_role_badge }} px-2 py-0.5 rounded-full text-xs">{{ user_role_name }}</span>
+        </p>
+        {% endif %}
+        <div class="flex items-center justify-center gap-3">
+            <a href="{% url 'dashboard' %}"
+               class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Back to Dashboard
+            </a>
+            <button onclick="history.back()"
+                    class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                Go Back
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
