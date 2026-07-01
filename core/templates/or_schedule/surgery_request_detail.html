@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}{{ sr.request_number }} — Surgery Request{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div class="flex items-center gap-3">
+      <a href="{% url 'surgery_request_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <div>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ sr.request_number }}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Surgery Request</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+        {% if sr.priority == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+        {% elif sr.priority == 'Urgent' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+        {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+        {{ sr.priority }}
+      </span>
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+        {% if sr.status == 'Requested' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+        {% elif sr.status == 'Approved' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300
+        {% elif sr.status == 'Scheduled' %}bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300
+        {% else %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300{% endif %}">
+        {{ sr.status }}
+      </span>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-5 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'error' %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300
+      {% else %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- LEFT: Patient Info -->
+    <div class="space-y-5">
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Patient</h2>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+          <div>
+            <p class="text-base font-bold text-slate-800 dark:text-slate-100">{{ sr.patient.full_name }}</p>
+            <p class="text-sm text-blue-600 dark:text-blue-400 font-mono">{{ sr.patient.card_number }}</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Sex</p>
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.sex }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Age</p>
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.age_display|default:"—" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Mobile</p>
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.mobile|default:"—" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Blood Group</p>
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.blood_group|default:"—" }}</p>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Admission Type</p>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ sr.admission_status }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Request Meta -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Request Info</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Requested By</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">Dr. {{ sr.requested_by.full_name }}</span>
+          </div>
+          {% if sr.department %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Department</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ sr.department.name }}</span>
+          </div>
+          {% endif %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Created</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ sr.created_at|date:"d M Y H:i" }}</span>
+          </div>
+          {% if sr.approved_by %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Approved By</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ sr.approved_by.get_full_name }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Approved At</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ sr.approved_at|date:"d M Y H:i" }}</span>
+          </div>
+          {% endif %}
+          {% if sr.rejection_reason %}
+          <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Rejection Reason</p>
+            <p class="text-sm text-red-600 dark:text-red-400">{{ sr.rejection_reason }}</p>
+          </div>
+          {% endif %}
+          {% if linked_schedule %}
+          <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Linked Schedule</p>
+            <a href="{% url 'or_schedule_detail' pk=linked_schedule.pk %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">{{ linked_schedule.schedule_number }}</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Procedure & Anesthesia -->
+    <div class="space-y-5">
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Procedure</h2>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Procedure Name</p>
+            <p class="font-semibold text-slate-800 dark:text-slate-100 text-base">{{ sr.procedure_name }}</p>
+          </div>
+          {% if sr.procedure_code %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Procedure Code</p>
+            <p class="font-mono text-slate-700 dark:text-slate-300">{{ sr.procedure_code }}</p>
+          </div>
+          {% endif %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Diagnosis</p>
+            <p class="text-slate-700 dark:text-slate-300">{{ sr.diagnosis }}</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Expected Duration</p>
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.expected_duration }} minutes</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Priority</p>
+              <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                {% if sr.priority == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                {% elif sr.priority == 'Urgent' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+                {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+                {{ sr.priority }}
+              </span>
+            </div>
+          </div>
+          {% if sr.required_equipment %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Required Equipment</p>
+            <p class="text-slate-700 dark:text-slate-300">{{ sr.required_equipment }}</p>
+          </div>
+          {% endif %}
+          {% if sr.required_implants %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Required Implants</p>
+            <p class="text-slate-700 dark:text-slate-300">{{ sr.required_implants }}</p>
+          </div>
+          {% endif %}
+          {% if sr.preop_notes %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Pre-op Notes</p>
+            <p class="text-slate-700 dark:text-slate-300">{{ sr.preop_notes }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Anesthesia Card -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Anesthesia</h2>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Type</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ sr.anesthesia_type }}</span>
+          </div>
+          {% if sr.anesthesia_notes %}
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Anesthesia Notes</p>
+            <p class="text-slate-700 dark:text-slate-300">{{ sr.anesthesia_notes }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Action Card -->
+    <div class="space-y-5">
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Actions</h2>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+
+          {% if sr.status == 'Requested' and perms.core.approve_surgery_order %}
+          <!-- Approve -->
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="approve">
+            <button type="submit" class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Approve Request
+            </button>
+          </form>
+
+          <!-- Reject -->
+          <div>
+            <button type="button" onclick="document.getElementById('reject-form').classList.toggle('hidden')"
+                    class="w-full px-4 py-2.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 text-sm font-semibold rounded-lg transition-colors">
+              Reject Request
+            </button>
+            <div id="reject-form" class="hidden mt-3">
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <textarea name="rejection_reason" rows="3" required placeholder="Reason for rejection..."
+                          class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500 mb-2"></textarea>
+                <button type="submit" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                  Confirm Rejection
+                </button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if sr.status == 'Approved' and perms.core.manage_or_schedule %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="schedule">
+            <button type="submit" class="w-full px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Schedule Surgery
+            </button>
+          </form>
+          {% endif %}
+
+          {% if sr.status == 'Scheduled' and linked_schedule %}
+          <a href="{% url 'or_schedule_detail' pk=linked_schedule.pk %}"
+             class="block w-full text-center px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors">
+            View Schedule
+          </a>
+          {% endif %}
+
+          {% if sr.status == 'Cancelled' %}
+          <div class="px-4 py-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
+            <p class="text-sm text-red-700 dark:text-red-300 font-medium">This request has been cancelled.</p>
+            {% if sr.rejection_reason %}
+            <p class="text-xs text-red-600 dark:text-red-400 mt-1">{{ sr.rejection_reason }}</p>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if sr.status not in 'Requested,Approved,Scheduled,Cancelled' %}
+          <p class="text-sm text-slate-500 dark:text-slate-400 text-center py-2">No actions available.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if sr.notes %}
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-4">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Notes</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300">{{ sr.notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

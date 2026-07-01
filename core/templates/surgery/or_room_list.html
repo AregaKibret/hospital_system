@@ -9,9 +9,9 @@
   </div>
   <div class="flex gap-2">
     {% if perms.core.manage_or_schedule %}
-    <a href="{% url 'or_room_create' %}" class="btn-primary text-sm">+ Add Room</a>
+    <a href="{% url 'surgery_or_room_create' %}" class="btn-primary text-sm">+ Add Room</a>
     {% endif %}
-    <a href="{% url 'or_dashboard' %}" class="btn-secondary text-sm">← OR Dashboard</a>
+    <a href="{% url 'surgery_or_dashboard' %}" class="btn-secondary text-sm">← OR Dashboard</a>
   </div>
 </div>
 
@@ -36,7 +36,7 @@
     {% if room.equipment %}<p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ room.equipment }}</p>{% endif %}
     {% if perms.core.manage_or_schedule %}
     <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700">
-      <a href="{% url 'or_room_edit' room.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit Room</a>
+      <a href="{% url 'surgery_or_room_edit' room.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit Room</a>
     </div>
     {% endif %}
   </div>

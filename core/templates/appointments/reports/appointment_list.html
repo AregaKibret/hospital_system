@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Appointment List Report — HMS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 print:hidden">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Appointment List</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+            {{ date_from|date:"M j, Y" }} — {{ date_to|date:"M j, Y" }}
+            · {{ total }} appointment(s)
+        </p>
+    </div>
+    <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&status={{ status_filter }}&doctor_id={{ doctor_id }}&export=csv"
+       class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+        CSV Export
+    </a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-4 print:hidden">
+    <div class="flex flex-wrap gap-3 items-end">
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+            <input type="date" name="date_from" value="{{ date_from_str }}"
+                   class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+            <input type="date" name="date_to" value="{{ date_to_str }}"
+                   class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+            <select name="status" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                <option value="">All Statuses</option>
+                {% for val, label in statuses %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+            <select name="doctor_id" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                <option value="">All</option>
+                {% for doc in doctors %}
+                <option value="{{ doc.pk }}" {% if doctor_id == doc.pk|stringformat:"s" %}selected{% endif %}>Dr. {{ doc.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">Apply</button>
+    </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    {% if appointments %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                    <th class="px-4 py-3 text-left font-medium">Appt #</th>
+                    <th class="px-4 py-3 text-left font-medium">Date</th>
+                    <th class="px-4 py-3 text-left font-medium">Time</th>
+                    <th class="px-4 py-3 text-left font-medium">Patient</th>
+                    <th class="px-4 py-3 text-left font-medium">Doctor</th>
+                    <th class="px-4 py-3 text-left font-medium">Department</th>
+                    <th class="px-4 py-3 text-left font-medium">Visit Type</th>
+                    <th class="px-4 py-3 text-center font-medium">Priority</th>
+                    <th class="px-4 py-3 text-left font-medium">Source</th>
+                    <th class="px-4 py-3 text-left font-medium">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                {% for appt in appointments %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+                    <td class="px-4 py-3 font-mono text-xs">
+                        <a href="{% url 'appt_detail' appt.pk %}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ appt.appointment_number }}</a>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700 dark:text-slate-200 text-xs">{{ appt.appointment_date|date:"M j, Y" }}</td>
+                    <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ appt.appointment_time|time:"H:i" }}</td>
+                    <td class="px-4 py-3">
+                        <p class="font-medium text-slate-800 dark:text-slate-100">{{ appt.patient.full_name }}</p>
+                        <p class="text-xs text-slate-400">{{ appt.patient.card_number }}</p>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-sm">Dr. {{ appt.doctor.full_name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ appt.department.name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ appt.visit_type }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if appt.priority == 'Emergency' %}bg-red-100 text-red-700
+                            {% elif appt.priority == 'Urgent' %}bg-amber-100 text-amber-700
+                            {% else %}bg-green-100 text-green-700{% endif %}">{{ appt.priority }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-400">{{ appt.referral_source }}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if appt.status == 'Completed' %}bg-green-100 text-green-700
+                            {% elif appt.status == 'Cancelled' %}bg-red-100 text-red-700
+                            {% elif appt.status == 'In Consultation' %}bg-purple-100 text-purple-700
+                            {% elif appt.status == 'No Show' %}bg-slate-100 text-slate-600
+                            {% else %}bg-blue-100 text-blue-700{% endif %}">{{ appt.status }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500">Total: {{ total }}</div>
+    {% else %}
+    <div class="p-10 text-center text-slate-400">No appointments found for the selected range.</div>
+    {% endif %}
+</div>
+{% endblock %}

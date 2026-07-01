@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}OR Dashboard — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Operating Room Dashboard</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ today|date:"l, F j, Y" }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'or_calendar' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        OR Calendar
+      </a>
+      {% if perms.core.order_surgery %}
+      <a href="{% url 'surgery_request_create' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Surgery Request
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Today Scheduled</p>
+      <p class="text-3xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">{{ total_today }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ status_counts.scheduled }} pending start</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">In OR Now</p>
+      <p class="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1">{{ status_counts.in_or }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ status_counts.started }} surgery started</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Completed Today</p>
+      <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ status_counts.completed }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ status_counts.cancelled }} cancelled</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Pending Requests</p>
+      <p class="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-1">{{ pending_requests|length }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">awaiting approval</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Available ORs</p>
+      <p class="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">{{ available_ors }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">of {{ total_active_ors }} total</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Active Operations -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Active Operations</h2>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+          Live
+        </span>
+      </div>
+      {% if active_ops %}
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for s in active_ops %}
+        <a href="{% url 'or_schedule_detail' pk=s.pk %}" class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ s.surgery_request.procedure_name }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ s.surgery_request.patient.full_name }} &bull; {{ s.operating_room.name }}</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full
+              {% if s.status == 'Surgery Started' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+              {% else %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300{% endif %}">
+              {{ s.status }}
+            </span>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ s.start_time|time:"H:i" }} &ndash; {{ s.end_time|time:"H:i" }}</p>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-10 text-center text-slate-500 dark:text-slate-400">
+        <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+        </svg>
+        <p class="text-sm">No active operations right now</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Pending Requests -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Pending Requests</h2>
+        <a href="{% url 'surgery_request_list' %}?status=Requested" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</a>
+      </div>
+      {% if pending_requests %}
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for req in pending_requests|slice:":8" %}
+        <a href="{% url 'surgery_request_detail' pk=req.pk %}" class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+          <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0
+            {% if req.priority == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+            {% elif req.priority == 'Urgent' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+            {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+            {{ req.priority }}
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ req.procedure_name }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ req.patient.full_name }} &bull; {{ req.request_number }}</p>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">{{ req.created_at|date:"d M" }}</p>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-10 text-center text-slate-500 dark:text-slate-400">
+        <p class="text-sm">No pending surgery requests</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Upcoming Surgeries -->
+  {% if upcoming %}
+  <div class="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Upcoming Surgeries (Next 7 Days)</h2>
+      <a href="{% url 'or_schedule_list' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all schedules</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date / Time</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Patient</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Procedure</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">OR Room</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Surgeon</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for s in upcoming %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+            <td class="px-5 py-3">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ s.date|date:"D, d M" }}</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">{{ s.start_time|time:"H:i" }} &ndash; {{ s.end_time|time:"H:i" }}</p>
+            </td>
+            <td class="px-5 py-3 text-slate-700 dark:text-slate-300">{{ s.surgery_request.patient.full_name }}</td>
+            <td class="px-5 py-3 text-slate-700 dark:text-slate-300 max-w-xs truncate">{{ s.surgery_request.procedure_name }}</td>
+            <td class="px-5 py-3 text-slate-700 dark:text-slate-300">{{ s.operating_room.name }}</td>
+            <td class="px-5 py-3 text-slate-700 dark:text-slate-300">Dr. {{ s.primary_surgeon.full_name }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

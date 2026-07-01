@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Reschedule Appointment — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'appt_detail' original.pk %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white">Reschedule Appointment</h1>
+    </div>
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+        <ul class="list-disc list-inside space-y-1">
+            {% for err in errors %}
+            <li class="text-sm text-red-600 dark:text-red-400">{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Original Appointment -->
+    <div class="bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mb-6">
+        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Original Appointment</p>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div>
+                <span class="text-slate-500 dark:text-slate-400">Patient: </span>
+                <span class="font-medium text-slate-800 dark:text-slate-100">{{ original.patient.full_name }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 dark:text-slate-400">Doctor: </span>
+                <span class="font-medium text-slate-800 dark:text-slate-100">Dr. {{ original.doctor.full_name }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 dark:text-slate-400">Date: </span>
+                <span class="text-slate-700 dark:text-slate-200">{{ original.appointment_date|date:"M j, Y" }}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 dark:text-slate-400">Time: </span>
+                <span class="text-slate-700 dark:text-slate-200">{{ original.appointment_time|time:"H:i" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-5">
+        {% csrf_token %}
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">New Schedule</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="field-wrapper">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+                <select name="doctor_id" id="doctor_id"
+                        class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                    {% for doc in doctors %}
+                    <option value="{{ doc.pk }}" {% if original.doctor_id == doc.pk %}selected{% endif %}>
+                        Dr. {{ doc.full_name }} — {{ doc.department.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field-wrapper">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">New Date <span class="text-red-500">*</span></label>
+                <input type="date" name="appointment_date" id="appointment_date" required
+                       min="{% now 'Y-m-d' %}"
+                       class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+            </div>
+
+            <div class="field-wrapper sm:col-span-2">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">New Time <span class="text-red-500">*</span></label>
+                <div class="flex gap-2">
+                    <select name="appointment_time" id="appointment_time_select" required
+                            class="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        <option value="">-- Select doctor & date first --</option>
+                    </select>
+                    <button type="button" onclick="loadSlots()"
+                            class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </button>
+                </div>
+                <p id="slot_info" class="mt-1 text-xs text-slate-400"></p>
+            </div>
+        </div>
+
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes (optional)</label>
+            <textarea name="notes" rows="2"
+                      placeholder="Reason for rescheduling..."
+                      class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+            <a href="{% url 'appt_detail' original.pk %}" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">Cancel</a>
+            <button type="submit" class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                Reschedule Appointment
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function loadSlots() {
+    const doctorId = document.getElementById('doctor_id').value;
+    const date = document.getElementById('appointment_date').value;
+    const select = document.getElementById('appointment_time_select');
+    const info = document.getElementById('slot_info');
+    if (!doctorId || !date) { info.textContent = 'Select doctor and date.'; return; }
+    info.textContent = 'Loading...';
+    fetch(`/appointments/slots/?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`)
+        .then(r => r.json())
+        .then(data => {
+            select.innerHTML = '';
+            if (data.unavailable) {
+                select.innerHTML = `<option value="">Not available — ${data.reason || ''}</option>`;
+                info.textContent = 'Doctor not available on this date.';
+                return;
+            }
+            if (!data.slots || !data.slots.length) {
+                select.innerHTML = '<option value="">No slots available</option>';
+                info.textContent = 'All slots are booked.';
+                return;
+            }
+            select.innerHTML = '<option value="">-- Select Time --</option>';
+            data.slots.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s; opt.textContent = s;
+                select.appendChild(opt);
+            });
+            info.textContent = data.slots.length + ' slot(s) available';
+        }).catch(() => { info.textContent = 'Error loading slots.'; });
+}
+document.getElementById('doctor_id').addEventListener('change', loadSlots);
+document.getElementById('appointment_date').addEventListener('change', loadSlots);
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Daily Schedule — {{ report_date|date:"M j, Y" }} — HMS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 print:hidden">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Daily Appointment Schedule</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">{{ report_date|date:"l, F j, Y" }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="?date={{ date_str }}&doctor_id={{ doctor_id }}&export=csv"
+           class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+            CSV Export
+        </a>
+        <button onclick="window.print()" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors">
+            Print
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-4 print:hidden">
+    <div class="flex flex-wrap gap-3 items-end">
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
+            <input type="date" name="date" value="{{ date_str }}"
+                   class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="field-wrapper">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+            <select name="doctor_id" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                <option value="">All Doctors</option>
+                {% for doc in doctors %}
+                <option value="{{ doc.pk }}" {% if doctor_id == doc.pk|stringformat:"s" %}selected{% endif %}>Dr. {{ doc.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">Apply</button>
+    </div>
+</form>
+
+<!-- Print header -->
+<div class="hidden print:block mb-4">
+    <h1 class="text-xl font-bold">Daily Appointment Schedule — {{ report_date|date:"l, F j, Y" }}</h1>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    {% if appointments %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                    <th class="px-4 py-3 text-left font-medium">#</th>
+                    <th class="px-4 py-3 text-left font-medium">Appt #</th>
+                    <th class="px-4 py-3 text-left font-medium">Time</th>
+                    <th class="px-4 py-3 text-left font-medium">Patient</th>
+                    <th class="px-4 py-3 text-left font-medium">Card #</th>
+                    <th class="px-4 py-3 text-left font-medium">Doctor</th>
+                    <th class="px-4 py-3 text-left font-medium">Dept</th>
+                    <th class="px-4 py-3 text-left font-medium">Visit Type</th>
+                    <th class="px-4 py-3 text-center font-medium">Priority</th>
+                    <th class="px-4 py-3 text-left font-medium">Status</th>
+                    <th class="px-4 py-3 text-left font-medium">Chief Complaint</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                {% for appt in appointments %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+                    <td class="px-4 py-3 text-slate-400 text-xs">{{ forloop.counter }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">{{ appt.appointment_number }}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800 dark:text-slate-100">{{ appt.appointment_time|time:"H:i" }}</td>
+                    <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ appt.patient.full_name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{{ appt.patient.card_number }}</td>
+                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300">Dr. {{ appt.doctor.full_name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{{ appt.department.name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{{ appt.visit_type }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if appt.priority == 'Emergency' %}bg-red-100 text-red-700
+                            {% elif appt.priority == 'Urgent' %}bg-amber-100 text-amber-700
+                            {% else %}bg-green-100 text-green-700{% endif %}">
+                            {{ appt.priority }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if appt.status == 'Completed' %}bg-green-100 text-green-700
+                            {% elif appt.status == 'Cancelled' %}bg-red-100 text-red-700
+                            {% elif appt.status == 'In Consultation' %}bg-purple-100 text-purple-700
+                            {% elif appt.status == 'Waiting' %}bg-amber-100 text-amber-700
+                            {% else %}bg-blue-100 text-blue-700{% endif %}">
+                            {{ appt.status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate">{{ appt.chief_complaint }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+        Total: {{ appointments|length }} appointment(s)
+    </div>
+    {% else %}
+    <div class="p-10 text-center text-slate-400 dark:text-slate-500">
+        <p>No appointments found for {{ report_date|date:"M j, Y" }}.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

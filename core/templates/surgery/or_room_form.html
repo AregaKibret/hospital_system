@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="flex items-center gap-3 mb-6">
-  <a href="{% url 'or_room_list' %}" class="btn-secondary text-sm">← Back to Rooms</a>
+  <a href="{% url 'surgery_or_room_list' %}" class="btn-secondary text-sm">← Back to Rooms</a>
   <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ action }} Operating Room</h1>
 </div>
 
@@ -46,7 +46,7 @@
 
   <div class="flex gap-3 mt-5">
     <button type="submit" class="btn-primary">{{ action }} Room</button>
-    <a href="{% url 'or_room_list' %}" class="btn-secondary">Cancel</a>
+    <a href="{% url 'surgery_or_room_list' %}" class="btn-secondary">Cancel</a>
   </div>
 
 </form>

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Daily OR Report — {{ selected_date|date:"d M Y" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 print:hidden">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Daily OR Schedule Report</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ selected_date|date:"l, F j, Y" }}</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <a href="?date={{ selected_date|date:'Y-m-d' }}&export=csv"
+         class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors">
+        Export CSV
+      </a>
+      <button onclick="window.print()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors">
+        Print
+      </button>
+    </div>
+  </div>
+
+  <!-- Date Filter -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 print:hidden">
+    <form method="get" class="flex items-center gap-3">
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Date:</label>
+      <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
+             class="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">View</button>
+    </form>
+  </div>
+
+  <!-- Print Header -->
+  <div class="hidden print:block mb-6 text-center">
+    <h1 class="text-2xl font-bold">Daily Operating Room Schedule</h1>
+    <p class="text-lg">{{ selected_date|date:"l, F j, Y" }}</p>
+    <p class="text-sm text-gray-500">Generated: {% now "d M Y H:i" %}</p>
+  </div>
+
+  {% for room in or_rooms %}
+  {% with room_schedules=by_room|default_if_none:"" %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 mb-4 overflow-hidden print:break-inside-avoid">
+    <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+      <h2 class="font-semibold text-slate-800 dark:text-slate-100">{{ room.name }}</h2>
+      <span class="text-xs text-slate-500 dark:text-slate-400">{{ room.get_room_type_display }} &bull; Capacity: {{ room.capacity_hours }}h</span>
+    </div>
+    {% with slist=by_room %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700">
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Schedule #</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Time</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Anesthesia</th>
+            <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for s in schedules %}
+          {% if s.operating_room_id == room.pk %}
+          <tr>
+            <td class="px-4 py-2.5 font-mono text-xs text-blue-600 dark:text-blue-400">{{ s.schedule_number }}</td>
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ s.surgery_request.patient.full_name }}</p>
+              <p class="text-xs text-slate-500">{{ s.surgery_request.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300">{{ s.surgery_request.procedure_name }}</td>
+            <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+              {{ s.start_time|time:"H:i" }} &ndash; {{ s.end_time|time:"H:i" }}
+            </td>
+            <td class="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-400">Dr. {{ s.primary_surgeon.full_name }}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-400">{{ s.surgery_request.anesthesia_type }}</td>
+            <td class="px-4 py-2.5">
+              <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                {% if s.status == 'Surgery Completed' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300
+                {% elif s.status in 'Surgery Started,In OR' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                {% elif s.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                {% else %}bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300{% endif %}">
+                {{ s.status }}
+              </span>
+            </td>
+          </tr>
+          {% endif %}
+          {% empty %}
+          <tr><td colspan="7" class="px-4 py-6 text-center text-slate-500 text-xs">No schedules for this OR today.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endwith %}
+  </div>
+  {% endwith %}
+  {% endfor %}
+
+  {% if not schedules %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 py-12 text-center text-slate-500 dark:text-slate-400">
+    <p class="text-sm">No surgeries scheduled for {{ selected_date|date:"d M Y" }}.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

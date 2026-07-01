@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Operating Rooms — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Operating Rooms</h1>
+    {% if perms.core.manage_or_schedule %}
+    <a href="{% url 'or_room_create' %}"
+       class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add OR Room
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for item in room_data %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-5 py-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
+        <div>
+          <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ item.room.name }}</h3>
+          {% if item.room.room_number %}
+          <p class="text-xs text-slate-500 dark:text-slate-400">Room {{ item.room.room_number }}</p>
+          {% endif %}
+        </div>
+        {% if item.active_now %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+          In Use
+        </span>
+        {% elif item.room.is_active %}
+        <span class="inline-flex items-center px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold rounded-full">Active</span>
+        {% else %}
+        <span class="inline-flex items-center px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full">Inactive</span>
+        {% endif %}
+      </div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-500 dark:text-slate-400">Type</span>
+          <span class="font-medium text-slate-700 dark:text-slate-300">{{ item.room.get_room_type_display }}</span>
+        </div>
+        {% if item.room.floor %}
+        <div class="flex justify-between">
+          <span class="text-slate-500 dark:text-slate-400">Floor</span>
+          <span class="font-medium text-slate-700 dark:text-slate-300">{{ item.room.floor }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between">
+          <span class="text-slate-500 dark:text-slate-400">Daily Capacity</span>
+          <span class="font-medium text-slate-700 dark:text-slate-300">{{ item.room.capacity_hours }}h / day</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500 dark:text-slate-400">Today's Cases</span>
+          <span class="font-semibold {% if item.today_count > 0 %}text-blue-600 dark:text-blue-400{% else %}text-slate-500 dark:text-slate-400{% endif %}">{{ item.today_count }}</span>
+        </div>
+        {% if item.active_now %}
+        <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
+          <p class="text-xs text-slate-500 dark:text-slate-400">Currently</p>
+          <a href="{% url 'or_schedule_detail' pk=item.active_now.pk %}" class="text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline truncate block">
+            {{ item.active_now.surgery_request.procedure_name }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+      {% if perms.core.manage_or_schedule %}
+      <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+        <a href="{% url 'or_calendar' %}?or_room_id={{ item.room.pk }}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View Calendar</a>
+        <a href="{% url 'or_room_edit' pk=item.room.pk %}" class="text-xs text-slate-600 dark:text-slate-400 hover:underline">Edit</a>
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="col-span-full py-12 text-center text-slate-500 dark:text-slate-400">
+      <p class="text-sm">No operating rooms configured.</p>
+      {% if perms.core.manage_or_schedule %}
+      <a href="{% url 'or_room_create' %}" class="text-blue-600 dark:text-blue-400 hover:underline text-sm">Add the first room</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

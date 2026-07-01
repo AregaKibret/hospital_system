@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Edit Schedule — Dr. {{ doctor.full_name }} — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'doctor_availability_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white">Edit Weekly Schedule</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Dr. {{ doctor.full_name }} — {{ doctor.department.name }}</p>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-6">
+            <div class="px-5 py-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                <div class="grid grid-cols-8 gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+                    <div>Day</div>
+                    <div class="text-center">Active</div>
+                    <div>Start</div>
+                    <div>End</div>
+                    <div>Break Start</div>
+                    <div>Break End</div>
+                    <div>Slot (min)</div>
+                    <div>Max Appts</div>
+                </div>
+            </div>
+
+            {% for day_num, day_name in days %}
+            {% with sched=existing|get_item:day_num %}
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0
+                {% if forloop.counter|divisibleby:2 %}bg-slate-50/50 dark:bg-slate-700/20{% endif %}
+                hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors schedule-row" data-day="{{ day_num }}">
+                <div class="grid grid-cols-8 gap-2 items-center">
+                    <!-- Day name -->
+                    <div class="font-medium text-sm text-slate-700 dark:text-slate-200">{{ day_name }}</div>
+
+                    <!-- Toggle -->
+                    <div class="flex justify-center">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_active_{{ day_num }}" class="sr-only peer day-toggle"
+                                   data-day="{{ day_num }}"
+                                   {% if sched and sched.is_active %}checked{% endif %}>
+                            <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Start -->
+                    <div class="field-wrapper">
+                        <input type="time" name="start_time_{{ day_num }}"
+                               value="{{ sched.start_time|time:'H:i'|default:'' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+
+                    <!-- End -->
+                    <div class="field-wrapper">
+                        <input type="time" name="end_time_{{ day_num }}"
+                               value="{{ sched.end_time|time:'H:i'|default:'' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+
+                    <!-- Break Start -->
+                    <div class="field-wrapper">
+                        <input type="time" name="break_start_{{ day_num }}"
+                               value="{{ sched.break_start|time:'H:i'|default:'' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+
+                    <!-- Break End -->
+                    <div class="field-wrapper">
+                        <input type="time" name="break_end_{{ day_num }}"
+                               value="{{ sched.break_end|time:'H:i'|default:'' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+
+                    <!-- Slot duration -->
+                    <div class="field-wrapper">
+                        <input type="number" name="slot_duration_{{ day_num }}" min="5" max="120" step="5"
+                               value="{{ sched.slot_duration_minutes|default:'20' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+
+                    <!-- Max appointments -->
+                    <div class="field-wrapper">
+                        <input type="number" name="max_appointments_{{ day_num }}" min="1" max="100"
+                               value="{{ sched.max_appointments|default:'20' }}"
+                               class="day-field-{{ day_num }} w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+                </div>
+
+                <!-- Specialty row -->
+                <div class="mt-2 pl-[calc(100%/8)] grid grid-cols-7 gap-2">
+                    <div class="col-span-6 field-wrapper">
+                        <input type="text" name="specialty_{{ day_num }}"
+                               value="{{ sched.specialty|default:'' }}"
+                               placeholder="Specialty for this day (optional)"
+                               class="day-field-{{ day_num }} w-full text-xs border border-slate-100 dark:border-slate-700 rounded-lg px-2 py-1 bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 {% if not sched or not sched.is_active %}opacity-40{% endif %}">
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'doctor_availability_list' %}" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">Cancel</a>
+            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">Save Schedule</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.querySelectorAll('.day-toggle').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const day = this.dataset.day;
+        const fields = document.querySelectorAll('.day-field-' + day);
+        fields.forEach(function(f) {
+            f.classList.toggle('opacity-40', !toggle.checked);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}New Surgery Request — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'surgery_request_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">New Surgery Request</h1>
+  </div>
+
+  {% if messages %}
+  <div class="mb-5 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'error' %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300
+      {% else %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" id="surgery-request-form">
+    {% csrf_token %}
+
+    <!-- Section 1: Patient -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 mb-5">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Patient Information</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Search and select the patient for this surgery</p>
+      </div>
+      <div class="p-5">
+        <!-- Patient Search -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Search Patient <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input type="text" id="patient-search-input" placeholder="Type patient name or card number..."
+                   class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   autocomplete="off">
+            <div id="patient-search-results" class="hidden absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
+          </div>
+          <input type="hidden" name="patient_id" id="patient_id" value="{{ post.patient_id }}">
+        </div>
+        <!-- Selected Patient Display -->
+        <div id="selected-patient-card" class="{% if not post.patient_id and not selected_patient %}hidden{% endif %} bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+          <p class="text-sm font-medium text-blue-800 dark:text-blue-200" id="selected-patient-name">
+            {% if selected_patient %}{{ selected_patient.full_name }}{% endif %}
+          </p>
+          <p class="text-xs text-blue-600 dark:text-blue-400" id="selected-patient-detail">
+            {% if selected_patient %}{{ selected_patient.card_number }} &bull; {{ selected_patient.sex }}{% endif %}
+          </p>
+          <button type="button" onclick="clearPatient()" class="mt-1 text-xs text-red-600 dark:text-red-400 hover:underline">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Procedure Details -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 mb-5">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Procedure Details</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Procedure Name <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="procedure_name" value="{{ post.procedure_name }}" required
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="e.g. Laparoscopic Appendectomy">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Procedure Code</label>
+          <input type="text" name="procedure_code" value="{{ post.procedure_code }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="e.g. ICD-10 code">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Department</label>
+          <select name="department_id" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">-- Select Department --</option>
+            {% for dept in departments %}
+            <option value="{{ dept.pk }}" {% if post.department_id == dept.pk|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Diagnosis <span class="text-red-500">*</span>
+          </label>
+          <textarea name="diagnosis" rows="2" required
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Clinical diagnosis indicating need for surgery">{{ post.diagnosis }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Priority <span class="text-red-500">*</span>
+          </label>
+          <select name="priority" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for val, label in priority_choices %}
+            <option value="{{ val }}" {% if post.priority == val or not post and val == 'Elective' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Anesthesia Type <span class="text-red-500">*</span>
+          </label>
+          <select name="anesthesia_type" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for val, label in anesthesia_choices %}
+            <option value="{{ val }}" {% if post.anesthesia_type == val or not post and val == 'General' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Admission Status</label>
+          <select name="admission_status" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for val, label in admission_choices %}
+            <option value="{{ val }}" {% if post.admission_status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Expected Duration (minutes) <span class="text-red-500">*</span>
+          </label>
+          <input type="number" name="expected_duration" value="{{ post.expected_duration|default:'60' }}" min="15" max="720"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Required Equipment</label>
+          <textarea name="required_equipment" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="List any special equipment needed">{{ post.required_equipment }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Required Implants</label>
+          <textarea name="required_implants" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="List any implants or prosthetics">{{ post.required_implants }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Pre-op Notes</label>
+          <textarea name="preop_notes" rows="3"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Pre-operative instructions or notes">{{ post.preop_notes }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Anesthesia Notes</label>
+          <textarea name="anesthesia_notes" rows="3"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Anesthesia considerations">{{ post.anesthesia_notes }}</textarea>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Additional Notes</label>
+          <textarea name="notes" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">{{ post.notes }}</textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        Submit Surgery Request
+      </button>
+      <a href="{% url 'surgery_request_list' %}"
+         class="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+let searchTimeout = null;
+
+document.getElementById('patient-search-input').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    document.getElementById('patient-search-results').classList.add('hidden');
+    return;
+  }
+  searchTimeout = setTimeout(() => searchPatients(q), 300);
+});
+
+function searchPatients(q) {
+  fetch(`/or/api/patient-search/?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      const results = document.getElementById('patient-search-results');
+      if (!data.patients || data.patients.length === 0) {
+        results.innerHTML = '<div class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">No patients found</div>';
+      } else {
+        results.innerHTML = data.patients.map(p =>
+          `<button type="button" onclick="selectPatient(${p.id}, '${p.full_name}', '${p.card_number}', '${p.sex}')"
+             class="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+             <p class="text-sm font-medium text-slate-800 dark:text-slate-100">${p.full_name}</p>
+             <p class="text-xs text-slate-500 dark:text-slate-400">${p.card_number} &bull; ${p.sex}</p>
+           </button>`
+        ).join('');
+      }
+      results.classList.remove('hidden');
+    })
+    .catch(() => {});
+}
+
+function selectPatient(id, name, card, sex) {
+  document.getElementById('patient_id').value = id;
+  document.getElementById('selected-patient-name').textContent = name;
+  document.getElementById('selected-patient-detail').textContent = `${card} • ${sex}`;
+  document.getElementById('selected-patient-card').classList.remove('hidden');
+  document.getElementById('patient-search-results').classList.add('hidden');
+  document.getElementById('patient-search-input').value = '';
+}
+
+function clearPatient() {
+  document.getElementById('patient_id').value = '';
+  document.getElementById('selected-patient-card').classList.add('hidden');
+  document.getElementById('patient-search-input').value = '';
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#patient-search-input') && !e.target.closest('#patient-search-results')) {
+    document.getElementById('patient-search-results').classList.add('hidden');
+  }
+});
+</script>
+{% endblock %}

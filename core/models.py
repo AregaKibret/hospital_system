@@ -286,8 +286,11 @@ class DoctorSchedule(models.Model):
     day_of_week = models.SmallIntegerField(choices=DAY_CHOICES)
     start_time = models.TimeField()
     end_time = models.TimeField()
+    break_start = models.TimeField(null=True, blank=True)
+    break_end   = models.TimeField(null=True, blank=True)
     slot_duration_minutes = models.PositiveIntegerField(default=20)
     max_appointments = models.PositiveIntegerField(default=20)
+    specialty = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -312,14 +315,34 @@ class Appointment(models.Model):
         PROCEDURE = 'Procedure', 'Procedure'
         REVIEW = 'Review', 'Review'
 
+    class VisitType(models.TextChoices):
+        NEW_VISIT  = 'New Visit',  'New Visit'
+        REVISIT    = 'Revisit',    'Revisit'
+        FOLLOW_UP  = 'Follow-up',  'Follow-up'
+
+    class Priority(models.TextChoices):
+        NORMAL    = 'Normal',    'Normal'
+        URGENT    = 'Urgent',    'Urgent'
+        EMERGENCY = 'Emergency', 'Emergency'
+
+    class ReferralSource(models.TextChoices):
+        RECEPTION   = 'Reception',   'Reception / Walk-in'
+        CALL_CENTER = 'Call Center', 'Call Center'
+        REFERRAL    = 'Referral',    'Doctor Referral'
+        ONLINE      = 'Online',      'Online / Portal'
+        OTHER       = 'Other',       'Other'
+
     class Status(models.TextChoices):
-        SCHEDULED = 'Scheduled', 'Scheduled'
-        CONFIRMED = 'Confirmed', 'Confirmed'
-        WAITING = 'Waiting', 'Waiting'
-        IN_PROGRESS = 'In Progress', 'In Progress'
-        COMPLETED = 'Completed', 'Completed'
-        NO_SHOW = 'No Show', 'No Show'
-        CANCELLED = 'Cancelled', 'Cancelled'
+        SCHEDULED       = 'Scheduled',       'Scheduled'
+        CONFIRMED       = 'Confirmed',       'Confirmed'
+        CHECKED_IN      = 'Checked In',      'Checked In'
+        WAITING         = 'Waiting',         'Waiting'
+        IN_CONSULTATION = 'In Consultation', 'In Consultation'
+        IN_PROGRESS     = 'In Progress',     'In Progress'
+        COMPLETED       = 'Completed',       'Completed'
+        NO_SHOW         = 'No Show',         'No Show'
+        CANCELLED       = 'Cancelled',       'Cancelled'
+        RESCHEDULED     = 'Rescheduled',     'Rescheduled'
 
     appointment_number = models.CharField(max_length=20, unique=True, blank=True)
     patient = models.ForeignKey(
@@ -336,14 +359,41 @@ class Appointment(models.Model):
     appointment_type = models.CharField(
         max_length=20, choices=AppointmentType.choices, default=AppointmentType.NEW,
     )
+    visit_type = models.CharField(
+        max_length=20, choices=VisitType.choices, default=VisitType.NEW_VISIT,
+    )
+    priority = models.CharField(
+        max_length=15, choices=Priority.choices, default=Priority.NORMAL,
+    )
+    referral_source = models.CharField(
+        max_length=20, choices=ReferralSource.choices, default=ReferralSource.RECEPTION,
+    )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.SCHEDULED,
     )
     chief_complaint = models.TextField(blank=True)
+    reason_for_visit = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    phone_number = models.CharField(max_length=20, blank=True)
     visit = models.ForeignKey(
         Visit, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='appointment',
+    )
+    # Timing
+    checked_in_at           = models.DateTimeField(null=True, blank=True)
+    consultation_started_at = models.DateTimeField(null=True, blank=True)
+    consultation_ended_at   = models.DateTimeField(null=True, blank=True)
+    # Cancellation
+    cancelled_by        = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='appointments_cancelled',
+    )
+    cancelled_at        = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True)
+    # Rescheduling
+    rescheduled_from = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='rescheduled_to',
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
@@ -359,6 +409,7 @@ class Appointment(models.Model):
         indexes = [
             models.Index(fields=['appointment_date', 'doctor']),
             models.Index(fields=['patient', 'appointment_date']),
+            models.Index(fields=['status', 'appointment_date']),
         ]
 
     def __str__(self):
@@ -376,14 +427,21 @@ class Appointment(models.Model):
     @property
     def status_color(self):
         return {
-            'Scheduled': 'blue',
-            'Confirmed': 'indigo',
-            'Waiting': 'amber',
-            'In Progress': 'purple',
-            'Completed': 'green',
-            'No Show': 'slate',
-            'Cancelled': 'red',
+            'Scheduled':       'blue',
+            'Confirmed':       'indigo',
+            'Checked In':      'cyan',
+            'Waiting':         'amber',
+            'In Consultation': 'purple',
+            'In Progress':     'purple',
+            'Completed':       'green',
+            'No Show':         'slate',
+            'Cancelled':       'red',
+            'Rescheduled':     'orange',
         }.get(self.status, 'slate')
+
+    @property
+    def priority_color(self):
+        return {'Normal': 'green', 'Urgent': 'amber', 'Emergency': 'red'}.get(self.priority, 'slate')
 
 
 class UserProfile(models.Model):
@@ -2554,8 +2612,11 @@ class HMSPermissions(models.Model):
             ('manage_payroll',            'Can manage payroll'),
 
             # Appointments
-            ('read_appointment',          'Can read appointments'),
-            ('manage_appointments',       'Can manage appointments'),
+            ('read_appointment',            'Can read appointments'),
+            ('manage_appointments',         'Can manage appointments'),
+            ('manage_doctor_availability',  'Can manage doctor schedules and availability'),
+            ('view_appointment_reports',    'Can view appointment reports'),
+            ('export_appointment_reports',  'Can export appointment reports'),
 
             # Reports
             ('read_clinical_reports',     'Can read clinical reports'),
@@ -3662,4 +3723,301 @@ class PharmacyReturnItem(models.Model):
 
     def __str__(self):
         return f'{self.drug_name} x {self.quantity}'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APPOINTMENT SCHEDULING — CONSULTATION MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DoctorScheduleException(models.Model):
+    class Reason(models.TextChoices):
+        LEAVE      = 'Leave',      'Annual / Sick Leave'
+        HOLIDAY    = 'Holiday',    'Public Holiday'
+        CONFERENCE = 'Conference', 'Conference / Training'
+        MODIFIED   = 'Modified',   'Modified Hours'
+        OTHER      = 'Other',      'Other'
+
+    doctor      = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='schedule_exceptions')
+    date        = models.DateField()
+    is_available = models.BooleanField(default=False)
+    start_time  = models.TimeField(null=True, blank=True)
+    end_time    = models.TimeField(null=True, blank=True)
+    reason      = models.CharField(max_length=20, choices=Reason.choices, default=Reason.LEAVE)
+    notes       = models.TextField(blank=True)
+    created_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='schedule_exceptions_created',
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+        unique_together = [['doctor', 'date']]
+        verbose_name = 'Doctor Schedule Exception'
+
+    def __str__(self):
+        return f"Dr. {self.doctor.full_name} — {self.date} ({self.reason})"
+
+
+class AppointmentStatusLog(models.Model):
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name='status_logs')
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status   = models.CharField(max_length=20)
+    changed_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='appointment_status_changes',
+    )
+    changed_at  = models.DateTimeField(auto_now_add=True)
+    notes       = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"{self.appointment.appointment_number}: {self.from_status} → {self.to_status}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OR SCHEDULING MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OperatingRoom(models.Model):
+    class RoomType(models.TextChoices):
+        GENERAL      = 'General',      'General Surgery'
+        CARDIAC      = 'Cardiac',      'Cardiac / Cardiothoracic'
+        ORTHOPEDIC   = 'Orthopedic',   'Orthopedic'
+        NEUROSURGERY = 'Neurosurgery', 'Neurosurgery'
+        OPHTHALMIC   = 'Ophthalmic',   'Ophthalmology'
+        OBSTETRIC    = 'Obstetric',    'Obstetrics / Gynecology'
+        ENT          = 'ENT',          'ENT'
+        UROLOGY      = 'Urology',      'Urology'
+        LAPAROSCOPIC = 'Laparoscopic', 'Laparoscopic'
+        OTHER        = 'Other',        'Other'
+
+    name            = models.CharField(max_length=50, unique=True)
+    room_number     = models.CharField(max_length=20, blank=True)
+    room_type       = models.CharField(max_length=20, choices=RoomType.choices, default=RoomType.GENERAL)
+    floor           = models.CharField(max_length=30, blank=True)
+    location_detail = models.CharField(max_length=100, blank=True)
+    capacity_hours  = models.PositiveIntegerField(default=8, help_text='Available hours per day')
+    equipment_notes = models.TextField(blank=True)
+    is_active       = models.BooleanField(default=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Operating Room'
+        verbose_name_plural = 'Operating Rooms'
+
+    def __str__(self):
+        return self.name
+
+
+class SurgeryRequest(models.Model):
+    class Status(models.TextChoices):
+        REQUESTED  = 'Requested',  'Requested'
+        APPROVED   = 'Approved',   'Approved'
+        SCHEDULED  = 'Scheduled',  'Scheduled'
+        CANCELLED  = 'Cancelled',  'Cancelled'
+
+    class Priority(models.TextChoices):
+        EMERGENCY = 'Emergency', 'Emergency'
+        URGENT    = 'Urgent',    'Urgent'
+        ELECTIVE  = 'Elective',  'Elective'
+
+    class AnesthesiaType(models.TextChoices):
+        GENERAL   = 'General',   'General Anesthesia'
+        SPINAL    = 'Spinal',    'Spinal'
+        EPIDURAL  = 'Epidural',  'Epidural'
+        LOCAL     = 'Local',     'Local Anesthesia'
+        REGIONAL  = 'Regional',  'Regional Block'
+        MAC       = 'MAC',       'Monitored Anesthesia Care'
+        OTHER     = 'Other',     'Other'
+
+    class AdmissionStatus(models.TextChoices):
+        OUTPATIENT = 'Outpatient', 'Outpatient'
+        INPATIENT  = 'Inpatient',  'Inpatient'
+        EMERGENCY  = 'Emergency',  'Emergency'
+
+    request_number   = models.CharField(max_length=25, unique=True, blank=True)
+    patient          = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='surgery_requests')
+    requested_by     = models.ForeignKey(
+        Doctor, on_delete=models.PROTECT, related_name='surgery_requests_created',
+    )
+    department       = models.ForeignKey(
+        Department, on_delete=models.PROTECT, related_name='surgery_requests', null=True, blank=True,
+    )
+    diagnosis        = models.TextField()
+    procedure_name   = models.CharField(max_length=200)
+    procedure_code   = models.CharField(max_length=50, blank=True)
+    anesthesia_type  = models.CharField(max_length=20, choices=AnesthesiaType.choices, default=AnesthesiaType.GENERAL)
+    priority         = models.CharField(max_length=15, choices=Priority.choices, default=Priority.ELECTIVE)
+    admission_status = models.CharField(max_length=15, choices=AdmissionStatus.choices, default=AdmissionStatus.INPATIENT)
+    expected_duration = models.PositiveIntegerField(default=60, help_text='Expected duration in minutes')
+    required_equipment = models.TextField(blank=True)
+    required_implants  = models.TextField(blank=True)
+    preop_notes        = models.TextField(blank=True)
+    anesthesia_notes   = models.TextField(blank=True)
+    status             = models.CharField(max_length=15, choices=Status.choices, default=Status.REQUESTED)
+    notes              = models.TextField(blank=True)
+    approved_by        = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_requests_approved',
+    )
+    approved_at        = models.DateTimeField(null=True, blank=True)
+    rejection_reason   = models.TextField(blank=True)
+    created_by         = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='surgery_requests_created',
+    )
+    created_at         = models.DateTimeField(auto_now_add=True)
+    updated_at         = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Surgery Request'
+        verbose_name_plural = 'Surgery Requests'
+        indexes = [
+            models.Index(fields=['status', 'priority']),
+            models.Index(fields=['patient']),
+        ]
+
+    def __str__(self):
+        return f"{self.request_number} — {self.procedure_name} for {self.patient}"
+
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            from django.utils import timezone
+            today = timezone.localdate()
+            last = SurgeryRequest.objects.order_by('-id').first()
+            nxt = (last.id + 1) if last else 1
+            self.request_number = f"SR-{today:%Y%m}-{nxt:04d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def priority_color(self):
+        return {'Emergency': 'red', 'Urgent': 'amber', 'Elective': 'blue'}.get(self.priority, 'slate')
+
+
+class ORSchedule(models.Model):
+    class Status(models.TextChoices):
+        REQUESTED          = 'Requested',         'Requested'
+        APPROVED           = 'Approved',          'Approved'
+        SCHEDULED          = 'Scheduled',         'Scheduled'
+        PATIENT_PREPARED   = 'Patient Prepared',  'Patient Prepared'
+        IN_OR              = 'In OR',             'In OR'
+        SURGERY_STARTED    = 'Surgery Started',   'Surgery Started'
+        SURGERY_COMPLETED  = 'Surgery Completed', 'Surgery Completed'
+        CANCELLED          = 'Cancelled',         'Cancelled'
+        POSTPONED          = 'Postponed',         'Postponed'
+
+    schedule_number  = models.CharField(max_length=25, unique=True, blank=True)
+    surgery_request  = models.OneToOneField(
+        SurgeryRequest, on_delete=models.PROTECT, related_name='or_schedule',
+    )
+    operating_room   = models.ForeignKey(
+        OperatingRoom, on_delete=models.PROTECT, related_name='schedules',
+    )
+    date             = models.DateField()
+    start_time       = models.TimeField()
+    end_time         = models.TimeField()
+
+    # Surgical team
+    primary_surgeon   = models.ForeignKey(
+        Doctor, on_delete=models.PROTECT, related_name='or_schedules_primary',
+    )
+    assistant_surgeon = models.ForeignKey(
+        Doctor, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='or_schedules_assistant',
+    )
+    anesthetist       = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='or_schedules_anesthetist',
+    )
+    scrub_nurse       = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='or_schedules_scrub',
+    )
+    circulating_nurse = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='or_schedules_circulating',
+    )
+
+    status              = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    notes               = models.TextField(blank=True)
+    cancellation_reason = models.TextField(blank=True)
+    postpone_reason     = models.TextField(blank=True)
+
+    # Timestamp milestones
+    patient_prepared_at   = models.DateTimeField(null=True, blank=True)
+    in_or_at              = models.DateTimeField(null=True, blank=True)
+    surgery_started_at    = models.DateTimeField(null=True, blank=True)
+    surgery_completed_at  = models.DateTimeField(null=True, blank=True)
+
+    scheduled_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='or_schedules_created',
+    )
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+        verbose_name = 'OR Schedule'
+        verbose_name_plural = 'OR Schedules'
+        indexes = [
+            models.Index(fields=['date', 'operating_room']),
+            models.Index(fields=['date', 'primary_surgeon']),
+            models.Index(fields=['status']),
+        ]
+
+    def __str__(self):
+        return f"{self.schedule_number} — {self.surgery_request.procedure_name} in {self.operating_room.name} on {self.date}"
+
+    def save(self, *args, **kwargs):
+        if not self.schedule_number:
+            from django.utils import timezone
+            today = timezone.localdate()
+            last = ORSchedule.objects.order_by('-id').first()
+            nxt = (last.id + 1) if last else 1
+            self.schedule_number = f"ORS-{today:%Y%m}-{nxt:04d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def duration_minutes(self):
+        from datetime import datetime, date as date_type
+        start = datetime.combine(date_type.today(), self.start_time)
+        end   = datetime.combine(date_type.today(), self.end_time)
+        return int((end - start).total_seconds() / 60)
+
+    @property
+    def status_color(self):
+        return {
+            'Requested':        'blue',
+            'Approved':         'indigo',
+            'Scheduled':        'cyan',
+            'Patient Prepared': 'amber',
+            'In OR':            'orange',
+            'Surgery Started':  'purple',
+            'Surgery Completed':'green',
+            'Cancelled':        'red',
+            'Postponed':        'slate',
+        }.get(self.status, 'slate')
+
+
+class ORScheduleStatusLog(models.Model):
+    schedule    = models.ForeignKey(ORSchedule, on_delete=models.CASCADE, related_name='status_logs')
+    from_status = models.CharField(max_length=25, blank=True)
+    to_status   = models.CharField(max_length=25)
+    changed_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='or_status_changes',
+    )
+    changed_at  = models.DateTimeField(auto_now_add=True)
+    notes       = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"{self.schedule.schedule_number}: {self.from_status} → {self.to_status}"
 

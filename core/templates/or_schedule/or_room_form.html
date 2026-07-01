@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{% if room %}Edit OR Room — {{ room.name }}{% else %}New Operating Room{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'or_room_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">
+      {% if room %}Edit Operating Room{% else %}New Operating Room{% endif %}
+    </h1>
+  </div>
+
+  {% if messages %}
+  <div class="mb-5 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'error' %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300
+      {% else %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Room Name <span class="text-red-500">*</span></label>
+          <input type="text" name="name" required value="{{ room.name|default:post.name }}"
+                 placeholder="e.g. OR-1 or Main Operating Theatre"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Room Number</label>
+          <input type="text" name="room_number" value="{{ room.room_number|default:post.room_number }}"
+                 placeholder="e.g. 101"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Room Type</label>
+          <select name="room_type" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for val, label in room_type_choices %}
+            <option value="{{ val }}" {% if room.room_type == val or post.room_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Floor</label>
+          <input type="text" name="floor" value="{{ room.floor|default:post.floor }}" placeholder="e.g. 2nd Floor"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Location Detail</label>
+          <input type="text" name="location_detail" value="{{ room.location_detail|default:post.location_detail }}"
+                 placeholder="e.g. Surgical Block, Wing B"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Daily Capacity (hours)</label>
+          <input type="number" name="capacity_hours" value="{{ room.capacity_hours|default:post.capacity_hours|default:'8' }}" min="1" max="24"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Equipment Notes</label>
+          <textarea name="equipment_notes" rows="3"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="List key equipment available in this OR">{{ room.equipment_notes|default:post.equipment_notes }}</textarea>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="is_active" class="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                   {% if room.is_active or not room and 'is_active' not in post %}checked{% elif post.is_active %}checked{% endif %}>
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Active (available for scheduling)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if room %}Save Changes{% else %}Create Room{% endif %}
+        </button>
+        <a href="{% url 'or_room_list' %}"
+           class="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+          Cancel
+        </a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

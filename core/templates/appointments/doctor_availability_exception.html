@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Schedule Exceptions — Dr. {{ doctor.full_name }} — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'doctor_availability_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white">Schedule Exceptions</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Dr. {{ doctor.full_name }} — {{ doctor.department.name }}</p>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="mb-4 px-4 py-3 rounded-xl text-sm
+        {% if msg.tags == 'error' %}bg-red-50 dark:bg-red-900/20 text-red-700 border border-red-200
+        {% else %}bg-green-50 dark:bg-green-900/20 text-green-700 border border-green-200{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-xl p-4">
+        <ul class="list-disc list-inside">{% for e in errors %}<li class="text-sm text-red-600">{{ e }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <!-- Add Exception Form -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Add Exception</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date <span class="text-red-500">*</span></label>
+                    <input type="date" name="date" value="{{ post.date|default:'' }}" required
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason</label>
+                    <select name="reason"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in reasons %}
+                        <option value="{{ val }}" {% if post.reason == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Available toggle -->
+            <div class="flex items-center gap-3 mb-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="is_available" id="is_available"
+                           {% if post.is_available == 'on' %}checked{% endif %}
+                           class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+                <div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Doctor is available on this date</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Enable to set modified hours; disable to mark as completely unavailable</p>
+                </div>
+            </div>
+
+            <!-- Modified hours (only when available) -->
+            <div id="modified_hours" class="grid grid-cols-2 gap-4 mb-4 {% if post.is_available != 'on' %}hidden{% endif %}">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Modified Start Time</label>
+                    <input type="time" name="start_time" value="{{ post.start_time|default:'' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Modified End Time</label>
+                    <input type="time" name="end_time" value="{{ post.end_time|default:'' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+
+            <div class="field-wrapper mb-4">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+                <textarea name="notes" rows="2"
+                          class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none"
+                          placeholder="Optional notes...">{{ post.notes|default:'' }}</textarea>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    Save Exception
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Exceptions -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+            <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Existing Exceptions
+                <span class="ml-1 text-xs font-normal text-slate-400">({{ exceptions|length }})</span>
+            </h2>
+        </div>
+        {% if exceptions %}
+        <div class="divide-y divide-slate-100 dark:divide-slate-700">
+            {% for exc in exceptions %}
+            <div class="flex items-center justify-between px-5 py-4">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0
+                        {% if exc.is_available %}bg-amber-400{% else %}bg-red-400{% endif %}">
+                    </div>
+                    <div>
+                        <p class="font-medium text-sm text-slate-800 dark:text-slate-100">{{ exc.date|date:"l, F j, Y" }}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            {{ exc.get_reason_display }}
+                            {% if exc.is_available %}
+                            — Modified hours {% if exc.start_time %}{{ exc.start_time|time:"H:i" }}–{{ exc.end_time|time:"H:i" }}{% endif %}
+                            {% else %}
+                            — Unavailable
+                            {% endif %}
+                        </p>
+                        {% if exc.notes %}
+                        <p class="text-xs text-slate-400 italic">{{ exc.notes }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="exc_id" value="{{ exc.pk }}">
+                    <button type="submit" onclick="return confirm('Remove this exception?')"
+                            class="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded-lg hover:bg-red-100 transition-colors">
+                        Remove
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-sm text-slate-400 dark:text-slate-500">No exceptions configured.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.getElementById('is_available').addEventListener('change', function() {
+    document.getElementById('modified_hours').classList.toggle('hidden', !this.checked);
+});
+</script>
+{% endblock %}

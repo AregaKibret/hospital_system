@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}New Appointment — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'appt_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">New Appointment</h1>
+    </div>
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+        <ul class="list-disc list-inside space-y-1">
+            {% for err in errors %}
+            <li class="text-sm text-red-600 dark:text-red-400">{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Patient Selection -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Patient</h2>
+
+            <!-- Search -->
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search Patient</label>
+                <input type="text" id="patient_search" placeholder="Type name or card number..."
+                       class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       autocomplete="off">
+                <div id="patient_results" class="hidden absolute z-10 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto"></div>
+            </div>
+
+            <div class="field-wrapper">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Selected Patient <span class="text-red-500">*</span></label>
+                <select name="patient_id" id="patient_id" required
+                        class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                    <option value="">-- Select Patient --</option>
+                    {% if pre_patient %}
+                    <option value="{{ pre_patient.pk }}" selected>{{ pre_patient.full_name }} ({{ pre_patient.card_number }})</option>
+                    {% endif %}
+                    {% for p in patients %}
+                    <option value="{{ p.pk }}" {% if post.patient_id == p.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ p.full_name }} ({{ p.card_number }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Doctor & Scheduling -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Doctor & Schedule</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor <span class="text-red-500">*</span></label>
+                    <select name="doctor_id" id="doctor_id" required
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        <option value="">-- Select Doctor --</option>
+                        {% for doc in doctors %}
+                        <option value="{{ doc.pk }}" data-dept="{{ doc.department.name }}"
+                            {% if post.doctor_id == doc.pk|stringformat:"s" %}selected{% endif %}>
+                            Dr. {{ doc.full_name }} — {{ doc.department.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date <span class="text-red-500">*</span></label>
+                    <input type="date" name="appointment_date" id="appointment_date" required
+                           min="{{ today|date:'Y-m-d' }}"
+                           value="{{ post.appointment_date|default:today|date:'Y-m-d' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time <span class="text-red-500">*</span></label>
+                    <div class="flex gap-2">
+                        <select name="appointment_time" id="appointment_time_select" required
+                                class="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                            <option value="">-- Pick doctor & date first --</option>
+                            {% if post.appointment_time %}
+                            <option value="{{ post.appointment_time }}" selected>{{ post.appointment_time }}</option>
+                            {% endif %}
+                        </select>
+                        <button type="button" onclick="loadSlots()" title="Refresh slots"
+                                class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="slot_info" class="mt-1 text-xs text-slate-400 dark:text-slate-500"></p>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Appointment Type</label>
+                    <select name="appointment_type"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in appointment_types %}
+                        <option value="{{ val }}" {% if post.appointment_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visit Details -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Visit Details</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Visit Type</label>
+                    <select name="visit_type"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in visit_types %}
+                        <option value="{{ val }}" {% if post.visit_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+                    <select name="priority"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in priorities %}
+                        <option value="{{ val }}" {% if post.priority == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Referral Source</label>
+                    <select name="referral_source"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in referral_sources %}
+                        <option value="{{ val }}" {% if post.referral_source == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Chief Complaint</label>
+                    <input type="text" name="chief_complaint" value="{{ post.chief_complaint|default:'' }}"
+                           placeholder="e.g. Chest pain, fever"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Contact Phone</label>
+                    <input type="tel" name="phone_number" value="{{ post.phone_number|default:'' }}"
+                           placeholder="+251 9XX XXX XXX"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+
+            <div class="field-wrapper mb-3">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason for Visit</label>
+                <textarea name="reason_for_visit" rows="3"
+                          class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Detailed reason...">{{ post.reason_for_visit|default:'' }}</textarea>
+            </div>
+
+            <div class="field-wrapper">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+                <textarea name="notes" rows="2"
+                          class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Optional internal notes...">{{ post.notes|default:'' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'appt_list' %}" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">Cancel</a>
+            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+                Create Appointment
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// AJAX slot loader
+function loadSlots() {
+    const doctorId = document.getElementById('doctor_id').value;
+    const date = document.getElementById('appointment_date').value;
+    const select = document.getElementById('appointment_time_select');
+    const info = document.getElementById('slot_info');
+
+    if (!doctorId || !date) {
+        info.textContent = 'Select a doctor and date to see available slots.';
+        return;
+    }
+
+    info.textContent = 'Loading slots...';
+    select.innerHTML = '<option value="">Loading...</option>';
+
+    fetch(`/appointments/slots/?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`)
+        .then(r => r.json())
+        .then(data => {
+            select.innerHTML = '';
+            if (data.unavailable) {
+                select.innerHTML = '<option value="">Not available — ' + (data.reason || 'Unavailable') + '</option>';
+                info.textContent = 'Doctor is not available on this date.';
+                return;
+            }
+            if (data.no_schedule) {
+                select.innerHTML = '<option value="">No schedule set for this day</option>';
+                info.textContent = 'No schedule configured for this day.';
+                return;
+            }
+            if (!data.slots || data.slots.length === 0) {
+                select.innerHTML = '<option value="">No available slots</option>';
+                info.textContent = 'All slots are booked for this day.';
+                return;
+            }
+            select.innerHTML = '<option value="">-- Select Time --</option>';
+            data.slots.forEach(function(slot) {
+                const opt = document.createElement('option');
+                opt.value = slot;
+                opt.textContent = slot;
+                select.appendChild(opt);
+            });
+            if (data.schedule) {
+                info.textContent = data.slots.length + ' slot(s) available · ' +
+                    data.schedule.slot_duration + ' min each · ' +
+                    data.schedule.start + '–' + data.schedule.end;
+            }
+        })
+        .catch(() => {
+            select.innerHTML = '<option value="">Error loading slots</option>';
+            info.textContent = 'Could not load slots. Try again.';
+        });
+}
+
+// Auto-load slots when doctor or date changes
+document.getElementById('doctor_id').addEventListener('change', loadSlots);
+document.getElementById('appointment_date').addEventListener('change', loadSlots);
+
+// Patient search filter on the <select>
+document.getElementById('patient_search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const sel = document.getElementById('patient_id');
+    Array.from(sel.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.style.display = opt.text.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

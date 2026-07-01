@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}No-Show Appointments Report{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">No-Show Appointments</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ date_from }} — {{ date_to }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}{% if doctor_id %}&doctor_id={{ doctor_id }}{% endif %}&export=csv"
+         class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+        CSV Export
+      </a>
+      <button onclick="window.print()"
+              class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition">
+        Print
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ date_from_str }}"
+               class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ date_to_str }}"
+               class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Doctor</label>
+        <select name="doctor_id" class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white">
+          <option value="">All Doctors</option>
+          {% for doc in doctors %}
+          <option value="{{ doc.pk }}" {% if doctor_id == doc.pk|stringformat:"s" %}selected{% endif %}>
+            Dr. {{ doc.full_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
+        Filter
+      </button>
+    </div>
+  </form>
+
+  <div class="mb-4">
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+      {{ total }} no-show{{ total|pluralize }}
+    </span>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if appointments %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Appt #</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Date</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Time</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Patient</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Doctor</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Phone</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Visit Type</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for a in appointments %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+          <td class="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{{ a.appointment_number }}</td>
+          <td class="px-4 py-3 text-gray-900 dark:text-white">{{ a.appointment_date }}</td>
+          <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ a.appointment_time|time:"H:i" }}</td>
+          <td class="px-4 py-3">
+            <div class="font-medium text-gray-900 dark:text-white">{{ a.patient.full_name }}</div>
+            <div class="text-xs text-gray-500">{{ a.patient.card_number }}</div>
+          </td>
+          <td class="px-4 py-3 text-gray-700 dark:text-gray-300">Dr. {{ a.doctor.full_name }}</td>
+          <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ a.phone_number|default:"—" }}</td>
+          <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ a.visit_type|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-gray-500 dark:text-gray-400">
+      No no-show appointments found for the selected period.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

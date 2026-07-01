@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}{{ schedule.schedule_number }} — OR Schedule{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
+    <div class="flex items-center gap-3">
+      <a href="{% url 'or_schedule_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <div>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ schedule.schedule_number }}</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">OR Schedule</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+        {% if sr.priority == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+        {% elif sr.priority == 'Urgent' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+        {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+        {{ sr.priority }}
+      </span>
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+        {% if schedule.status == 'Scheduled' %}bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300
+        {% elif schedule.status == 'Patient Prepared' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300
+        {% elif schedule.status == 'In OR' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300
+        {% elif schedule.status == 'Surgery Started' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+        {% elif schedule.status == 'Surgery Completed' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300
+        {% elif schedule.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+        {% elif schedule.status == 'Postponed' %}bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300
+        {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+        {{ schedule.status }}
+      </span>
+      {% if perms.core.manage_or_schedule and schedule.status in 'Scheduled,Approved' %}
+      <a href="{% url 'or_schedule_edit' pk=schedule.pk %}"
+         class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors">
+        Edit
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-5 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'error' %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300
+      {% else %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- Card 1: Patient & Procedure -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Patient &amp; Procedure</h2>
+      </div>
+      <div class="px-5 py-4 space-y-3 text-sm">
+        <div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Patient</p>
+          <p class="font-bold text-slate-800 dark:text-slate-100">{{ sr.patient.full_name }}</p>
+          <p class="text-xs font-mono text-blue-600 dark:text-blue-400">{{ sr.patient.card_number }}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Sex</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.sex }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Age</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.patient.age_display|default:"—" }}</p>
+          </div>
+        </div>
+        <hr class="border-slate-200 dark:border-slate-700">
+        <div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Procedure</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-100">{{ sr.procedure_name }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Diagnosis</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ sr.diagnosis }}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Anesthesia</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.anesthesia_type }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Admission</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ sr.admission_status }}</p>
+          </div>
+        </div>
+        <div>
+          <a href="{% url 'surgery_request_detail' pk=sr.pk %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+            View full request ({{ sr.request_number }})
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Room & Time -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Room &amp; Time</h2>
+      </div>
+      <div class="px-5 py-4 space-y-3 text-sm">
+        <div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Operating Room</p>
+          <p class="font-bold text-slate-800 dark:text-slate-100">{{ schedule.operating_room.name }}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">{{ schedule.operating_room.get_room_type_display }}{% if schedule.operating_room.floor %} &bull; Floor {{ schedule.operating_room.floor }}{% endif %}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Date</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.date|date:"D, d M Y" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Duration</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.duration_minutes }} min</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Start</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.start_time|time:"H:i" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">End</p>
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.end_time|time:"H:i" }}</p>
+          </div>
+        </div>
+        <hr class="border-slate-200 dark:border-slate-700">
+        <!-- Timeline milestones -->
+        <div class="space-y-2">
+          {% if schedule.patient_prepared_at %}
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Patient Prepared</span>
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ schedule.patient_prepared_at|date:"d M H:i" }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.in_or_at %}
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500 dark:text-slate-400">In OR</span>
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ schedule.in_or_at|date:"d M H:i" }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.surgery_started_at %}
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Surgery Started</span>
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ schedule.surgery_started_at|date:"d M H:i" }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.surgery_completed_at %}
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Surgery Completed</span>
+            <span class="text-xs font-medium text-green-600 dark:text-green-400">{{ schedule.surgery_completed_at|date:"d M H:i" }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Surgical Team + Actions -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Surgical Team</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Primary Surgeon</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">Dr. {{ schedule.primary_surgeon.full_name }}</span>
+          </div>
+          {% if schedule.assistant_surgeon %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Assistant</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">Dr. {{ schedule.assistant_surgeon.full_name }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.anesthetist %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Anesthetist</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.anesthetist.get_full_name|default:schedule.anesthetist.username }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.scrub_nurse %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Scrub Nurse</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.scrub_nurse.get_full_name|default:schedule.scrub_nurse.username }}</span>
+          </div>
+          {% endif %}
+          {% if schedule.circulating_nurse %}
+          <div class="flex justify-between">
+            <span class="text-slate-500 dark:text-slate-400">Circulating Nurse</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300">{{ schedule.circulating_nurse.get_full_name|default:schedule.circulating_nurse.username }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Status Actions</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2">
+          {% if schedule.status == 'Scheduled' or schedule.status == 'Approved' %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="patient_prepared">
+            <button type="submit" class="w-full px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors">
+              Mark Patient Prepared
+            </button>
+          </form>
+          {% endif %}
+
+          {% if schedule.status == 'Patient Prepared' %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="in_or">
+            <button type="submit" class="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors">
+              Patient In OR
+            </button>
+          </form>
+          {% endif %}
+
+          {% if schedule.status == 'In OR' %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="start_surgery">
+            <button type="submit" class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Start Surgery
+            </button>
+          </form>
+          {% endif %}
+
+          {% if schedule.status == 'Surgery Started' %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="complete_surgery">
+            <button type="submit" class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Complete Surgery
+            </button>
+          </form>
+          {% endif %}
+
+          {% if schedule.status == 'Surgery Completed' %}
+          <div class="px-3 py-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm text-green-700 dark:text-green-300 font-medium text-center">
+            Surgery completed successfully.
+          </div>
+          {% endif %}
+
+          {% if schedule.status in 'Cancelled,Postponed' %}
+          <div class="px-3 py-3 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-400 text-center">
+            This schedule is {{ schedule.status }}.
+          </div>
+          {% endif %}
+
+          {% if perms.core.manage_or_schedule and schedule.status not in 'Cancelled,Postponed,Surgery Completed' %}
+          <hr class="border-slate-200 dark:border-slate-700 my-2">
+
+          <!-- Cancel -->
+          <button type="button" onclick="document.getElementById('cancel-form').classList.toggle('hidden')"
+                  class="w-full px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 text-sm font-medium rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+            Cancel Schedule
+          </button>
+          <div id="cancel-form" class="hidden">
+            <form method="post" class="mt-2">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="cancel">
+              <textarea name="cancellation_reason" rows="2" required placeholder="Cancellation reason..."
+                        class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500 mb-2"></textarea>
+              <button type="submit" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                Confirm Cancellation
+              </button>
+            </form>
+          </div>
+
+          <!-- Postpone -->
+          <button type="button" onclick="document.getElementById('postpone-form').classList.toggle('hidden')"
+                  class="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+            Postpone
+          </button>
+          <div id="postpone-form" class="hidden">
+            <form method="post" class="mt-2">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="postpone">
+              <textarea name="postpone_reason" rows="2" required placeholder="Reason for postponement..."
+                        class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500 mb-2"></textarea>
+              <button type="submit" class="w-full px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                Confirm Postponement
+              </button>
+            </form>
+          </div>
+          {% endif %}
+
+          {% if schedule.cancellation_reason %}
+          <div class="mt-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <p class="text-xs text-red-700 dark:text-red-300 font-medium">Cancellation Reason:</p>
+            <p class="text-xs text-red-600 dark:text-red-400 mt-0.5">{{ schedule.cancellation_reason }}</p>
+          </div>
+          {% endif %}
+          {% if schedule.postpone_reason %}
+          <div class="mt-2 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+            <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">Postpone Reason:</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{{ schedule.postpone_reason }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status History -->
+  <div class="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+      <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">Status History</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date &amp; Time</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">From</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">To</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Changed By</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for log in status_logs %}
+          <tr>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-400">{{ log.changed_at|date:"d M Y H:i" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-400">{{ log.from_status|default:"—" }}</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{{ log.to_status }}</span>
+            </td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-400">{{ log.changed_by.get_full_name|default:log.changed_by.username|default:"System" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-400">{{ log.notes }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-5 py-6 text-center text-slate-500 dark:text-slate-400 text-xs">No status history available.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

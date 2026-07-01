@@ -1,10 +1,10 @@
 from django.urls import path
 
 from . import (
-    views, views_admin, views_anesthesia, views_audit, views_billing, views_dept_pharmacy,
-    views_doctor, views_hr, views_inventory, views_lab, views_med_inventory, views_patient_flow,
-    views_pharmacy, views_pharmacy_pos, views_prescription, views_queue, views_radiology,
-    views_receptionist, views_reports, views_store, views_surgery,
+    views, views_admin, views_anesthesia, views_appointments, views_audit, views_billing,
+    views_dept_pharmacy, views_doctor, views_hr, views_inventory, views_lab, views_med_inventory,
+    views_or, views_patient_flow, views_pharmacy, views_pharmacy_pos, views_prescription,
+    views_queue, views_radiology, views_receptionist, views_reports, views_store, views_surgery,
 )
 
 urlpatterns = [
@@ -235,6 +235,26 @@ urlpatterns = [
     path('receptionist/api/doctor-availability/', views_receptionist.doctor_availability_api, name='doctor_availability_api'),
     path('receptionist/patient-flow/', views_receptionist.patient_flow, name='patient_flow'),
 
+    # ── Consultation Appointment Scheduling ──────────────────────────────────
+    path('appointments/', views_appointments.consultation_dashboard, name='consultation_dashboard'),
+    path('appointments/list/', views_appointments.appt_list, name='appt_list'),
+    path('appointments/new/', views_appointments.appt_create, name='appt_create'),
+    path('appointments/<int:pk>/', views_appointments.appt_detail, name='appt_detail'),
+    path('appointments/<int:pk>/edit/', views_appointments.appt_edit, name='appt_edit'),
+    path('appointments/<int:pk>/cancel/', views_appointments.appt_cancel, name='appt_cancel'),
+    path('appointments/<int:pk>/reschedule/', views_appointments.appt_reschedule, name='appt_reschedule'),
+    path('appointments/<int:pk>/no-show/', views_appointments.appt_no_show, name='appt_no_show'),
+    path('appointments/doctor-availability/', views_appointments.doctor_availability_list, name='doctor_availability_list'),
+    path('appointments/doctor-availability/<int:doctor_id>/edit/', views_appointments.doctor_availability_edit, name='doctor_availability_edit'),
+    path('appointments/doctor-availability/<int:doctor_id>/exceptions/', views_appointments.doctor_availability_exception, name='doctor_availability_exception'),
+    path('appointments/api/slots/', views_appointments.get_doctor_slots, name='get_doctor_slots'),
+    path('appointments/reports/daily-schedule/', views_appointments.report_appt_daily_schedule, name='report_appt_daily_schedule'),
+    path('appointments/reports/dept-schedule/', views_appointments.report_appt_dept_schedule, name='report_appt_dept_schedule'),
+    path('appointments/reports/list/', views_appointments.report_appt_list, name='report_appt_list'),
+    path('appointments/reports/cancelled/', views_appointments.report_appt_cancelled, name='report_appt_cancelled'),
+    path('appointments/reports/no-show/', views_appointments.report_appt_no_show, name='report_appt_no_show'),
+    path('appointments/reports/workload/', views_appointments.report_appt_workload, name='report_appt_workload'),
+
     # ── Medication Inventory module ───────────────────────────────────────────
     path('med-inventory/', views_med_inventory.med_inventory_dashboard, name='med_inventory_dashboard'),
     path('med-inventory/medications/', views_med_inventory.medication_list, name='medication_list'),
@@ -337,11 +357,11 @@ urlpatterns = [
     path('surgery/orders/<int:order_id>/operative-note/', views_surgery.operative_note_create, name='operative_note_create'),
     path('surgery/orders/<int:order_id>/consumable/', views_surgery.surgery_consumable_add, name='surgery_consumable_add'),
     path('surgery/orders/<int:order_id>/billing/', views_surgery.surgery_billing_generate, name='surgery_billing_generate'),
-    # OR Management
-    path('surgery/or/', views_surgery.or_dashboard, name='or_dashboard'),
-    path('surgery/or/rooms/', views_surgery.or_room_list, name='or_room_list'),
-    path('surgery/or/rooms/new/', views_surgery.or_room_create, name='or_room_create'),
-    path('surgery/or/rooms/<int:room_id>/edit/', views_surgery.or_room_edit, name='or_room_edit'),
+    # OR Management (surgery module — legacy; use /or/ for full OR scheduling)
+    path('surgery/or/', views_surgery.or_dashboard, name='surgery_or_dashboard'),
+    path('surgery/or/rooms/', views_surgery.or_room_list, name='surgery_or_room_list'),
+    path('surgery/or/rooms/new/', views_surgery.or_room_create, name='surgery_or_room_create'),
+    path('surgery/or/rooms/<int:room_id>/edit/', views_surgery.or_room_edit, name='surgery_or_room_edit'),
     # Procedure Master
     path('surgery/procedures/', views_surgery.procedure_master_list, name='procedure_master_list'),
     path('surgery/procedures/new/', views_surgery.procedure_master_create, name='procedure_master_create'),
@@ -374,4 +394,24 @@ urlpatterns = [
     path('audit/reports/financial/', views_audit.report_financial_audit, name='report_financial_audit'),
     path('audit/reports/inventory/', views_audit.report_inventory_audit, name='report_inventory_audit'),
     path('audit/reports/patient-access/', views_audit.report_patient_access, name='report_patient_access'),
+
+    # ── OR Scheduling module ─────────────────────────────────────────────────
+    path('or/', views_or.or_dashboard, name='or_dashboard'),
+    path('or/surgery-requests/', views_or.surgery_request_list, name='surgery_request_list'),
+    path('or/surgery-requests/new/', views_or.surgery_request_create, name='surgery_request_create'),
+    path('or/surgery-requests/<int:pk>/', views_or.surgery_request_detail, name='surgery_request_detail'),
+    path('or/schedule/', views_or.or_schedule_list, name='or_schedule_list'),
+    path('or/schedule/new/', views_or.or_schedule_create, name='or_schedule_create'),
+    path('or/schedule/<int:pk>/', views_or.or_schedule_detail, name='or_schedule_detail'),
+    path('or/schedule/<int:pk>/edit/', views_or.or_schedule_edit, name='or_schedule_edit'),
+    path('or/calendar/', views_or.or_calendar, name='or_calendar'),
+    path('or/rooms/', views_or.or_room_list, name='or_room_list'),
+    path('or/rooms/new/', views_or.or_room_create, name='or_room_create'),
+    path('or/rooms/<int:pk>/edit/', views_or.or_room_edit, name='or_room_edit'),
+    path('or/check-conflicts/', views_or.check_or_conflicts, name='check_or_conflicts'),
+    path('or/api/patient-search/', views_or.patient_search_ajax, name='or_patient_search_ajax'),
+    # OR Reports
+    path('or/reports/daily/', views_or.report_or_daily, name='report_or_daily'),
+    path('or/reports/utilization/', views_or.report_or_utilization, name='report_or_utilization'),
+    path('or/reports/surgeon-schedule/', views_or.report_surgeon_schedule, name='report_surgeon_schedule'),
 ]

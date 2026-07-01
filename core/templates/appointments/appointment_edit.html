@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Edit Appointment — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'appt_detail' appt.pk %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-900 dark:text-white">Edit Appointment</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">{{ appt.appointment_number }} — {{ appt.patient.full_name }}</p>
+        </div>
+    </div>
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+        <ul class="list-disc list-inside space-y-1">
+            {% for err in errors %}
+            <li class="text-sm text-red-600 dark:text-red-400">{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Doctor & Scheduling -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Doctor & Schedule</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor <span class="text-red-500">*</span></label>
+                    <select name="doctor_id" id="doctor_id" required
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for doc in doctors %}
+                        <option value="{{ doc.pk }}" {% if appt.doctor_id == doc.pk %}selected{% endif %}>
+                            Dr. {{ doc.full_name }} — {{ doc.department.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date <span class="text-red-500">*</span></label>
+                    <input type="date" name="appointment_date" id="appointment_date" required
+                           value="{{ appt.appointment_date|date:'Y-m-d' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time <span class="text-red-500">*</span></label>
+                    <div class="flex gap-2">
+                        <select name="appointment_time" id="appointment_time_select" required
+                                class="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                            <option value="{{ appt.appointment_time|time:'H:i' }}" selected>{{ appt.appointment_time|time:"H:i" }} (current)</option>
+                        </select>
+                        <button type="button" onclick="loadSlots()" title="Load available slots"
+                                class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="slot_info" class="mt-1 text-xs text-slate-400 dark:text-slate-500">Click refresh to load available slots.</p>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Appointment Type</label>
+                    <select name="appointment_type"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in appointment_types %}
+                        <option value="{{ val }}" {% if appt.appointment_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visit Details -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Visit Details</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Visit Type</label>
+                    <select name="visit_type"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in visit_types %}
+                        <option value="{{ val }}" {% if appt.visit_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+                    <select name="priority"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in priorities %}
+                        <option value="{{ val }}" {% if appt.priority == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Referral Source</label>
+                    <select name="referral_source"
+                            class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for val, label in referral_sources %}
+                        <option value="{{ val }}" {% if appt.referral_source == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Chief Complaint</label>
+                    <input type="text" name="chief_complaint" value="{{ appt.chief_complaint }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Contact Phone</label>
+                    <input type="tel" name="phone_number" value="{{ appt.phone_number }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+            </div>
+            <div class="field-wrapper mb-3">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason for Visit</label>
+                <textarea name="reason_for_visit" rows="3"
+                          class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{{ appt.reason_for_visit }}</textarea>
+            </div>
+            <div class="field-wrapper">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+                <textarea name="notes" rows="2"
+                          class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{{ appt.notes }}</textarea>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'appt_detail' appt.pk %}" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">Cancel</a>
+            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function loadSlots() {
+    const doctorId = document.getElementById('doctor_id').value;
+    const date = document.getElementById('appointment_date').value;
+    const select = document.getElementById('appointment_time_select');
+    const info = document.getElementById('slot_info');
+    if (!doctorId || !date) return;
+    info.textContent = 'Loading...';
+    fetch(`/appointments/slots/?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`)
+        .then(r => r.json())
+        .then(data => {
+            const currentVal = '{{ appt.appointment_time|time:"H:i" }}';
+            select.innerHTML = `<option value="${currentVal}">${currentVal} (current)</option>`;
+            if (data.slots) {
+                data.slots.forEach(s => {
+                    if (s !== currentVal) {
+                        const opt = document.createElement('option');
+                        opt.value = s; opt.textContent = s;
+                        select.appendChild(opt);
+                    }
+                });
+                info.textContent = data.slots.length + ' slot(s) available';
+            }
+        }).catch(() => { info.textContent = 'Error loading slots.'; });
+}
+document.getElementById('doctor_id').addEventListener('change', loadSlots);
+document.getElementById('appointment_date').addEventListener('change', loadSlots);
+</script>
+{% endblock %}

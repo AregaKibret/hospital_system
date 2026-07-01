@@ -8,7 +8,7 @@
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Next 7 days: {{ today|date:"d M" }} — {{ week_end|date:"d M Y" }}</p>
   </div>
   <div class="flex gap-2">
-    <a href="{% url 'or_room_list' %}" class="btn-secondary text-sm">Manage Rooms</a>
+    <a href="{% url 'surgery_or_room_list' %}" class="btn-secondary text-sm">Manage Rooms</a>
     <a href="{% url 'surgery_dashboard' %}" class="btn-secondary text-sm">← Dashboard</a>
   </div>
 </div>
