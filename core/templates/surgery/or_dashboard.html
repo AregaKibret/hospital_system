@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}OR Schedule Dashboard{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Operating Room Schedule</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Next 7 days: {{ today|date:"d M" }} — {{ week_end|date:"d M Y" }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'or_room_list' %}" class="btn-secondary text-sm">Manage Rooms</a>
+    <a href="{% url 'surgery_dashboard' %}" class="btn-secondary text-sm">← Dashboard</a>
+  </div>
+</div>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center shadow-sm">
+    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ upcoming.count }}</p>
+    <p class="text-xs text-slate-500 mt-0.5">Surgeries This Week</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center shadow-sm">
+    <p class="text-2xl font-bold text-orange-600 dark:text-orange-400">{{ in_or_count }}</p>
+    <p class="text-xs text-slate-500 mt-0.5">Currently in OR</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center shadow-sm">
+    <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ approved_unscheduled.count }}</p>
+    <p class="text-xs text-slate-500 mt-0.5">Approved, Unscheduled</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <!-- Upcoming Schedule -->
+  <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Upcoming Surgeries</h2>
+    </div>
+    {% if upcoming %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Date / Time</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Room</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for sched in upcoming %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition {% if sched.scheduled_date == today %}bg-indigo-50/30 dark:bg-indigo-900/10{% endif %}">
+            <td class="px-4 py-2.5 whitespace-nowrap">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ sched.scheduled_date|date:"d M Y" }}</p>
+              <p class="text-xs text-slate-400 font-mono">{{ sched.scheduled_start_time|time:"H:i" }}{% if sched.estimated_end_time %} → {{ sched.estimated_end_time|time:"H:i" }}{% endif %}</p>
+            </td>
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ sched.surgery_order.patient.full_name }}</p>
+              <p class="text-xs text-slate-400">{% include "surgery/_priority_badge.html" with priority=sched.surgery_order.priority %}</p>
+            </td>
+            <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300 text-sm">{{ sched.surgery_order.planned_procedure|truncatechars:30 }}</td>
+            <td class="px-4 py-2.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">{{ sched.or_room.name }}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500">Dr. {{ sched.surgery_order.surgeon.get_full_name|truncatechars:20 }}</td>
+            <td class="px-4 py-2.5">{% include "surgery/_status_badge.html" with status=sched.surgery_order.status %}</td>
+            <td class="px-4 py-2.5 text-right"><a href="{% url 'surgery_order_detail' sched.surgery_order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-slate-400 text-sm">No surgeries scheduled in the next 7 days.</div>
+    {% endif %}
+  </div>
+
+  <!-- Approved Unscheduled -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Needs Scheduling</h2>
+    </div>
+    {% if approved_unscheduled %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for order in approved_unscheduled %}
+      <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1 mb-1">
+              {% include "surgery/_priority_badge.html" with priority=order.priority %}
+            </div>
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ order.patient.full_name }}</p>
+            <p class="text-xs text-slate-500 truncate">{{ order.planned_procedure }}</p>
+            {% if order.planned_date %}<p class="text-xs text-slate-400">Requested: {{ order.planned_date|date:"d M Y" }}</p>{% endif %}
+          </div>
+          <a href="{% url 'surgery_schedule_create' order.pk %}" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400 shrink-0 whitespace-nowrap">Schedule →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-slate-400 text-sm">All approved surgeries are scheduled.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Procedure Master List{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Procedure Master List</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ page_obj.paginator.count }} procedure{{ page_obj.paginator.count|pluralize }}</p>
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.manage_procedure_master %}
+    <a href="{% url 'procedure_master_create' %}" class="btn-primary text-sm">+ Add Procedure</a>
+    {% endif %}
+    <a href="{% url 'surgery_dashboard' %}" class="btn-secondary text-sm">← Dashboard</a>
+  </div>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search name or code…" class="field-input text-sm sm:col-span-1" />
+    <select name="category" class="field-input text-sm">
+      <option value="">All Categories</option>
+      {% for cat in categories %}<option value="{{ cat.pk }}" {% if category_f == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+    </select>
+    <select name="complexity" class="field-input text-sm">
+      <option value="">All Complexities</option>
+      {% for val, label in complexities %}<option value="{{ val }}" {% if complexity_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="active" class="field-input text-sm">
+      <option value="true" {% if active_f == 'true' %}selected{% endif %}>Active only</option>
+      <option value="false" {% if active_f == 'false' %}selected{% endif %}>Inactive only</option>
+      <option value="all" {% if active_f == 'all' %}selected{% endif %}>All</option>
+    </select>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+    <a href="{% url 'procedure_master_list' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Code</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Procedure Name</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Category</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Complexity</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Duration</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Total Fee</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for proc in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-3 font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{{ proc.code }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ proc.name }}</p>
+            {% if proc.required_specialty %}<p class="text-xs text-slate-400">{{ proc.required_specialty }}</p>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ proc.category.name|default:"—" }}</td>
+          <td class="px-4 py-3">{% include "surgery/_complexity_badge.html" with complexity=proc.complexity %}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{{ proc.estimated_duration_minutes }} min</td>
+          <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-300 hidden md:table-cell">ETB {{ proc.total_fee|floatformat:2 }}</td>
+          <td class="px-4 py-3">
+            {% if proc.is_active %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Active</span>
+            {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">Inactive</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap">
+            <a href="{% url 'procedure_master_detail' proc.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400 mr-2">View</a>
+            {% if perms.core.manage_procedure_master %}<a href="{% url 'procedure_master_edit' proc.pk %}" class="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Edit</a>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No procedures match your filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+    {% if page_obj.has_previous %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn-secondary text-xs">← Prev</a>{% endif %}
+    <span class="text-xs text-slate-400 self-center">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn-secondary text-xs">Next →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

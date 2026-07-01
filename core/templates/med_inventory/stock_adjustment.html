@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Stock Adjustment{% endblock %}
+{% block content %}
+
+<div class="mb-5 flex items-center gap-3">
+  <a href="{% url 'med_inventory_dashboard' %}" class="text-sm text-slate-500 hover:text-blue-600 flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Dashboard
+  </a>
+  <span class="text-slate-300">/</span>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Stock Adjustment</h1>
+</div>
+
+<div class="max-w-lg">
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-5 py-3.5 mb-5 flex items-start gap-3">
+    <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+    <div>
+      <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Use with caution</p>
+      <p class="text-sm text-amber-700 dark:text-amber-400">Stock adjustments are recorded in the transaction log and cannot be undone. Use only to correct discrepancies found during physical count.</p>
+    </div>
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-900/10">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Adjustment Details</h2>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Medication <span class="text-red-500">*</span></label>
+          <select name="medication" required>
+            <option value="">— Select Medication —</option>
+            {% for m in medications %}
+            <option value="{{ m.id }}">{{ m.name }} — {{ m.generic_name }} (Stock: {{ m.current_stock }} {{ m.unit_of_measure }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Adjustment Quantity <span class="text-red-500">*</span></label>
+          <input type="number" name="adjustment" required placeholder="Use negative number to decrease, positive to increase" class="block w-full">
+          <p class="text-xs text-slate-400 mt-1">e.g. +50 to add 50 units, -20 to remove 20 units</p>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reason / Notes <span class="text-red-500">*</span></label>
+          <textarea name="reason" rows="3" required placeholder="Describe the reason for this adjustment (physical count, data correction, etc.)…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'med_inventory_dashboard' %}" class="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">Cancel</a>
+      <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition-colors shadow-sm">
+        Apply Adjustment
+      </button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

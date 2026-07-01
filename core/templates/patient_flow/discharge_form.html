@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Discharge Patient — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'patient_journey_detail' visit.pk %}" class="btn-secondary text-sm">← Journey</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if ds %}Edit{% else %}Create{% endif %} Discharge Summary</h1>
+</div>
+
+<div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-5 text-sm">
+  <span class="font-semibold text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-600 dark:text-slate-300">MRN: {{ visit.patient.mrn }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-500">Admitted: {{ visit.created_at|date:"d M Y, H:i" }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-500">Doctor: Dr. {{ visit.doctor.get_full_name }}</span>
+</div>
+
+<form method="post">{% csrf_token %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Discharge Information</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Discharge Type</label>
+        <select name="discharge_type" class="field-input">
+          {% for val, label in discharge_types %}<option value="{{ val }}" {% if ds and ds.discharge_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Patient Condition at Discharge</label>
+        <select name="discharge_condition" class="field-input">
+          {% for val, label in discharge_conditions %}<option value="{{ val }}" {% if ds and ds.discharge_condition == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Diagnoses</h2>
+    <div class="space-y-4">
+      <div class="field-wrapper"><label class="field-label">Final Diagnosis <span class="text-red-500">*</span></label><textarea name="final_diagnosis" rows="2" required class="field-input">{% if ds %}{{ ds.final_diagnosis }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Secondary Diagnoses</label><textarea name="secondary_diagnoses" rows="2" class="field-input">{% if ds %}{{ ds.secondary_diagnoses }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Procedures Performed</label><textarea name="procedures_performed" rows="2" class="field-input">{% if ds %}{{ ds.procedures_performed }}{% endif %}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Hospital Course</h2>
+    <div class="space-y-4">
+      <div class="field-wrapper"><label class="field-label">Hospital Course / Clinical Summary</label><textarea name="hospital_course" rows="4" class="field-input" placeholder="Brief summary of the patient's clinical course during this visit…">{% if ds %}{{ ds.hospital_course }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Treatment Summary</label><textarea name="treatment_summary" rows="3" class="field-input">{% if ds %}{{ ds.treatment_summary }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Investigations Summary</label><textarea name="investigations_summary" rows="2" class="field-input">{% if ds %}{{ ds.investigations_summary }}{% endif %}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Discharge Instructions</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">General Discharge Instructions</label><textarea name="discharge_instructions" rows="3" class="field-input">{% if ds %}{{ ds.discharge_instructions }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Discharge Medications</label><textarea name="discharge_medications" rows="3" class="field-input" placeholder="List medications: Drug · Dose · Frequency · Duration">{% if ds %}{{ ds.discharge_medications }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Diet Instructions</label><textarea name="diet_instructions" rows="3" class="field-input">{% if ds %}{{ ds.diet_instructions }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Activity Restrictions</label><textarea name="activity_restrictions" rows="2" class="field-input">{% if ds %}{{ ds.activity_restrictions }}{% endif %}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Wound Care</label><textarea name="wound_care" rows="2" class="field-input">{% if ds %}{{ ds.wound_care }}{% endif %}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Follow-up Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Follow-up Date</label>
+        <input type="date" name="follow_up_date" value="{% if ds and ds.follow_up_date %}{{ ds.follow_up_date|date:'Y-m-d' }}{% endif %}" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Follow-up Doctor</label>
+        <select name="follow_up_doctor" class="field-input">
+          <option value="">— Same Doctor —</option>
+          {% for d in doctors %}<option value="{{ d.pk }}" {% if ds and ds.follow_up_doctor_id == d.pk %}selected{% endif %}>Dr. {{ d.get_full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Follow-up Instructions</label><textarea name="follow_up_instructions" rows="2" class="field-input">{% if ds %}{{ ds.follow_up_instructions }}{% endif %}</textarea></div>
+    </div>
+  </div>
+
+  <!-- Transfer section (shown conditionally but always submitted) -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5" id="transferSection">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Transfer Information <span class="text-xs font-normal text-slate-400">(fill only if transferring)</span></h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper"><label class="field-label">Transfer Facility</label><input type="text" name="transfer_facility" value="{% if ds %}{{ ds.transfer_facility }}{% endif %}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Transfer Reason</label><textarea name="transfer_reason" rows="2" class="field-input">{% if ds %}{{ ds.transfer_reason }}{% endif %}</textarea></div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">{% if ds %}Update{% else %}Complete{% endif %} Discharge</button>
+    <a href="{% url 'patient_journey_detail' visit.pk %}" class="btn-secondary">Cancel</a>
+  </div>
+
+</form>
+{% endblock %}

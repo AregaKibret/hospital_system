@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: hospital-hms
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn hospital_system.wsgi:application"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hospital-db
+          property: connectionString
+
+databases:
+  - name: hospital-db
+    databaseName: hospital_db
+    user: hospital_user
+    plan: free

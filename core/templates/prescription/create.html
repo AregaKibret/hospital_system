@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Write Prescription — {{ patient.full_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Write Prescription</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+        {{ patient.full_name }} &middot; {{ patient.card_number }}
+        {% if patient.age_display %}&middot; {{ patient.age_display }}{% endif %}
+        &middot; {{ patient.sex }}
+      </p>
+    </div>
+    <a href="{% url 'visit_detail' visit.id %}" class="btn-secondary text-sm">← Back to Visit</a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for m in messages %}
+    <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+      {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+      {{ m }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" id="rx-form">
+    {% csrf_token %}
+
+    <!-- Patient info banner -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+      <div><span class="text-xs text-slate-500 block">Visit #</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ visit.id }}</span></div>
+      <div><span class="text-xs text-slate-500 block">Department</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ visit.department.name }}</span></div>
+      <div><span class="text-xs text-slate-500 block">Visit Type</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ visit.visit_type }}</span></div>
+      <div><span class="text-xs text-slate-500 block">Date</span><span class="font-semibold text-slate-800 dark:text-slate-200">{% now "d M Y" %}</span></div>
+    </div>
+
+    <!-- Diagnosis -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Diagnosis / Clinical Indication</h2>
+      <textarea name="diagnosis" rows="2"
+        class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-none"
+        placeholder="Enter diagnosis or clinical indication">{{ prefill_diagnosis }}</textarea>
+      <div class="mt-3">
+        <label class="text-xs text-slate-500 block mb-1">Prescription Notes (optional)</label>
+        <textarea name="notes" rows="1"
+          class="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400 resize-none"
+          placeholder="Additional notes">{{ notes }}</textarea>
+      </div>
+    </div>
+
+    <!-- Medications -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Medications</h2>
+        <button type="button" onclick="addDrugRow()"
+          class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          Add Medication
+        </button>
+      </div>
+
+      <div id="drug-rows" class="space-y-4"></div>
+      <p id="no-drugs-hint" class="text-sm text-slate-400 text-center py-6">Click "Add Medication" to add drugs to this prescription.</p>
+    </div>
+
+    <!-- Submit -->
+    <div class="flex items-center justify-between gap-3">
+      <a href="{% url 'visit_detail' visit.id %}" class="btn-secondary">Cancel</a>
+      <div class="flex gap-3">
+        <button type="submit" name="action" value="save"
+          class="btn-primary px-6">Save Prescription</button>
+        <button type="submit" name="action" value="send"
+          class="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          Save & Send to Pharmacy
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<!-- Drug row template (hidden) -->
+<template id="drug-row-tpl">
+  <div class="drug-row border border-slate-200 dark:border-slate-600 rounded-xl p-4 bg-slate-50 dark:bg-slate-900/50 relative" data-index="__IDX__">
+    <button type="button" onclick="removeDrugRow(this)"
+      class="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition text-xs font-bold">✕</button>
+
+    <input type="hidden" name="medication_id" value="" class="med-id-input">
+
+    <!-- Drug search -->
+    <div class="mb-3">
+      <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 block">Medication <span class="text-red-500">*</span></label>
+      <div class="relative">
+        <input type="text" class="drug-search-input w-full text-sm px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+          placeholder="Type to search medication catalog…" autocomplete="off">
+        <div class="drug-search-results hidden absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto"></div>
+      </div>
+      <input type="hidden" name="drug_name" value="" class="drug-name-input" required>
+      <div class="drug-info hidden mt-1.5 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-xs text-emerald-700 dark:text-emerald-400 drug-info-text"></div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+      <!-- Dose -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Dose <span class="text-red-500">*</span></label>
+        <input type="text" name="dose" placeholder="e.g. 500 mg, 1 tablet"
+          class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400" required>
+      </div>
+      <!-- Route -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Route</label>
+        <select name="route" class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+          {% for val, label in routes %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <!-- Frequency -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Frequency</label>
+        <select name="frequency" class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+          {% for val, label in frequencies %}<option value="{{ val }}" {% if val == 'Twice daily' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <!-- Duration -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Duration (days)</label>
+        <input type="number" name="duration_days" value="7" min="1" max="365"
+          class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+      </div>
+      <!-- Quantity -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Quantity <span class="text-red-500">*</span></label>
+        <input type="number" name="quantity" value="14" min="1"
+          class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400" required>
+      </div>
+      <!-- Meal instruction -->
+      <div>
+        <label class="text-xs text-slate-500 block mb-1">Meal Instruction</label>
+        <select name="meal_instruction" class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+          <option value="">— None —</option>
+          {% for val, label in meal_instructions %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Special instructions -->
+    <div>
+      <label class="text-xs text-slate-500 block mb-1">Special Instructions</label>
+      <input type="text" name="special_instructions" placeholder="e.g. Avoid direct sunlight, take with water"
+        class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+    </div>
+  </div>
+</template>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const SEARCH_URL = "{% url 'medication_search_api' %}";
+let rowCount = 0;
+let searchTimers = {};
+
+function addDrugRow() {
+  const tpl = document.getElementById('drug-row-tpl');
+  const clone = tpl.content.cloneNode(true);
+  const idx = rowCount++;
+  // replace __IDX__ in data-index
+  const div = clone.querySelector('.drug-row');
+  div.dataset.index = idx;
+  document.getElementById('drug-rows').appendChild(clone);
+  document.getElementById('no-drugs-hint').style.display = 'none';
+  // Wire up search for this row
+  const row = document.getElementById('drug-rows').lastElementChild;
+  wireSearch(row, idx);
+}
+
+function removeDrugRow(btn) {
+  const row = btn.closest('.drug-row');
+  row.remove();
+  if (document.querySelectorAll('.drug-row').length === 0) {
+    document.getElementById('no-drugs-hint').style.display = '';
+  }
+}
+
+function wireSearch(row, idx) {
+  const input = row.querySelector('.drug-search-input');
+  const results = row.querySelector('.drug-search-results');
+  const medIdInput = row.querySelector('.med-id-input');
+  const drugNameInput = row.querySelector('.drug-name-input');
+  const drugInfo = row.querySelector('.drug-info');
+  const infoText = row.querySelector('.drug-info-text');
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(searchTimers[idx]);
+    results.innerHTML = '';
+    results.classList.add('hidden');
+    if (q.length < 2) return;
+    searchTimers[idx] = setTimeout(() => {
+      fetch(`${SEARCH_URL}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.results.length) {
+            results.innerHTML = `<div class="px-3 py-2 text-xs text-slate-400">No results for "${q}". You can type the drug name manually.</div>`;
+          } else {
+            results.innerHTML = data.results.map(m => `
+              <div class="drug-result px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
+                data-id="${m.id}"
+                data-name="${m.name} ${m.strength}"
+                data-generic="${m.generic_name}"
+                data-strength="${m.strength}"
+                data-form="${m.dosage_form}"
+                data-route="${m.route}"
+                data-unit="${m.dispensing_unit}"
+                data-price="${m.selling_price}"
+                data-stock="${m.stock_qty}"
+                data-status="${m.stock_status}">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">${m.name} <span class="font-normal text-slate-500">${m.strength}</span></p>
+                    <p class="text-xs text-slate-400">${m.generic_name} &middot; ${m.dosage_form}</p>
+                  </div>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${m.stock_status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                    ${m.stock_status === 'available' ? m.stock_qty + ' in stock' : 'Out of stock'}
+                  </span>
+                </div>
+              </div>`).join('');
+          }
+          results.classList.remove('hidden');
+          // click handler
+          results.querySelectorAll('.drug-result').forEach(el => {
+            el.addEventListener('click', () => selectDrug(el, row));
+          });
+        });
+    }, 300);
+  });
+
+  // Allow manual text entry
+  input.addEventListener('change', () => {
+    if (!medIdInput.value) {
+      // manual entry: set drug_name from input text
+      drugNameInput.value = input.value.trim();
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!row.contains(e.target)) results.classList.add('hidden');
+  });
+}
+
+function selectDrug(el, row) {
+  const medIdInput = row.querySelector('.med-id-input');
+  const drugNameInput = row.querySelector('.drug-name-input');
+  const drugInfo = row.querySelector('.drug-info');
+  const infoText = row.querySelector('.drug-info-text');
+  const searchInput = row.querySelector('.drug-search-input');
+  const results = row.querySelector('.drug-search-results');
+
+  medIdInput.value = el.dataset.id;
+  const fullName = `${el.dataset.name}`;
+  drugNameInput.value = fullName;
+  searchInput.value = fullName;
+  results.classList.add('hidden');
+
+  // Update route default if from catalog
+  const routeSel = row.querySelector('select[name="route"]');
+  if (routeSel && el.dataset.route) {
+    for (const opt of routeSel.options) {
+      if (opt.value === el.dataset.route) { opt.selected = true; break; }
+    }
+  }
+
+  const stockStatus = el.dataset.status === 'available'
+    ? `<span class="text-emerald-600 font-semibold">${el.dataset.stock} ${el.dataset.unit} in stock</span>`
+    : `<span class="text-red-600 font-semibold">Out of stock</span>`;
+  infoText.innerHTML = `${el.dataset.generic} &middot; ${el.dataset.form} &middot; ETB ${el.dataset.price}/${el.dataset.unit} &middot; ${stockStatus}`;
+  drugInfo.classList.remove('hidden');
+}
+
+// Form validation
+document.getElementById('rx-form').addEventListener('submit', function(e) {
+  const rows = document.querySelectorAll('.drug-row');
+  if (rows.length === 0) {
+    e.preventDefault();
+    alert('Please add at least one medication.');
+    return;
+  }
+  // Ensure drug_name is filled for all rows
+  let ok = true;
+  rows.forEach(row => {
+    const dn = row.querySelector('.drug-name-input');
+    const si = row.querySelector('.drug-search-input');
+    if (!dn.value.trim() && si.value.trim()) {
+      dn.value = si.value.trim(); // accept manual text
+    }
+    if (!dn.value.trim()) ok = false;
+  });
+  if (!ok) {
+    e.preventDefault();
+    alert('Please fill in the medication name for all rows.');
+  }
+});
+
+// Auto-add one row on load
+addDrugRow();
+</script>
+{% endblock %}

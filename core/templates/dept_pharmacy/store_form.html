@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Department Store{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'dept_store_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Department Stores</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">{{ action }} Department Store</h1>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+
+    <div class="field-wrapper">
+      <label class="field-label">Store Name *</label>
+      <input type="text" name="name" value="{{ store.name|default:post.name|default:'' }}" required class="field-input">
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Department Type *</label>
+      <select name="store_type" class="field-input">
+        {% for val, label in store_types %}
+        <option value="{{ val }}" {% if store.store_type == val or post.store_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Location / Room</label>
+      <input type="text" name="location" value="{{ store.location|default:post.location|default:'' }}" class="field-input" placeholder="e.g. Block C, Floor 2">
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Phone</label>
+      <input type="text" name="phone" value="{{ store.phone|default:post.phone|default:'' }}" class="field-input">
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Notes</label>
+      <textarea name="notes" rows="3" class="field-input">{{ store.notes|default:post.notes|default:'' }}</textarea>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn-primary">Save Store</button>
+      <a href="{% url 'dept_store_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

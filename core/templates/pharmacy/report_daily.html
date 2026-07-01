@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Daily Sales Report — {{ report_date }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Daily Sales Report</h1>
+    <p class="text-sm text-slate-500">{{ report_date|date:"l, d F Y" }}</p>
+  </div>
+  <div class="flex gap-2">
+    <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+    <a href="{% url 'pharmacy_report_medications' %}" class="btn-secondary text-sm">Med. Sales Report</a>
+  </div>
+</div>
+
+<!-- Date selector -->
+<form method="get" class="flex gap-3 items-end mb-5">
+  <div>
+    <label class="text-xs text-slate-500 block mb-1">Report Date</label>
+    <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}"
+      class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+  </div>
+  <button type="submit" class="btn-primary text-sm">View</button>
+</form>
+
+<!-- KPIs -->
+<div class="grid grid-cols-3 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Transactions</p>
+    <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1">{{ totals.sales }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Revenue Collected</p>
+    <p class="text-3xl font-bold text-emerald-600 mt-1">{{ totals.revenue|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Outstanding Credit</p>
+    <p class="text-3xl font-bold text-amber-600 mt-1">{{ totals.outstanding|floatformat:2 }}</p>
+  </div>
+</div>
+
+<!-- By payment method -->
+{% if by_method %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden mb-5">
+  <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Payment Method Breakdown</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-900/50">
+      <tr>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Method</th>
+        <th class="px-4 py-2.5 text-center text-xs text-slate-500 uppercase">Transactions</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Amount (ETB)</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for method, data in by_method.items %}
+      <tr>
+        <td class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">{{ method }}</td>
+        <td class="px-4 py-3 text-center text-slate-600 dark:text-slate-400">{{ data.count }}</td>
+        <td class="px-4 py-3 text-right font-bold text-emerald-600">{{ data.total|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Transactions list -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Transactions</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-900/50">
+      <tr>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Sale #</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Customer</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase hidden sm:table-cell">Cashier</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Method</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Amount</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase hidden md:table-cell">Time</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for s in sales %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+        <td class="px-4 py-3 font-mono text-xs">
+          <a href="{% url 'pharmacy_sale_detail' s.id %}" class="text-indigo-600 hover:underline">{{ s.sale_number }}</a>
+        </td>
+        <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ s.customer_display|truncatechars:22 }}</td>
+        <td class="px-4 py-3 hidden sm:table-cell text-slate-500 text-xs">{{ s.cashier.get_full_name|default:s.cashier.username }}</td>
+        <td class="px-4 py-3 text-xs text-slate-500">{{ s.payment_method }}</td>
+        <td class="px-4 py-3 text-right font-semibold text-slate-800 dark:text-slate-200">{{ s.paid_amount|floatformat:2 }}</td>
+        <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-400">{{ s.created_at|date:"H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No sales recorded for this date.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>@media print { .btn-secondary, .btn-primary, button, nav, header { display: none !important; } }</style>
+{% endblock %}

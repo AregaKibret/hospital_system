@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Transfer {{ transfer.transfer_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <a href="{% url 'dept_transfer_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Transfers</a>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ transfer.transfer_number }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ transfer.get_transfer_type_display }}</p>
+    </div>
+    {% if transfer.status == 'pending' and perms.core.record_dept_usage %}
+    <a href="{% url 'dept_transfer_receive' transfer.id %}" class="btn-primary text-sm">Receive Stock</a>
+    {% endif %}
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</p>
+      <span class="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+        {% if transfer.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+        {% elif transfer.status == 'completed' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+        {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+        {{ transfer.get_status_display }}
+      </span>
+    </div>
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">From</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.source_store.name|default:"Main Pharmacy" }}</p>
+    </div>
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">To</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.dest_store.name|default:"Main Pharmacy" }}</p>
+    </div>
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Prepared By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.prepared_by.get_full_name|default:transfer.prepared_by.username|default:"—" }}</p>
+    </div>
+    {% if transfer.received_by %}
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Received By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.received_by.get_full_name|default:transfer.received_by.username }}</p>
+    </div>
+    {% endif %}
+    {% if transfer.transfer_date %}
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transfer Date</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.transfer_date|date:"M d, Y H:i" }}</p>
+    </div>
+    {% endif %}
+    {% if transfer.notes %}
+    <div class="col-span-3">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Notes</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ transfer.notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Transfer Items</h3>
+    </div>
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+          <th class="px-5 py-3 font-medium">Medication</th>
+          <th class="px-5 py-3 font-medium">Batch #</th>
+          <th class="px-5 py-3 font-medium">Expires</th>
+          <th class="px-5 py-3 font-medium text-right">Qty</th>
+          <th class="px-5 py-3 font-medium text-right">Unit Cost</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for item in items %}
+        <tr>
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.medication.name }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
+          </td>
+          <td class="px-5 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{{ item.batch_number }}</td>
+          <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ item.expiration_date|date:"M d, Y" }}</td>
+          <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ item.quantity_transferred }}</td>
+          <td class="px-5 py-3 text-right text-slate-600 dark:text-slate-400">ETB {{ item.unit_cost }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

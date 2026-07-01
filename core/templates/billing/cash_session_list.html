@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Cash Sessions{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Cash Sessions</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Daily cashier opening and closing reconciliation</p>
+    </div>
+    <div class="flex gap-2">
+      {% if my_open %}
+      <a href="{% url 'cash_session_close' my_open.id %}"
+         class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">
+        Close Today's Session
+      </a>
+      {% else %}
+      <a href="{% url 'cash_session_open' %}"
+         class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">
+        Open Session
+      </a>
+      {% endif %}
+      <a href="{% url 'billing_dashboard' %}" class="btn-secondary text-sm">&larr; Billing</a>
+    </div>
+  </div>
+
+  <!-- Active session banner -->
+  {% if my_open %}
+  <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-xl p-4 flex items-center justify-between">
+    <div>
+      <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Session Open — {{ today|date:"d M Y" }}</p>
+      <p class="text-xs text-emerald-600 dark:text-emerald-400">Opening balance: ETB {{ my_open.opening_balance|floatformat:2 }} · Collected: ETB {{ my_open.total_collected|floatformat:2 }}</p>
+    </div>
+    <a href="{% url 'cash_session_close' my_open.id %}" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold transition">Close Now</a>
+  </div>
+  {% endif %}
+
+  <!-- Date filter -->
+  <form method="get" class="flex flex-wrap gap-3 items-center">
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-slate-500 dark:text-slate-400">From</label>
+      <input type="date" name="date_from" value="{{ date_from }}" class="field-input w-40">
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-slate-500 dark:text-slate-400">To</label>
+      <input type="date" name="date_to" value="{{ date_to }}" class="field-input w-40">
+    </div>
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+  </form>
+
+  <!-- Table -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    {% if page_obj %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-5 py-3">Cashier</th>
+            <th class="px-5 py-3">Date</th>
+            <th class="px-5 py-3">Opening</th>
+            <th class="px-5 py-3">Collected</th>
+            <th class="px-5 py-3">Expected</th>
+            <th class="px-5 py-3">Actual</th>
+            <th class="px-5 py-3">Discrepancy</th>
+            <th class="px-5 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for session in page_obj %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ session.cashier.get_full_name }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ session.date|date:"d M Y" }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">ETB {{ session.opening_balance|floatformat:2 }}</td>
+            <td class="px-5 py-3 font-semibold text-emerald-600 dark:text-emerald-400">ETB {{ session.total_collected|floatformat:2 }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">
+              {% if session.expected_closing %}ETB {{ session.expected_closing|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">
+              {% if session.closing_balance is not None %}ETB {{ session.closing_balance|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3">
+              {% if session.discrepancy is not None %}
+              <span class="font-semibold {% if session.discrepancy == 0 %}text-emerald-600 dark:text-emerald-400{% elif session.discrepancy > 0 %}text-blue-600 dark:text-blue-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                {% if session.discrepancy >= 0 %}+{% endif %}ETB {{ session.discrepancy|floatformat:2 }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold
+                {% if session.status == 'Open' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                {% elif session.status == 'Closed' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                {{ session.status }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex justify-between text-sm text-slate-500">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn-secondary text-xs py-1 px-3">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn-secondary text-xs py-1 px-3">Next</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="py-16 text-center text-slate-400 dark:text-slate-500">No sessions found.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Billing — Split View{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+  <div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Invoice Split View</h1>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ today|date:"l, d F Y" }} · auto-refreshes every 30 s</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if perms.core.create_invoice %}
+    <a href="{% url 'invoice_create' %}" class="btn-primary text-sm">+ New Invoice</a>
+    {% endif %}
+    <a href="{% url 'invoice_list' %}" class="btn-secondary text-sm">List View</a>
+    <a href="{% url 'billing_dashboard' %}" class="btn-secondary text-sm">Dashboard</a>
+  </div>
+</div>
+
+{% if messages %}
+<div class="mb-3 space-y-2">
+  {% for m in messages %}
+  <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+    {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800
+    {% elif m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">{{ m }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Summary counters -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+  <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Paid Invoices</p>
+    <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300" id="kpi-paid-count">{{ paid_count }}</p>
+  </div>
+  <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Total Collected</p>
+    <p class="text-lg font-bold text-emerald-700 dark:text-emerald-300" id="kpi-paid-total">ETB {{ paid_total|floatformat:2 }}</p>
+  </div>
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-amber-600 dark:text-amber-400 font-medium">Pending Invoices</p>
+    <p class="text-2xl font-bold text-amber-700 dark:text-amber-300" id="kpi-unpaid-count">{{ unpaid_count }}</p>
+  </div>
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-red-600 dark:text-red-400 font-medium">Outstanding Balance</p>
+    <p class="text-lg font-bold text-red-700 dark:text-red-300" id="kpi-outstanding">ETB {{ outstanding|floatformat:2 }}</p>
+  </div>
+</div>
+
+<!-- Split container -->
+<div id="split-container" class="flex gap-0 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm bg-white dark:bg-slate-800" style="height: calc(100vh - 260px); min-height: 500px;">
+
+  <!-- ══ LEFT PANEL — PAID ══ -->
+  <div id="paid-panel" class="flex flex-col" style="width:50%; min-width:280px;">
+
+    <!-- Panel header -->
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20 shrink-0">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+          <h2 class="text-sm font-bold text-emerald-800 dark:text-emerald-300">Paid Invoices</h2>
+          <span id="paid-count-badge" class="text-xs bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full font-semibold">{{ paid_count }}</span>
+        </div>
+        <button onclick="refreshPaid()" title="Refresh" class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 transition">
+          <svg id="paid-refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+      <!-- Search + date filter -->
+      <div class="flex gap-2">
+        <input type="text" id="paid-search" placeholder="Search patient, MRN…" value=""
+               class="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+        <input type="date" id="paid-date" value=""
+               class="text-xs px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+        <button onclick="refreshPaid()" class="text-xs px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition">Go</button>
+      </div>
+    </div>
+
+    <!-- Panel body (scrollable) -->
+    <div id="paid-panel-body" class="flex-1 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700/50">
+      <!-- Loaded via JS -->
+      <div class="px-4 py-8 text-center text-slate-400 text-sm" id="paid-loading">Loading…</div>
+    </div>
+
+  </div>
+
+  <!-- ══ DRAG DIVIDER ══ -->
+  <div id="drag-divider"
+       class="w-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-indigo-400 dark:hover:bg-indigo-600 cursor-col-resize shrink-0 flex items-center justify-center transition-colors group"
+       title="Drag to resize">
+    <div class="w-0.5 h-8 bg-slate-300 dark:bg-slate-600 rounded group-hover:bg-indigo-400 dark:group-hover:bg-indigo-500 transition-colors"></div>
+  </div>
+
+  <!-- ══ RIGHT PANEL — UNPAID ══ -->
+  <div id="unpaid-panel" class="flex flex-col flex-1" style="min-width:280px;">
+
+    <!-- Panel header -->
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-amber-50 dark:bg-amber-900/20 shrink-0">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+          <h2 class="text-sm font-bold text-amber-800 dark:text-amber-300">Pending Invoices</h2>
+          <span id="unpaid-count-badge" class="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-semibold">{{ unpaid_count }}</span>
+        </div>
+        <button onclick="refreshUnpaid()" title="Refresh" class="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 transition">
+          <svg id="unpaid-refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+      <!-- Search + status filter -->
+      <div class="flex gap-2">
+        <input type="text" id="unpaid-search" placeholder="Search patient, MRN…" value=""
+               class="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-400">
+        <select id="unpaid-status"
+                class="text-xs px-2 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-400">
+          <option value="">All Statuses</option>
+          <option value="Draft">Draft</option>
+          <option value="Issued">Issued</option>
+          <option value="Partial">Partially Paid</option>
+          <option value="Credit Pending">Credit Pending</option>
+        </select>
+        <button onclick="refreshUnpaid()" class="text-xs px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition">Go</button>
+      </div>
+    </div>
+
+    <!-- Panel body (scrollable) -->
+    <div id="unpaid-panel-body" class="flex-1 overflow-y-auto">
+      <div class="px-4 py-8 text-center text-slate-400 text-sm" id="unpaid-loading">Loading…</div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Refresh status bar -->
+<div class="flex items-center justify-between mt-2 px-1">
+  <p class="text-xs text-slate-400" id="last-refresh-text">Loading panels…</p>
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-1.5 text-xs text-slate-400">
+      <div id="auto-refresh-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></div>
+      Auto-refresh in <span id="countdown">30</span>s
+    </div>
+    <button onclick="refreshBoth()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Refresh now</button>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── URL endpoints ─────────────────────────────────────────────────────────────
+const PAID_URL   = "{% url 'invoice_panel_paid' %}";
+const UNPAID_URL = "{% url 'invoice_panel_unpaid' %}";
+const STATS_URL  = "{% url 'billing_dashboard' %}"; // we'll compute inline
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let paidPage   = 1;
+let unpaidPage = 1;
+const highlightId = "{{ highlight_id }}";
+
+// ── Panel fetch helpers ───────────────────────────────────────────────────────
+function buildPaidParams(page) {
+  const p = new URLSearchParams();
+  const q = document.getElementById('paid-search').value.trim();
+  const d = document.getElementById('paid-date').value;
+  if (q) p.set('q', q);
+  if (d) p.set('date', d);
+  if (page > 1) p.set('page', page);
+  if (highlightId) p.set('highlight', highlightId);
+  return p.toString() ? '?' + p.toString() : '';
+}
+
+function buildUnpaidParams(page) {
+  const p = new URLSearchParams();
+  const q = document.getElementById('unpaid-search').value.trim();
+  const s = document.getElementById('unpaid-status').value;
+  if (q) p.set('q', q);
+  if (s) p.set('status', s);
+  if (page > 1) p.set('page', page);
+  return p.toString() ? '?' + p.toString() : '';
+}
+
+function spin(iconId, spinning) {
+  const el = document.getElementById(iconId);
+  if (!el) return;
+  spinning ? el.classList.add('animate-spin') : el.classList.remove('animate-spin');
+}
+
+function loadPaidPanel(page) {
+  paidPage = page || 1;
+  spin('paid-refresh-icon', true);
+  fetch(PAID_URL + buildPaidParams(paidPage), {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(r => r.text())
+    .then(html => {
+      document.getElementById('paid-panel-body').innerHTML = html;
+      spin('paid-refresh-icon', false);
+      // Scroll highlight into view
+      if (highlightId) {
+        const el = document.querySelector(`[data-invoice-id="${highlightId}"]`);
+        if (el) {
+          el.scrollIntoView({behavior: 'smooth', block: 'center'});
+          el.classList.add('ring-2', 'ring-inset', 'ring-emerald-400');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-inset', 'ring-emerald-400'), 5000);
+        }
+      }
+    })
+    .catch(() => { spin('paid-refresh-icon', false); });
+}
+
+function loadUnpaidPanel(page) {
+  unpaidPage = page || 1;
+  spin('unpaid-refresh-icon', true);
+  fetch(UNPAID_URL + buildUnpaidParams(unpaidPage), {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(r => r.text())
+    .then(html => {
+      document.getElementById('unpaid-panel-body').innerHTML = html;
+      spin('unpaid-refresh-icon', false);
+    })
+    .catch(() => { spin('unpaid-refresh-icon', false); });
+}
+
+function refreshPaid() { loadPaidPanel(1); }
+function refreshUnpaid() { loadUnpaidPanel(1); }
+
+function refreshBoth() {
+  loadPaidPanel(paidPage);
+  loadUnpaidPanel(unpaidPage);
+  const now = new Date();
+  document.getElementById('last-refresh-text').textContent =
+    `Last refreshed: ${now.toLocaleTimeString()}`;
+  resetCountdown();
+}
+
+// ── Auto-refresh countdown ────────────────────────────────────────────────────
+let countdownVal = 30;
+let countdownTimer = null;
+
+function resetCountdown() {
+  countdownVal = 30;
+  document.getElementById('countdown').textContent = countdownVal;
+}
+
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdownVal--;
+    const el = document.getElementById('countdown');
+    if (el) el.textContent = countdownVal;
+    if (countdownVal <= 0) {
+      refreshBoth();
+    }
+  }, 1000);
+}
+
+// ── Drag to resize ────────────────────────────────────────────────────────────
+(function initDrag() {
+  const divider    = document.getElementById('drag-divider');
+  const container  = document.getElementById('split-container');
+  const leftPanel  = document.getElementById('paid-panel');
+  const rightPanel = document.getElementById('unpaid-panel');
+  let dragging = false;
+
+  divider.addEventListener('mousedown', e => {
+    dragging = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const totalW = rect.width;
+    const dividerW = 6;
+    const leftPct = Math.min(80, Math.max(20, (x / totalW) * 100));
+    leftPanel.style.width  = leftPct + '%';
+    rightPanel.style.width = (100 - leftPct - (dividerW / totalW * 100)) + '%';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) {
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
+  // Touch support
+  divider.addEventListener('touchstart', e => { dragging = true; e.preventDefault(); });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const rect = container.getBoundingClientRect();
+    const x = e.touches[0].clientX - rect.left;
+    const totalW = rect.width;
+    const leftPct = Math.min(80, Math.max(20, (x / totalW) * 100));
+    leftPanel.style.width  = leftPct + '%';
+    rightPanel.style.width = (100 - leftPct - 0.5) + '%';
+  });
+  document.addEventListener('touchend', () => { dragging = false; });
+})();
+
+// ── Search on Enter ───────────────────────────────────────────────────────────
+document.getElementById('paid-search').addEventListener('keydown', e => { if (e.key === 'Enter') refreshPaid(); });
+document.getElementById('unpaid-search').addEventListener('keydown', e => { if (e.key === 'Enter') refreshUnpaid(); });
+document.getElementById('unpaid-status').addEventListener('change', () => refreshUnpaid());
+document.getElementById('paid-date').addEventListener('change', () => refreshPaid());
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+refreshBoth();
+startCountdown();
+</script>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{% if edit_mode %}Edit{% else %}New{% endif %} Surgery Order{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">← Back</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">
+    {% if edit_mode %}Edit Surgery Order — {{ order.order_number }}{% else %}New Surgery / Procedure Order{% endif %}
+  </h1>
+</div>
+
+<form method="post">{% csrf_token %}
+
+  <!-- Patient Selection -->
+  {% if not edit_mode %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Patient Information</h2>
+    {% if patient %}
+    <input type="hidden" name="patient" value="{{ patient.pk }}" />
+    {% if visit %}<input type="hidden" name="visit" value="{{ visit.pk }}" />{% endif %}
+    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+      <p class="font-semibold text-slate-900 dark:text-white">{{ patient.full_name }}</p>
+      <div class="flex flex-wrap gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <span>Card: <span class="font-mono">{{ patient.card_number }}</span></span>
+        <span>Age: {{ patient.age }}</span>
+        <span>Sex: {{ patient.sex }}</span>
+        {% if visit %}<span>Visit: #{{ visit.pk }}</span>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="field-wrapper">
+      <label class="field-label">Patient <span class="text-red-500">*</span></label>
+      <select name="patient" class="field-input" required>
+        <option value="">— Select Patient —</option>
+        {% for p in patients %}<option value="{{ p.pk }}" {% if post.patient == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.full_name }} ({{ p.card_number }})</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Procedure Details -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Procedure Details</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Procedure from Master List</label>
+        <select name="procedure_master" class="field-input" id="procedureSelect">
+          <option value="">— Select from procedure list (optional) —</option>
+          {% for proc in procedures %}<option value="{{ proc.pk }}" data-name="{{ proc.name }}" data-prep="{{ proc.required_preparation }}" {% if edit_mode and order.procedure_master_id == proc.pk %}selected{% elif post.procedure_master == proc.pk|stringformat:"s" %}selected{% endif %}>{{ proc.code }} — {{ proc.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Planned Procedure / Surgery Name <span class="text-red-500">*</span></label>
+        <input type="text" name="planned_procedure" id="plannedProcedure" value="{% if edit_mode %}{{ order.planned_procedure }}{% else %}{{ post.planned_procedure }}{% endif %}" required class="field-input" placeholder="e.g. Appendectomy, Open Cholecystectomy…" />
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Pre-operative Diagnosis <span class="text-red-500">*</span></label>
+        <input type="text" name="pre_op_diagnosis" value="{% if edit_mode %}{{ order.pre_op_diagnosis }}{% else %}{{ post.pre_op_diagnosis }}{% endif %}" required class="field-input" placeholder="Current diagnosis / indication for surgery" />
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Indication / Clinical Reason</label>
+        <textarea name="indication" rows="2" class="field-input">{% if edit_mode %}{{ order.indication }}{% else %}{{ post.indication }}{% endif %}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Priority <span class="text-red-500">*</span></label>
+        <select name="priority" class="field-input" required>
+          {% for val, label in priorities %}<option value="{{ val }}" {% if edit_mode and order.priority == val %}selected{% elif post.priority == val %}selected{% elif val == 'elective' and not edit_mode and not post %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Department</label>
+        <select name="department" class="field-input">
+          <option value="">— Select Department —</option>
+          {% for dept in departments %}<option value="{{ dept.pk }}" {% if edit_mode and order.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Planned Date</label>
+        <input type="date" name="planned_date" value="{% if edit_mode %}{{ order.planned_date|date:'Y-m-d' }}{% else %}{{ post.planned_date }}{% endif %}" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Preferred Time</label>
+        <input type="time" name="preferred_time" value="{% if edit_mode %}{{ order.preferred_time|time:'H:i' }}{% else %}{{ post.preferred_time }}{% endif %}" class="field-input" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Surgical Team -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Surgical Team</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Surgeon <span class="text-red-500">*</span></label>
+        <select name="surgeon" class="field-input" required>
+          <option value="">— Select Surgeon —</option>
+          {% for s in surgeons %}<option value="{{ s.pk }}" {% if edit_mode and order.surgeon_id == s.pk %}selected{% elif post.surgeon == s.pk|stringformat:"s" %}selected{% endif %}>Dr. {{ s.get_full_name|default:s.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Assistant Surgeon</label>
+        <select name="assistant_surgeon" class="field-input">
+          <option value="">— None —</option>
+          {% for s in surgeons %}<option value="{{ s.pk }}" {% if edit_mode and order.assistant_surgeon_id == s.pk %}selected{% endif %}>Dr. {{ s.get_full_name|default:s.username }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clinical Information -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Clinical Information</h2>
+    <div class="grid grid-cols-1 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Special Instructions</label>
+        <textarea name="special_instructions" rows="2" class="field-input">{% if edit_mode %}{{ order.special_instructions }}{% endif %}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Previous Relevant History</label>
+        <textarea name="previous_history" rows="2" class="field-input">{% if edit_mode %}{{ order.previous_history }}{% endif %}</textarea>
+      </div>
+      <div class="field-wrapper" id="prepField">
+        <label class="field-label">Required Preparation</label>
+        <textarea name="required_preparation" rows="2" class="field-input" id="requiredPrep">{% if edit_mode %}{{ order.required_preparation }}{% endif %}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anesthesia -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Anesthesia</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Anesthesia Type <span class="text-red-500">*</span></label>
+        <select name="anesthesia_type" class="field-input">
+          {% for val, label in anesthesia_types %}<option value="{{ val }}" {% if edit_mode and order.anesthesia_type == val %}selected{% elif val == 'General' and not edit_mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper flex items-center gap-3 pt-6">
+        <input type="checkbox" name="anesthesia_assessment_requested" id="anaReq" class="w-4 h-4 rounded" {% if edit_mode and order.anesthesia_assessment_requested %}checked{% endif %} />
+        <label for="anaReq" class="text-sm text-slate-700 dark:text-slate-300">Request Pre-anesthesia Assessment</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <div class="field-wrapper">
+      <label class="field-label">Additional Notes</label>
+      <textarea name="notes" rows="3" class="field-input">{% if edit_mode %}{{ order.notes }}{% endif %}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">{% if edit_mode %}Update Order{% else %}Submit Surgery Order{% endif %}</button>
+    <a href="{% if edit_mode %}{% url 'surgery_order_detail' order.pk %}{% else %}{% url 'surgery_order_list' %}{% endif %}" class="btn-secondary">Cancel</a>
+  </div>
+
+</form>
+
+<script>
+document.getElementById('procedureSelect').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  const name = opt.getAttribute('data-name');
+  const prep = opt.getAttribute('data-prep');
+  if (name) document.getElementById('plannedProcedure').value = name;
+  if (prep) document.getElementById('requiredPrep').value = prep;
+});
+</script>
+
+{% endblock %}

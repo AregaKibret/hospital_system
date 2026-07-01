@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Surgery Schedule Report{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Surgery Schedule Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ schedules.count }} scheduled surger{{ schedules.count|pluralize:"y,ies" }}</p>
+  </div>
+  <a href="{% url 'surgery_reports' %}" class="btn-secondary text-sm">← Reports</a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+    <div class="field-wrapper"><label class="field-label text-xs">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm" /></div>
+    <div class="field-wrapper"><label class="field-label text-xs">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input text-sm" /></div>
+    <div class="field-wrapper">
+      <label class="field-label text-xs">OR Room</label>
+      <select name="room" class="field-input text-sm">
+        <option value="">All Rooms</option>
+        {% for r in rooms %}<option value="{{ r.pk }}" {% if room_f == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field-wrapper">
+      <label class="field-label text-xs">Status</label>
+      <select name="status" class="field-input text-sm">
+        <option value="">All</option>
+        {% for val, label in statuses %}<option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Apply</button>
+    <a href="{% url 'report_surgery_schedule' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date / Time</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Room</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Anesthesiologist</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for sched in schedules %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-3 whitespace-nowrap">
+            <p class="font-medium text-slate-800 dark:text-slate-100 text-sm">{{ sched.scheduled_date|date:"d M Y" }}</p>
+            <p class="text-xs text-slate-400 font-mono">{{ sched.scheduled_start_time|time:"H:i" }}{% if sched.estimated_end_time %} → {{ sched.estimated_end_time|time:"H:i" }}{% endif %}</p>
+          </td>
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ sched.surgery_order.patient.full_name }}</td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-xs"><a href="{% url 'surgery_order_detail' sched.surgery_order.pk %}" class="hover:underline text-blue-600 dark:text-blue-400">{{ sched.surgery_order.planned_procedure|truncatechars:35 }}</a></td>
+          <td class="px-4 py-3 text-xs font-medium text-indigo-700 dark:text-indigo-300">{{ sched.or_room.name }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">Dr. {{ sched.surgery_order.surgeon.get_full_name }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{% if sched.anesthesiologist %}Dr. {{ sched.anesthesiologist.get_full_name }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+          <td class="px-4 py-3">{% include "surgery/_status_badge.html" with status=sched.surgery_order.status %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No scheduled surgeries in the selected range.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

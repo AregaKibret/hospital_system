@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ pr.request_number }} — Purchase Request{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between mb-5">
+  <div>
+    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'purchase_request_list' %}" class="hover:text-blue-600">Purchase Requests</a> / {{ pr.request_number }}</nav>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ pr.request_number }}</h1>
+    <p class="text-sm text-slate-500">{{ pr.department.name }} · {{ pr.request_date|date:"d M Y H:i" }}</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="px-3 py-1 rounded-full text-sm font-semibold
+      {% if pr.status == 'Approved' %}bg-emerald-100 text-emerald-700
+      {% elif pr.status == 'Pending' %}bg-amber-100 text-amber-700
+      {% elif pr.status == 'Rejected' or pr.status == 'Cancelled' %}bg-red-100 text-red-600
+      {% elif pr.status == 'Converted' %}bg-blue-100 text-blue-700
+      {% else %}bg-slate-100 text-slate-600{% endif %}">{{ pr.status }}</span>
+    {% if pr.status == 'Pending' and perms.core.approve_purchase_request %}
+    <a href="{% url 'purchase_request_approve' pr.pk %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">Approve / Reject</a>
+    {% endif %}
+    {% if pr.status == 'Approved' and perms.core.approve_purchase_request %}
+    <a href="{% url 'purchase_request_convert' pr.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Convert to PO</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Header info -->
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Request Info</h3></div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-slate-400">Department</span><span class="font-medium text-slate-700 dark:text-slate-300">{{ pr.department.name }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Requested By</span><span class="text-slate-700 dark:text-slate-300">{{ pr.requested_by.get_full_name|default:pr.requested_by.username }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Priority</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if pr.priority == 'Emergency' %}bg-red-100 text-red-700{% elif pr.priority == 'Urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ pr.priority }}</span>
+        </div>
+        {% if pr.required_by %}<div class="flex justify-between"><span class="text-slate-400">Required By</span><span class="text-slate-700 dark:text-slate-300">{{ pr.required_by|date:"d M Y" }}</span></div>{% endif %}
+        {% if pr.reason %}
+        <div><span class="text-slate-400 block mb-1">Reason</span><p class="text-slate-600 dark:text-slate-400 text-xs">{{ pr.reason }}</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if pr.approved_by %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Approval</h3></div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-slate-400">Approved By</span><span class="text-slate-700 dark:text-slate-300">{{ pr.approved_by.get_full_name }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Date</span><span class="text-slate-700 dark:text-slate-300">{{ pr.approval_date|date:"d M Y H:i" }}</span></div>
+        {% if pr.approval_notes %}<div><span class="text-slate-400 block mb-1">Notes</span><p class="text-xs text-slate-600 dark:text-slate-400">{{ pr.approval_notes }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if pr.purchase_order %}
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl px-5 py-4">
+      <p class="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1">Linked Purchase Order</p>
+      <a href="{% url 'purchase_order_detail' pr.purchase_order.pk %}" class="text-blue-600 hover:text-blue-800 font-mono text-sm">{{ pr.purchase_order.po_number }}</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Line Items -->
+  <div class="lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Requested Items</h3></div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/50">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Item</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Qty Req.</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Qty Approved</th>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Unit</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Est. Cost</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for li in line_items %}
+          <tr>
+            <td class="px-4 py-3">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ li.item_name }}</p>
+              {% if li.inventory_item %}<p class="text-xs text-slate-400">{{ li.inventory_item.sku }}</p>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right text-slate-700 dark:text-slate-300">{{ li.quantity_requested|floatformat:0 }}</td>
+            <td class="px-4 py-3 text-right {% if li.quantity_approved is not None %}font-semibold text-emerald-600{% else %}text-slate-300{% endif %}">{{ li.quantity_approved|floatformat:0|default:"—" }}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">{{ li.unit|default:"—" }}</td>
+            <td class="px-4 py-3 text-right text-xs text-slate-500 hidden md:table-cell">{% if li.estimated_unit_cost %}ETB {{ li.estimated_unit_cost|floatformat:2 }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

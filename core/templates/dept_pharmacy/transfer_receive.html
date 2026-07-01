@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Receive Transfer {{ transfer.transfer_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'dept_transfer_detail' transfer.id %}" class="text-sm text-indigo-600 hover:underline">&larr; Transfer {{ transfer.transfer_number }}</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Confirm Receipt</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">From: {{ transfer.source_store.name|default:"Main Pharmacy" }} → {{ transfer.dest_store.name }}</p>
+  </div>
+
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
+    Confirm the quantities you are physically receiving. Stock will be added to your department store.
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
+      {% for item in items %}
+      <div class="grid grid-cols-2 gap-4 items-end py-3 border-b last:border-0 border-slate-100 dark:border-slate-700">
+        <div>
+          <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.medication.name }}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Batch: {{ item.batch_number }} · Exp: {{ item.expiration_date|date:"M d, Y" }}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Transferred: {{ item.quantity_transferred }} units</p>
+        </div>
+        <div class="field-wrapper mb-0">
+          <label class="field-label">Received Qty</label>
+          <input type="number" name="recv_qty_{{ item.id }}" value="{{ item.quantity_transferred }}" min="0" max="{{ item.quantity_transferred }}" class="field-input text-sm">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="field-wrapper">
+        <label class="field-label">Notes (optional)</label>
+        <textarea name="notes" rows="2" class="field-input"></textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Confirm Receipt</button>
+      <a href="{% url 'dept_transfer_detail' transfer.id %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

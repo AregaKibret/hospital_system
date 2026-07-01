@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Open Cash Session{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto space-y-5">
+
+  <div>
+    <a href="{% url 'cash_session_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Cash Sessions</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">Open Cash Session</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ today|date:"l, F j, Y" }}</p>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+
+    <div class="field-wrapper">
+      <label class="field-label">Opening Balance (ETB)</label>
+      <input type="number" name="opening_balance" step="0.01" min="0" value="0"
+             class="field-input text-lg" placeholder="0.00">
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Enter the cash in the drawer at the start of the day.</p>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Notes</label>
+      <textarea name="notes" rows="2" class="field-input" placeholder="Optional notes"></textarea>
+    </div>
+
+    <div class="flex gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit" class="btn-primary">Open Session</button>
+      <a href="{% url 'cash_session_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

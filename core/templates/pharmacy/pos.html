@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% block title %}Pharmacy POS{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Pharmacy Point of Sale</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ today|date:"l, d F Y" }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'pharmacy_sales_list' %}" class="btn-secondary text-sm">Sales History</a>
+    <a href="{% url 'pharmacy_dashboard' %}" class="btn-secondary text-sm">← Dashboard</a>
+  </div>
+</div>
+
+<!-- Today Stats -->
+<div class="grid grid-cols-3 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Today's Sales</p>
+    <p class="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">{{ stats.total_sales|default:"0" }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Revenue (ETB)</p>
+    <p class="text-2xl font-bold text-emerald-600 mt-0.5">{{ stats.total_revenue|default:"0"|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+    <p class="text-xs text-slate-500 dark:text-slate-400">Dispensed Today</p>
+    <p class="text-2xl font-bold text-indigo-600 mt-0.5">{{ stats.paid_count|default:"0" }}</p>
+  </div>
+</div>
+
+<!-- Main POS Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+  <!-- Left: Product Search + Recent Sales -->
+  <div class="lg:col-span-2 space-y-4">
+
+    <!-- Product Search -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Search Product</h2>
+      </div>
+      <div class="p-3">
+        <div class="relative">
+          <input type="text" id="productSearch" placeholder="Type medication name, generic, batch..."
+            class="w-full text-sm px-3 py-2.5 pl-9 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-400 focus:border-teal-400">
+          <svg class="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <div id="productResults" class="mt-2 space-y-1 max-h-72 overflow-y-auto hidden"></div>
+      </div>
+    </div>
+
+    <!-- Recent Sales Today -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Recent Sales Today</h2>
+      </div>
+      <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for s in recent_sales %}
+        <a href="{% url 'pharmacy_sale_detail' s.id %}" class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <div>
+            <p class="text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono">{{ s.sale_number }}</p>
+            <p class="text-xs text-slate-400">{{ s.customer_display|truncatechars:22 }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs font-bold text-slate-700 dark:text-slate-300">ETB {{ s.total_amount|floatformat:2 }}</p>
+            <span class="text-xs px-1.5 py-0.5 rounded-full font-medium
+              {% if s.status == 'Dispensed' %}bg-emerald-100 text-emerald-700
+              {% elif s.status == 'Pending' %}bg-amber-100 text-amber-700
+              {% elif s.status == 'Credit' %}bg-blue-100 text-blue-700
+              {% elif s.status == 'Cancelled' %}bg-red-100 text-red-600
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ s.status }}
+            </span>
+          </div>
+        </a>
+        {% empty %}
+        <p class="px-4 py-6 text-center text-xs text-slate-400">No sales today yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: Cart + Checkout -->
+  <div class="lg:col-span-3">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 sticky top-4">
+
+      <!-- Customer Section -->
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Customer</h2>
+          <!-- Toggle -->
+          <div class="flex rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden text-xs">
+            <button id="btnPatient" onclick="setMode('patient')"
+              class="px-3 py-1.5 font-semibold transition bg-teal-600 text-white">Patient</button>
+            <button id="btnWalkin" onclick="setMode('walkin')"
+              class="px-3 py-1.5 font-semibold transition bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Walk-in</button>
+          </div>
+        </div>
+
+        <!-- Patient search panel -->
+        <div id="panelPatient">
+          <div class="relative">
+            <input type="text" id="patientSearch" placeholder="Search patient by name / MRN / card number..."
+              class="w-full text-sm px-3 py-2 pl-8 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-400">
+            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+          <div id="patientResults" class="mt-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hidden max-h-36 overflow-y-auto"></div>
+          <div id="customerDisplay" class="mt-2 hidden">
+            <div class="flex items-center justify-between px-3 py-2 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-700">
+              <div>
+                <p class="text-sm font-semibold text-teal-800 dark:text-teal-200" id="customerName"></p>
+                <p class="text-xs text-teal-500 font-mono" id="customerMrn"></p>
+              </div>
+              <button onclick="clearPatient()" class="text-xs text-teal-500 hover:text-teal-700">✕ Change</button>
+            </div>
+          </div>
+          <!-- Billing notice (shown when patient selected) -->
+          <div id="billingNotice" class="mt-2 hidden flex items-start gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+            <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Charges will route to the central Billing module.</span>
+          </div>
+        </div>
+
+        <!-- Walk-in fields -->
+        <div id="panelWalkin" class="hidden">
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="walkinName" placeholder="Customer name (optional)"
+              class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+            <input type="text" id="walkinPhone" placeholder="Phone (optional)"
+              class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+          </div>
+        </div>
+
+        <input type="hidden" id="selectedPatientId" value="">
+        <input type="hidden" id="currentMode" value="patient">
+      </div>
+
+      <!-- Cart Items -->
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 min-h-[120px]">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Cart <span id="cartCount" class="text-slate-400 font-normal text-xs">(0 items)</span></h2>
+        <div id="cartItems" class="space-y-2">
+          <p class="text-xs text-slate-400 text-center py-4" id="emptyCart">Search and add products to start a sale.</p>
+        </div>
+      </div>
+
+      <!-- Totals -->
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 space-y-1.5">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Subtotal</span>
+          <span class="font-medium text-slate-700 dark:text-slate-300">ETB <span id="subtotalDisplay">0.00</span></span>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-slate-500">Discount</span>
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400 text-xs">ETB</span>
+            <input type="number" id="discountInput" value="0" min="0" step="0.01"
+              class="w-24 text-sm px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-right focus:ring-1 focus:ring-teal-400"
+              oninput="updateTotals()">
+          </div>
+        </div>
+        <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-100 dark:border-slate-700">
+          <span class="text-slate-800 dark:text-slate-200">Total</span>
+          <span class="text-teal-600 dark:text-teal-400">ETB <span id="totalDisplay">0.00</span></span>
+        </div>
+      </div>
+
+      <!-- Payment (walk-in only) -->
+      <div id="paymentSection" class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 hidden">
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Payment Method</label>
+            <select id="paymentMethod" onchange="toggleCashFields()"
+              class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+              <option value="Cash">Cash</option>
+              <option value="Card">Bank Card</option>
+              <option value="Mobile">Mobile Payment</option>
+              <option value="Transfer">Bank Transfer</option>
+              <option value="Insurance">Insurance</option>
+              <option value="Credit">Credit (Deferred)</option>
+            </select>
+          </div>
+          <div id="cashReceivedBox">
+            <label class="text-xs text-slate-500 block mb-1">Cash Received (ETB)</label>
+            <input type="number" id="cashReceived" value="0" min="0" step="0.01"
+              class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400"
+              oninput="updateChange()">
+          </div>
+        </div>
+        <div id="changeBox" class="text-sm font-semibold text-emerald-600 text-right hidden">
+          Change: ETB <span id="changeDisplay">0.00</span>
+        </div>
+        <div id="creditDueDateBox" class="hidden mt-2">
+          <label class="text-xs text-slate-500 block mb-1">Credit Due Date</label>
+          <input type="date" id="creditDueDate"
+            class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+        </div>
+      </div>
+
+      <!-- Notes + Submit -->
+      <div class="px-4 py-3">
+        <textarea id="saleNotes" rows="2" placeholder="Notes (optional)"
+          class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400 mb-3"></textarea>
+
+        <!-- Walk-in submit -->
+        <button onclick="submitSale()" id="submitBtnWalkin"
+          class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Complete Sale
+        </button>
+
+        <!-- Patient / billing submit -->
+        <button onclick="submitSale()" id="submitBtnBilling"
+          class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition text-sm shadow-sm hidden flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Send to Billing
+        </button>
+        <p id="billingHint" class="hidden text-xs text-slate-400 text-center mt-2">Cashier collects payment · Confirm dispensing after payment</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Hidden form for submission -->
+<form id="saleForm" method="post" action="{% url 'pharmacy_sale_create' %}" style="display:none">
+  {% csrf_token %}
+  <input type="hidden" name="cart" id="cartPayload">
+  <input type="hidden" name="patient_id" id="formPatientId">
+  <input type="hidden" name="customer_name" id="formCustomerName">
+  <input type="hidden" name="customer_phone" id="formCustomerPhone">
+  <input type="hidden" name="payment_method" id="formPaymentMethod">
+  <input type="hidden" name="discount_amount" id="formDiscount">
+  <input type="hidden" name="cash_received" id="formCashReceived">
+  <input type="hidden" name="credit_due_date" id="formCreditDueDate">
+  <input type="hidden" name="notes" id="formNotes">
+</form>
+
+<script>
+let cart = [];
+let searchTimeout = null;
+let mode = 'patient'; // 'patient' or 'walkin'
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('currentMode').value = m;
+  const isPatient = m === 'patient';
+
+  document.getElementById('panelPatient').classList.toggle('hidden', !isPatient);
+  document.getElementById('panelWalkin').classList.toggle('hidden', isPatient);
+  document.getElementById('paymentSection').classList.toggle('hidden', isPatient);
+  document.getElementById('submitBtnWalkin').classList.toggle('hidden', isPatient);
+  document.getElementById('submitBtnBilling').classList.toggle('hidden', !isPatient);
+  document.getElementById('billingHint').classList.toggle('hidden', !isPatient);
+
+  document.getElementById('btnPatient').className = 'px-3 py-1.5 font-semibold transition ' +
+    (isPatient ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700');
+  document.getElementById('btnWalkin').className = 'px-3 py-1.5 font-semibold transition ' +
+    (!isPatient ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700');
+
+  if (isPatient) {
+    // If patient already selected show billing notice
+    const hasPt = !!document.getElementById('selectedPatientId').value;
+    document.getElementById('billingNotice').classList.toggle('hidden', !hasPt);
+  }
+  updateChange();
+}
+
+// ── Product search ──────────────────────────────────────────────────────────
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('productResults').classList.add('hidden'); return; }
+  searchTimeout = setTimeout(() => {
+    fetch(`{% url 'pharmacy_product_search' %}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => {
+        const el = document.getElementById('productResults');
+        el.innerHTML = '';
+        if (!data.results.length) {
+          el.innerHTML = '<p class="text-xs text-slate-400 text-center py-2">No products found.</p>';
+        } else {
+          data.results.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between px-3 py-2 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/20 cursor-pointer border border-transparent hover:border-teal-200 transition';
+            const stockCls = p.stock > 10 ? 'text-emerald-600' : p.stock > 0 ? 'text-amber-500' : 'text-red-500';
+            div.innerHTML = `
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${p.name}</p>
+                <p class="text-xs text-slate-400">${[p.strength, p.form, p.generic].filter(Boolean).join(' · ')}</p>
+                ${p.batch ? `<p class="text-xs text-slate-400 font-mono">Batch: ${p.batch}${p.expiry ? ' · Exp: '+p.expiry : ''}</p>` : ''}
+              </div>
+              <div class="text-right ml-2 shrink-0">
+                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">ETB ${p.price.toFixed(2)}</p>
+                <p class="text-xs font-semibold ${stockCls}">${p.stock} in stock</p>
+              </div>`;
+            div.onclick = () => addToCart(p);
+            el.appendChild(div);
+          });
+        }
+        el.classList.remove('hidden');
+      });
+  }, 300);
+});
+
+function addToCart(p) {
+  const existing = cart.find(i => i.src === p.id);
+  if (existing) {
+    if (existing.qty < p.stock) { existing.qty++; }
+    else { alert('Cannot exceed available stock: ' + p.stock); return; }
+  } else {
+    cart.push({ src: p.id, name: p.name, price: p.price, qty: 1, discount: 0, maxQty: p.stock, batch: p.batch, expiry: p.expiry });
+  }
+  document.getElementById('productSearch').value = '';
+  document.getElementById('productResults').classList.add('hidden');
+  renderCart();
+}
+
+// ── Cart render ─────────────────────────────────────────────────────────────
+function renderCart() {
+  const el = document.getElementById('cartItems');
+  const empty = document.getElementById('emptyCart');
+  document.getElementById('cartCount').textContent = `(${cart.length} item${cart.length !== 1 ? 's' : ''})`;
+  if (!cart.length) { el.innerHTML = ''; empty && (empty.style.display = ''); updateTotals(); return; }
+  if (empty) empty.style.display = 'none';
+  el.innerHTML = cart.map((item, idx) => `
+    <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">${item.name}</p>
+        ${item.batch ? `<p class="text-xs text-slate-400 font-mono">${item.batch}${item.expiry ? ' · '+item.expiry : ''}</p>` : ''}
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <button onclick="changeQty(${idx},-1)" class="w-6 h-6 rounded bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-300 transition">−</button>
+        <input type="number" value="${item.qty}" min="1" max="${item.maxQty}"
+          onchange="setQty(${idx}, parseInt(this.value)||1)"
+          class="w-12 text-center text-sm font-semibold border border-slate-200 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 py-0.5">
+        <button onclick="changeQty(${idx},1)" class="w-6 h-6 rounded bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-300 transition">+</button>
+      </div>
+      <div class="text-right shrink-0 w-20">
+        <p class="text-sm font-bold text-slate-700 dark:text-slate-300">ETB ${(item.price * item.qty).toFixed(2)}</p>
+        <p class="text-xs text-slate-400">@ ${item.price.toFixed(2)}</p>
+      </div>
+      <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 transition ml-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
+  updateTotals();
+}
+
+function changeQty(idx, delta) {
+  cart[idx].qty = Math.max(1, Math.min(cart[idx].maxQty, cart[idx].qty + delta));
+  renderCart();
+}
+function setQty(idx, val) {
+  cart[idx].qty = Math.max(1, Math.min(cart[idx].maxQty, val));
+  renderCart();
+}
+function removeItem(idx) { cart.splice(idx, 1); renderCart(); }
+
+function updateTotals() {
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+  const total = Math.max(subtotal - discount, 0);
+  document.getElementById('subtotalDisplay').textContent = subtotal.toFixed(2);
+  document.getElementById('totalDisplay').textContent = total.toFixed(2);
+  updateChange();
+}
+
+function updateChange() {
+  if (mode !== 'walkin') return;
+  const total = parseFloat(document.getElementById('totalDisplay').textContent) || 0;
+  const cash = parseFloat(document.getElementById('cashReceived').value) || 0;
+  const chg = Math.max(cash - total, 0);
+  document.getElementById('changeDisplay').textContent = chg.toFixed(2);
+  const box = document.getElementById('changeBox');
+  if (document.getElementById('paymentMethod').value === 'Cash' && cash > 0) {
+    box.classList.remove('hidden');
+  } else { box.classList.add('hidden'); }
+}
+
+function toggleCashFields() {
+  const pm = document.getElementById('paymentMethod').value;
+  document.getElementById('cashReceivedBox').style.display = pm === 'Cash' ? '' : 'none';
+  document.getElementById('creditDueDateBox').classList.toggle('hidden', pm !== 'Credit');
+  updateChange();
+}
+
+// ── Patient search ──────────────────────────────────────────────────────────
+let patientTimeout = null;
+document.getElementById('patientSearch').addEventListener('input', function() {
+  clearTimeout(patientTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('patientResults').classList.add('hidden'); return; }
+  patientTimeout = setTimeout(() => {
+    fetch(`{% url 'pharmacy_patient_search' %}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json()).then(data => {
+        const el = document.getElementById('patientResults');
+        el.innerHTML = '';
+        if (!data.results.length) {
+          el.innerHTML = '<p class="text-xs text-slate-400 text-center py-2">No patients found.</p>';
+        }
+        data.results.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center justify-between px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition';
+          div.innerHTML = `<div><p class="text-sm font-semibold text-slate-800 dark:text-slate-200">${p.name}</p><p class="text-xs text-slate-400 font-mono">${p.mrn}${p.phone ? ' · '+p.phone : ''}</p></div>`;
+          div.onclick = () => selectPatient(p);
+          el.appendChild(div);
+        });
+        el.classList.remove('hidden');
+      });
+  }, 300);
+});
+
+function selectPatient(p) {
+  document.getElementById('selectedPatientId').value = p.id;
+  document.getElementById('customerName').textContent = p.name;
+  document.getElementById('customerMrn').textContent = p.mrn + (p.phone ? ' · ' + p.phone : '');
+  document.getElementById('customerDisplay').classList.remove('hidden');
+  document.getElementById('billingNotice').classList.remove('hidden');
+  document.getElementById('patientSearch').value = '';
+  document.getElementById('patientResults').classList.add('hidden');
+}
+
+function clearPatient() {
+  document.getElementById('selectedPatientId').value = '';
+  document.getElementById('customerDisplay').classList.add('hidden');
+  document.getElementById('billingNotice').classList.add('hidden');
+  document.getElementById('patientSearch').value = '';
+}
+
+// ── Submit ──────────────────────────────────────────────────────────────────
+function submitSale() {
+  if (!cart.length) { alert('Cart is empty. Add products first.'); return; }
+
+  if (mode === 'patient' && !document.getElementById('selectedPatientId').value) {
+    alert('Please search and select a registered patient, or switch to Walk-in mode.');
+    return;
+  }
+
+  document.getElementById('cartPayload').value = JSON.stringify(cart.map(i => ({
+    src: i.src, name: i.name, qty: i.qty, price: i.price, discount: i.discount || 0
+  })));
+  document.getElementById('formPatientId').value = document.getElementById('selectedPatientId').value;
+  document.getElementById('formCustomerName').value = mode === 'walkin' ? document.getElementById('walkinName').value : '';
+  document.getElementById('formCustomerPhone').value = mode === 'walkin' ? document.getElementById('walkinPhone').value : '';
+  document.getElementById('formPaymentMethod').value = mode === 'walkin' ? document.getElementById('paymentMethod').value : 'Cash';
+  document.getElementById('formDiscount').value = document.getElementById('discountInput').value || '0';
+  document.getElementById('formCashReceived').value = mode === 'walkin' ? (document.getElementById('cashReceived').value || '0') : '0';
+  document.getElementById('formCreditDueDate').value = mode === 'walkin' ? (document.getElementById('creditDueDate').value || '') : '';
+  document.getElementById('formNotes').value = document.getElementById('saleNotes').value;
+  document.getElementById('saleForm').submit();
+}
+
+// close dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#productSearch') && !e.target.closest('#productResults'))
+    document.getElementById('productResults').classList.add('hidden');
+  if (!e.target.closest('#patientSearch') && !e.target.closest('#patientResults'))
+    document.getElementById('patientResults').classList.add('hidden');
+});
+
+// init
+setMode('patient');
+toggleCashFields();
+</script>
+{% endblock %}

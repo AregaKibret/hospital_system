@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Low Stock Alert — Store{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Low Stock Alert</h1>
+    <p class="text-sm text-slate-500">{{ items|length }} item(s) at or below reorder level</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="?export=csv" class="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 text-slate-600 rounded-lg hover:bg-slate-50">Export CSV</a>
+    <button onclick="window.print()" class="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 text-slate-600 rounded-lg hover:bg-slate-50">Print</button>
+  </div>
+</div>
+
+{% if items %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+        <tr>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Item</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Type</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">In Stock</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Reorder At</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden sm:table-cell">Shortage</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Supplier</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for item in items %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if item.is_out_of_stock %}bg-red-50 dark:bg-red-900/10{% endif %}">
+          <td class="px-4 py-2.5">
+            <a href="{% url 'store_item_detail' item.pk %}" class="font-medium text-blue-600 hover:text-blue-800">{{ item.name }}</a>
+            <p class="text-xs text-slate-400">{{ item.category.name|default:"No Category" }}</p>
+          </td>
+          <td class="px-4 py-2.5 text-xs text-slate-500 hidden md:table-cell">{{ item.get_item_type_display }}</td>
+          <td class="px-4 py-2.5 text-right font-bold {% if item.is_out_of_stock %}text-red-600{% else %}text-amber-600{% endif %}">{{ item.quantity_in_stock|floatformat:0 }} {{ item.unit }}</td>
+          <td class="px-4 py-2.5 text-right text-slate-500">{{ item.reorder_level|floatformat:0 }}</td>
+          <td class="px-4 py-2.5 text-right text-red-600 font-semibold hidden sm:table-cell">{{ item.reorder_level|floatformat:0|add:0|add:0 }}<!-- variance --></td>
+          <td class="px-4 py-2.5 text-xs text-slate-500 hidden md:table-cell">{{ item.supplier.name|default:item.supplier_name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-xl px-5 py-8 text-center">
+  <p class="text-emerald-700 dark:text-emerald-300 font-semibold">All items are above reorder level.</p>
+</div>
+{% endif %}
+{% endblock %}

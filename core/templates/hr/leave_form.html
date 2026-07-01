@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Request Leave{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Request Leave</h1>
+      {% if employee %}
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ employee.full_name }}</p>
+      {% endif %}
+    </div>
+    <a href="{% url 'leave_request_list' %}"
+       class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Back to Leave Requests
+    </a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for m in messages %}
+    <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+      {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+      {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">{{ m }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not employee %}
+  <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 mb-5">
+    <p class="text-sm text-orange-700 dark:text-orange-400 font-medium">You do not have an employee profile. Contact HR to create one before submitting leave requests.</p>
+  </div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <form method="post">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div class="field-wrapper sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Leave Type <span class="text-red-500">*</span></label>
+          <select name="leave_type" required class="block w-full">
+            {% for value, label in leave_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Start Date <span class="text-red-500">*</span></label>
+          <input type="date" name="start_date" required class="block w-full" id="id_start_date">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">End Date <span class="text-red-500">*</span></label>
+          <input type="date" name="end_date" required class="block w-full" id="id_end_date">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Days Requested</label>
+          <input type="number" name="days_requested" min="1" class="block w-full" id="id_days" placeholder="Auto-calculated">
+          <p class="text-xs text-slate-400 mt-0.5">Leave blank to auto-calculate from dates</p>
+        </div>
+        <div class="field-wrapper sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Reason</label>
+          <textarea name="reason" rows="3" class="block w-full" placeholder="Brief reason for leave request"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <a href="{% url 'leave_request_list' %}"
+           class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+        <button type="submit" {% if not employee %}disabled{% endif %}
+                class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">Submit Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function calcDays() {
+  var s = document.getElementById('id_start_date').value;
+  var e = document.getElementById('id_end_date').value;
+  if (s && e) {
+    var sd = new Date(s), ed = new Date(e);
+    if (ed >= sd) {
+      var days = Math.round((ed - sd) / 86400000) + 1;
+      var f = document.getElementById('id_days');
+      if (!f.value) f.placeholder = days + ' days';
+    }
+  }
+}
+document.getElementById('id_start_date').addEventListener('change', calcDays);
+document.getElementById('id_end_date').addEventListener('change', calcDays);
+</script>
+
+{% endblock %}

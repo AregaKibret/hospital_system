@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ store.name }} — Department Store{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <a href="{% url 'dept_store_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; All Stores</a>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ store.name }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ store.get_store_type_display }}{% if store.location %} · {{ store.location }}{% endif %}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if perms.core.request_medication_transfer %}
+      <a href="{% url 'transfer_request_create' %}?store={{ store.id }}" class="btn-primary text-sm">+ Request Stock</a>
+      {% endif %}
+      {% if perms.core.record_dept_usage %}
+      <a href="{% url 'dept_usage_create' store.id %}" class="btn-secondary text-sm">Record Usage</a>
+      <a href="{% url 'dept_return_create' store.id %}" class="btn-secondary text-sm">Return to Pharmacy</a>
+      {% endif %}
+      {% if perms.core.manage_dept_stores %}
+      <a href="{% url 'dept_store_edit' store.id %}" class="btn-secondary text-sm">Edit</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Items</p>
+      <p class="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ stock_items.count }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Low Stock</p>
+      <p class="text-3xl font-bold {% if low_stock %}text-amber-600{% else %}text-slate-800 dark:text-slate-100{% endif %} mt-1">{{ low_stock|length }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Out of Stock</p>
+      <p class="text-3xl font-bold {% if out_of_stock %}text-red-600{% else %}text-slate-800 dark:text-slate-100{% endif %} mt-1">{{ out_of_stock|length }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Expiring (30d)</p>
+      <p class="text-3xl font-bold {% if near_expiry %}text-orange-500{% else %}text-slate-800 dark:text-slate-100{% endif %} mt-1">{{ near_expiry.count }}</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Stock table -->
+    <div class="lg:col-span-2 space-y-4">
+      <!-- Expired batches alert -->
+      {% if expired %}
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+        <p class="text-sm font-semibold text-red-700 dark:text-red-400">{{ expired.count }} expired batch(es) with remaining stock. Please dispose immediately.</p>
+        <div class="mt-2 space-y-1">
+          {% for b in expired %}
+          <p class="text-xs text-red-600 dark:text-red-300">{{ b.dept_stock.medication.name }} — Batch {{ b.batch_number }}, {{ b.quantity_available }} units (expired {{ b.expiration_date|date:"M d, Y" }})</p>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Near expiry alert -->
+      {% if near_expiry %}
+      <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+        <p class="text-sm font-semibold text-orange-700 dark:text-orange-400">{{ near_expiry.count }} batch(es) expiring within 30 days</p>
+        <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+          {% for b in near_expiry %}
+          <p class="text-xs text-orange-600 dark:text-orange-300">{{ b.dept_stock.medication.name }} — {{ b.quantity_available }} units ({{ b.expiration_date|date:"M d" }})</p>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Current Stock</h3>
+          {% if perms.core.view_dept_reports %}
+          <a href="{% url 'dept_report_stock_on_hand' %}?store={{ store.id }}" class="text-xs text-indigo-600 hover:underline">Export</a>
+          {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                <th class="px-5 py-3 font-medium">Medication</th>
+                <th class="px-5 py-3 font-medium">Category</th>
+                <th class="px-5 py-3 font-medium text-right">Qty</th>
+                <th class="px-5 py-3 font-medium text-right">Min</th>
+                <th class="px-5 py-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              {% for s in stock_items %}
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                <td class="px-5 py-3">
+                  <p class="font-medium text-slate-800 dark:text-slate-100">{{ s.medication.name }}</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">{{ s.medication.generic_name }}</p>
+                </td>
+                <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ s.medication.category.name|default:"—" }}</td>
+                <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ s.quantity_available }} {{ s.medication.unit_of_measure }}</td>
+                <td class="px-5 py-3 text-right text-slate-500 dark:text-slate-400">{{ s.minimum_quantity }}</td>
+                <td class="px-5 py-3">
+                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                    {% if s.is_out_of_stock %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+                    {% elif s.is_low_stock %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                    {% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% endif %}">
+                    {{ s.stock_status }}
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="px-5 py-8 text-center text-slate-400 dark:text-slate-500">No stock recorded yet. Request stock from pharmacy.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="space-y-4">
+
+      <!-- Pending transfers -->
+      {% if pending_transfers %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 shadow-sm p-4">
+        <h3 class="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-3">Transfers Awaiting Receipt</h3>
+        {% for t in pending_transfers %}
+        <div class="flex items-center justify-between py-2">
+          <div>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ t.transfer_number }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ t.items.count }} items</p>
+          </div>
+          {% if perms.core.record_dept_usage %}
+          <a href="{% url 'dept_transfer_receive' t.id %}" class="text-xs btn-primary py-1 px-3">Receive</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Recent requests -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Requests</h3>
+          <a href="{% url 'transfer_request_list' %}?store={{ store.id }}" class="text-xs text-indigo-600 hover:underline">All</a>
+        </div>
+        {% for r in recent_requests %}
+        <a href="{% url 'transfer_request_detail' r.id %}" class="flex items-center justify-between py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg px-2 -mx-2 transition">
+          <div>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ r.request_number }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ r.request_date|date:"M d, H:i" }}</p>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded-full
+            {% if r.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+            {% elif r.status == 'fulfilled' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+            {% elif r.status == 'rejected' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+            {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+            {{ r.get_status_display }}
+          </span>
+        </a>
+        {% empty %}
+        <p class="text-xs text-slate-400 dark:text-slate-500">No requests yet.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Recent usage -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Usage</h3>
+          <a href="{% url 'dept_usage_list' %}?store={{ store.id }}" class="text-xs text-indigo-600 hover:underline">All</a>
+        </div>
+        {% for u in recent_usage|slice:":5" %}
+        <div class="flex items-center justify-between py-1.5 border-b last:border-0 border-slate-100 dark:border-slate-700">
+          <div>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ u.medication.name }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ u.usage_date|date:"M d H:i" }} · {{ u.get_usage_type_display }}</p>
+          </div>
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ u.quantity_used }}</span>
+        </div>
+        {% empty %}
+        <p class="text-xs text-slate-400 dark:text-slate-500">No usage recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

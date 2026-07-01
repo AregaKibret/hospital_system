@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Credit Report{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Credit Report</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">All credit invoices with payment status</p>
+    </div>
+    <a href="{% url 'billing_dashboard' %}" class="btn-secondary text-sm">&larr; Billing</a>
+  </div>
+
+  <!-- Status filter -->
+  <div class="flex flex-wrap gap-2">
+    {% for val, label in filter_choices %}
+    <a href="?status={{ val }}"
+       class="px-4 py-2 rounded-xl text-sm font-semibold border transition
+              {% if status_filter == val %}bg-indigo-600 text-white border-indigo-600
+              {% else %}bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Credit Issued</p>
+      <p class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">ETB {{ total_credit|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+      <p class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Total Paid</p>
+      <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">ETB {{ total_paid|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-red-100 dark:border-red-900/30 p-5">
+      <p class="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Remaining Balance</p>
+      <p class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">ETB {{ total_remaining|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    {% if invoices %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-5 py-3">Invoice</th>
+            <th class="px-5 py-3">Patient / MRN</th>
+            <th class="px-5 py-3">Total</th>
+            <th class="px-5 py-3">Paid</th>
+            <th class="px-5 py-3">Balance</th>
+            <th class="px-5 py-3">Due Date</th>
+            <th class="px-5 py-3">Overdue</th>
+            <th class="px-5 py-3">Status</th>
+            <th class="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for row in invoices %}
+          {% with inv=row.inv od=row.overdue_days %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition {% if od > 0 %}bg-red-50/40 dark:bg-red-900/5{% endif %}">
+            <td class="px-5 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{{ inv.invoice_number }}</td>
+            <td class="px-5 py-3">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ inv.patient.full_name }}</p>
+              <p class="text-xs font-mono text-slate-400">{{ inv.patient.card_number }}</p>
+            </td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">ETB {{ inv.total_amount|floatformat:2 }}</td>
+            <td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-semibold">ETB {{ inv.paid_amount|floatformat:2 }}</td>
+            <td class="px-5 py-3 font-bold {% if inv.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600{% endif %}">
+              ETB {{ inv.balance|floatformat:2 }}
+            </td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ inv.due_date|date:"d M Y"|default:"—" }}</td>
+            <td class="px-5 py-3">
+              {% if od > 0 %}
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                {{ od }}d overdue
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3">{% include "billing/_status_badge.html" with status=inv.status %}</td>
+            <td class="px-5 py-3 text-right">
+              <a href="{% url 'invoice_detail' inv.id %}" class="text-xs text-indigo-600 hover:underline">View</a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="py-12 text-center text-slate-400 dark:text-slate-500">No credit invoices found.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

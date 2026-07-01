@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.asset_code }} — {{ asset.name }}{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between mb-5">
+  <div>
+    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'equipment_list' %}" class="hover:text-blue-600">Equipment</a> / {{ asset.asset_code }}</nav>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ asset.name }}</h1>
+    <p class="text-sm text-slate-500">{{ asset.asset_code }} {% if asset.brand %}· {{ asset.brand }}{% endif %} {% if asset.department %}· {{ asset.department }}{% endif %}</p>
+  </div>
+  <a href="{% url 'equipment_edit' asset.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Edit Asset</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Asset Info -->
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Asset Details</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+            {% if asset.status == 'Active' %}bg-emerald-100 text-emerald-700
+            {% elif asset.status == 'In Repair' %}bg-amber-100 text-amber-700
+            {% elif asset.status == 'Idle' %}bg-slate-100 text-slate-600
+            {% else %}bg-red-100 text-red-600{% endif %}">{{ asset.status }}</span>
+        </div>
+      </div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        {% if asset.serial_number %}<div class="flex justify-between"><span class="text-slate-400">Serial #</span><span class="font-mono text-slate-700 dark:text-slate-300">{{ asset.serial_number }}</span></div>{% endif %}
+        {% if asset.model_number %}<div class="flex justify-between"><span class="text-slate-400">Model</span><span class="text-slate-700 dark:text-slate-300">{{ asset.model_number }}</span></div>{% endif %}
+        {% if asset.brand %}<div class="flex justify-between"><span class="text-slate-400">Brand</span><span class="text-slate-700 dark:text-slate-300">{{ asset.brand }}</span></div>{% endif %}
+        {% if asset.category %}<div class="flex justify-between"><span class="text-slate-400">Category</span><span class="text-slate-700 dark:text-slate-300">{{ asset.category.name }}</span></div>{% endif %}
+        {% if asset.department %}<div class="flex justify-between"><span class="text-slate-400">Department</span><span class="text-slate-700 dark:text-slate-300">{{ asset.department }}</span></div>{% endif %}
+        {% if asset.location_detail %}<div class="flex justify-between"><span class="text-slate-400">Location</span><span class="text-slate-700 dark:text-slate-300">{{ asset.location_detail }}</span></div>{% endif %}
+        {% if asset.purchase_date %}<div class="flex justify-between"><span class="text-slate-400">Purchased</span><span class="text-slate-700 dark:text-slate-300">{{ asset.purchase_date|date:"d M Y" }}</span></div>{% endif %}
+        {% if asset.purchase_price %}<div class="flex justify-between"><span class="text-slate-400">Purchase Price</span><span class="text-slate-700 dark:text-slate-300">ETB {{ asset.purchase_price|floatformat:2 }}</span></div>{% endif %}
+        {% if asset.supplier %}<div class="flex justify-between"><span class="text-slate-400">Supplier</span><span class="text-slate-700 dark:text-slate-300">{{ asset.supplier.name }}</span></div>{% endif %}
+        {% if asset.invoice_number %}<div class="flex justify-between"><span class="text-slate-400">Invoice #</span><span class="font-mono text-xs text-slate-700 dark:text-slate-300">{{ asset.invoice_number }}</span></div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Warranty & Maintenance -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Warranty & Maintenance</h3></div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-400">Warranty Expires</span>
+          <span class="{% if asset.warranty_status == 'Expired' %}text-red-500{% elif asset.warranty_status == 'Expiring Soon' %}text-amber-500{% else %}text-emerald-600{% endif %}">
+            {% if asset.warranty_expiry %}{{ asset.warranty_expiry|date:"d M Y" }} <span class="text-xs">({{ asset.warranty_status }})</span>{% else %}—{% endif %}
+          </span>
+        </div>
+        <div class="flex justify-between"><span class="text-slate-400">Last Maintained</span><span class="text-slate-700 dark:text-slate-300">{{ asset.last_maintenance|date:"d M Y"|default:"—" }}</span></div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Next Due</span>
+          <span class="{% if asset.maintenance_overdue %}text-red-600 font-semibold{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+            {% if asset.next_maintenance %}{{ asset.next_maintenance|date:"d M Y" }}{% if asset.maintenance_overdue %} ⚠ Overdue{% endif %}{% else %}—{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Maintenance -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Record Maintenance</h3>
+      <form method="post" action="{% url 'equipment_maintenance_add' asset.pk %}" class="space-y-3">
+        {% csrf_token %}
+        <select name="maintenance_type" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          {% for val, lbl in maintenance_types %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+        </select>
+        <textarea name="description" rows="2" required placeholder="Description…" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></textarea>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs text-slate-500 mb-0.5">Date</label>
+            <input type="date" name="maintenance_date" value="{{ today|date:'Y-m-d' }}" required class="w-full px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-0.5">Next Due</label>
+            <input type="date" name="next_due" class="w-full px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          </div>
+        </div>
+        <input type="text" name="technician_name" placeholder="Technician name" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs text-slate-500 mb-0.5">Cost (ETB)</label>
+            <input type="number" name="cost" step="0.01" min="0" class="w-full px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-0.5">Status After</label>
+            <select name="status_after" class="w-full px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+              <option value="">Unchanged</option>
+              {% for val, lbl in status_choices %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">Save Record</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Maintenance history -->
+  <div class="lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Maintenance History</h3></div>
+      {% if maintenance_records %}
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/50">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Date</th>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Type</th>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Description</th>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Technician</th>
+            <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Cost</th>
+            <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Next Due</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for rec in maintenance_records %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <td class="px-4 py-2.5 text-xs text-slate-500">{{ rec.maintenance_date|date:"d M Y" }}</td>
+            <td class="px-4 py-2.5">
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ rec.maintenance_type }}</span>
+            </td>
+            <td class="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400">{{ rec.description|truncatechars:60 }}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500 hidden md:table-cell">{{ rec.technician_name|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-right text-xs text-slate-500 hidden md:table-cell">{% if rec.cost %}ETB {{ rec.cost|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500 hidden lg:table-cell">{{ rec.next_due|date:"d M Y"|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="px-5 py-8 text-sm text-slate-400 text-center">No maintenance records yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

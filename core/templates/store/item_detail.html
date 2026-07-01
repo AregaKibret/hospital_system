@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} — Store{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between mb-5">
+  <div>
+    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'inventory_item_list' %}" class="hover:text-blue-600">Store Items</a> / {{ item.name }}</nav>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ item.name }}</h1>
+    <p class="text-sm text-slate-500">{{ item.get_item_type_display }} · {{ item.category|default:"No Category" }} · SKU: {{ item.sku|default:"—" }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'inventory_item_edit' item.pk %}" class="px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 transition-colors">Edit</a>
+    {% if item.has_expiry %}
+    <a href="{% url 'store_batch_receive' item.pk %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">+ Receive Batch</a>
+    {% else %}
+    <a href="{% url 'store_item_adjust' item.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Adjust Stock</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- KPI row -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">In Stock</p>
+    <p class="text-2xl font-bold {% if item.is_out_of_stock %}text-red-600{% elif item.is_low_stock %}text-amber-600{% else %}text-emerald-600{% endif %}">{{ item.quantity_in_stock|floatformat:0 }}</p>
+    <p class="text-xs text-slate-500">{{ item.unit }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Reorder At</p>
+    <p class="text-2xl font-bold text-slate-700 dark:text-slate-300">{{ item.reorder_level|floatformat:0 }}</p>
+    <p class="text-xs text-slate-500">{{ item.unit }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Unit Cost</p>
+    <p class="text-2xl font-bold text-slate-700 dark:text-slate-300">{{ item.unit_cost|floatformat:2 }}</p>
+    <p class="text-xs text-slate-500">ETB</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Stock Value</p>
+    <p class="text-2xl font-bold text-blue-600">{{ item.inventory_value|floatformat:2 }}</p>
+    <p class="text-xs text-slate-500">ETB</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Left: info + actions -->
+  <div class="space-y-4">
+    <!-- Item Info -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Details</h3></div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        {% if item.barcode %}<div class="flex justify-between"><span class="text-slate-400">Barcode</span><span class="font-mono text-slate-700 dark:text-slate-300">{{ item.barcode }}</span></div>{% endif %}
+        {% if item.brand %}<div class="flex justify-between"><span class="text-slate-400">Brand</span><span class="text-slate-700 dark:text-slate-300">{{ item.brand }}</span></div>{% endif %}
+        {% if item.manufacturer %}<div class="flex justify-between"><span class="text-slate-400">Manufacturer</span><span class="text-slate-700 dark:text-slate-300">{{ item.manufacturer }}</span></div>{% endif %}
+        <div class="flex justify-between"><span class="text-slate-400">Unit</span><span class="text-slate-700 dark:text-slate-300">{{ item.unit }}</span></div>
+        {% if item.unit_purchase %}<div class="flex justify-between"><span class="text-slate-400">Purchase Unit</span><span class="text-slate-700 dark:text-slate-300">{{ item.units_per_purchase }} {{ item.unit }} / {{ item.unit_purchase }}</span></div>{% endif %}
+        <div class="flex justify-between"><span class="text-slate-400">Has Expiry</span><span class="text-slate-700 dark:text-slate-300">{% if item.has_expiry %}Yes{% else %}No{% endif %}</span></div>
+        {% if item.storage_location %}<div class="flex justify-between"><span class="text-slate-400">Location</span><span class="text-slate-700 dark:text-slate-300">{{ item.storage_location }}</span></div>{% endif %}
+        {% if item.supplier %}<div class="flex justify-between"><span class="text-slate-400">Supplier</span><span class="text-slate-700 dark:text-slate-300">{{ item.supplier.name }}</span></div>
+        {% elif item.supplier_name %}<div class="flex justify-between"><span class="text-slate-400">Supplier</span><span class="text-slate-700 dark:text-slate-300">{{ item.supplier_name }}</span></div>{% endif %}
+        <div class="flex justify-between"><span class="text-slate-400">Status</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if item.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{% if item.is_active %}Active{% else %}Inactive{% endif %}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Control -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Stock Control</h3></div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-slate-400">Min Stock</span><span class="text-slate-700 dark:text-slate-300">{{ item.min_stock|floatformat:0 }} {{ item.unit }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Reorder At</span><span class="text-amber-600 font-semibold">{{ item.reorder_level|floatformat:0 }} {{ item.unit }}</span></div>
+        {% if item.max_stock %}<div class="flex justify-between"><span class="text-slate-400">Max Stock</span><span class="text-slate-700 dark:text-slate-300">{{ item.max_stock|floatformat:0 }} {{ item.unit }}</span></div>{% endif %}
+        <div class="flex justify-between"><span class="text-slate-400">Safety Stock</span><span class="text-slate-700 dark:text-slate-300">{{ item.safety_stock|floatformat:0 }} {{ item.unit }}</span></div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-2">
+      <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Actions</p>
+      <a href="{% url 'store_issue_item' item.pk %}" class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Issue to Department
+      </a>
+      <a href="{% url 'store_item_adjust' item.pk %}" class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        Manual Adjustment
+      </a>
+      {% if item.has_expiry %}
+      <a href="{% url 'store_batch_receive' item.pk %}" class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 text-emerald-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/></svg>
+        Receive New Batch
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right: batches + transactions -->
+  <div class="lg:col-span-2 space-y-5">
+    {% if item.has_expiry and batches %}
+    <!-- Active Batches -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Active Batches</h3>
+        {% if expired_batches > 0 %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{{ expired_batches }} expired</span>{% endif %}
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-700/50">
+            <tr>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Batch #</th>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Expiry</th>
+              <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Available</th>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Status</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for batch in batches %}
+            <tr>
+              <td class="px-4 py-2.5 font-mono text-xs">{{ batch.batch_number }}</td>
+              <td class="px-4 py-2.5 text-xs">{{ batch.expiration_date|date:"d M Y"|default:"—" }}</td>
+              <td class="px-4 py-2.5 text-right font-semibold">{{ batch.quantity_available|floatformat:0 }}</td>
+              <td class="px-4 py-2.5">
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if batch.is_expired %}bg-red-100 text-red-700
+                  {% elif batch.days_to_expiry <= 30 %}bg-amber-100 text-amber-700
+                  {% elif batch.days_to_expiry <= 90 %}bg-yellow-100 text-yellow-700
+                  {% else %}bg-emerald-100 text-emerald-700{% endif %}">{{ batch.expiry_status }}</span>
+              </td>
+              <td class="px-4 py-2.5 text-right">
+                {% if batch.quantity_available > 0 %}
+                <a href="{% url 'store_batch_dispose' batch.pk %}" class="text-xs text-red-500 hover:text-red-700">Dispose</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Transaction History -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Transaction History</h3>
+      </div>
+      {% if transactions %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-700/50">
+            <tr>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Date</th>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Type</th>
+              <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">In</th>
+              <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Out</th>
+              <th class="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Balance</th>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Ref / Note</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for tx in transactions %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+              <td class="px-4 py-2.5 text-xs text-slate-500">{{ tx.transaction_date|date:"d M Y H:i" }}</td>
+              <td class="px-4 py-2.5 text-xs">
+                <span class="px-2 py-0.5 rounded-full
+                  {% if 'purchase' in tx.transaction_type or 'in' in tx.transaction_type %}bg-emerald-100 text-emerald-700
+                  {% elif 'issue' in tx.transaction_type or 'out' in tx.transaction_type %}bg-blue-100 text-blue-700
+                  {% else %}bg-slate-100 text-slate-600{% endif %}">{{ tx.get_transaction_type_display }}</span>
+              </td>
+              <td class="px-4 py-2.5 text-right text-emerald-600 font-medium">{% if tx.quantity_in > 0 %}+{{ tx.quantity_in|floatformat:0 }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2.5 text-right text-red-500 font-medium">{% if tx.quantity_out > 0 %}-{{ tx.quantity_out|floatformat:0 }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">{{ tx.balance_after|floatformat:0 }}</td>
+              <td class="px-4 py-2.5 text-xs text-slate-400 hidden md:table-cell">{{ tx.reference_number|default:tx.notes|truncatechars:40 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-5 py-8 text-sm text-slate-400 text-center">No transactions recorded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

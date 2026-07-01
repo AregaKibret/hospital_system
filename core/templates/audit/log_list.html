@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Audit Logs</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ total_count }} total entries</p>
+  </div>
+  <a href="{% url 'audit_dashboard' %}" class="btn-secondary text-sm">&larr; Dashboard</a>
+</div>
+
+<!-- Filter form -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <input type="text" name="q" value="{{ filters.q }}" placeholder="Search user, description, IP…"
+      class="field-input text-sm" />
+
+    <select name="module" class="field-input text-sm">
+      <option value="">All Modules</option>
+      {% for val, label in module_choices %}
+      <option value="{{ val }}" {% if filters.module == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="action" class="field-input text-sm">
+      <option value="">All Actions</option>
+      {% for val, label in action_choices %}
+      <option value="{{ val }}" {% if filters.action == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="severity" class="field-input text-sm">
+      <option value="">All Severities</option>
+      {% for val, label in severity_choices %}
+      <option value="{{ val }}" {% if filters.severity == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="user_id" class="field-input text-sm">
+      <option value="">All Users</option>
+      {% for u in users %}
+      <option value="{{ u.id }}" {% if filters.user_id == u.id|stringformat:"s" %}selected{% endif %}>
+        {{ u.get_full_name|default:u.username }}
+      </option>
+      {% endfor %}
+    </select>
+
+    <select name="department" class="field-input text-sm">
+      <option value="">All Departments</option>
+      {% for dept in departments %}
+      <option value="{{ dept }}" {% if filters.department == dept %}selected{% endif %}>{{ dept }}</option>
+      {% endfor %}
+    </select>
+
+    <input type="date" name="date_from" value="{{ filters.date_from }}" class="field-input text-sm" title="From date" />
+    <input type="date" name="date_to" value="{{ filters.date_to }}" class="field-input text-sm" title="To date" />
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+    <a href="{% url 'audit_log_list' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Timestamp</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">User / Role</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Dept</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Action</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Module</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase hidden lg:table-cell">Description</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase hidden md:table-cell">IP</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Sev.</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for log in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition
+          {% if log.severity == 'critical' %}bg-red-50/30 dark:bg-red-900/5
+          {% elif log.severity == 'warning' %}bg-amber-50/30 dark:bg-amber-900/5{% endif %}">
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ log.timestamp|date:"d M Y" }}<br>{{ log.timestamp|date:"H:i:s" }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100 text-xs">{{ log.user_name }}</p>
+            <p class="text-xs text-slate-400">{{ log.user_role|default:"—" }}</p>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{{ log.department|default:"—" }}</td>
+          <td class="px-4 py-3">{% include "audit/_action_badge.html" with action=log.action %}</td>
+          <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 capitalize">{{ log.module }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden lg:table-cell max-w-xs truncate">{{ log.description|default:log.object_repr|truncatechars:60 }}</td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-400 hidden md:table-cell">{{ log.ip_address|default:"—" }}</td>
+          <td class="px-4 py-3">{% include "audit/_severity_badge.html" with severity=log.severity %}</td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'audit_log_detail' log.id %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400 text-sm">No log entries match your filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-sm">
+    <p class="text-slate-500 dark:text-slate-400 text-xs">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} &nbsp;·&nbsp; {{ total_count }} total
+    </p>
+    <div class="flex gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium">Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}New Transfer Request{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Transfer Requests</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">New Transfer Request</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">Request medication stock from the main pharmacy</p>
+  </div>
+
+  <form method="post" class="space-y-5" id="req-form">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Request Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="field-wrapper">
+          <label class="field-label">Department *</label>
+          <select name="store" required class="field-input">
+            <option value="">Select department</option>
+            {% for s in stores %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Priority</label>
+          <select name="priority" class="field-input">
+            {% for val, label in priorities %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Required By</label>
+          <input type="date" name="required_by" class="field-input" min="{{ today }}">
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Notes</label>
+          <input type="text" name="notes" class="field-input" placeholder="Optional notes for pharmacy">
+        </div>
+      </div>
+    </div>
+
+    <!-- Medication lines -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Medications</h2>
+        <button type="button" id="add-line" class="btn-secondary text-xs py-1 px-3">+ Add Line</button>
+      </div>
+      <div id="lines-container" class="space-y-3">
+        <div class="line-row grid grid-cols-12 gap-2 items-end">
+          <div class="col-span-6">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
+            <select name="med_0" class="field-input text-sm" required>
+              <option value="">Select medication</option>
+              {% for m in medications %}<option value="{{ m.id }}">{{ m.name }} — {{ m.generic_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
+            <input type="number" name="qty_0" min="1" required class="field-input text-sm" placeholder="0">
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Note</label>
+            <input type="text" name="notes_0" class="field-input text-sm">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Submit Request</button>
+      <a href="{% url 'transfer_request_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let lineIndex = 1;
+const medOptions = `{% for m in medications %}<option value="{{ m.id }}">{{ m.name }} — {{ m.generic_name }}</option>{% endfor %}`;
+document.getElementById('add-line').addEventListener('click', () => {
+  const idx = lineIndex++;
+  const div = document.createElement('div');
+  div.className = 'line-row grid grid-cols-12 gap-2 items-end';
+  div.innerHTML = `
+    <div class="col-span-6">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
+      <select name="med_${idx}" class="field-input text-sm" required>
+        <option value="">Select medication</option>${medOptions}
+      </select>
+    </div>
+    <div class="col-span-3">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
+      <input type="number" name="qty_${idx}" min="1" required class="field-input text-sm" placeholder="0">
+    </div>
+    <div class="col-span-2">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Note</label>
+      <input type="text" name="notes_${idx}" class="field-input text-sm">
+    </div>
+    <div class="col-span-1 flex items-end pb-1">
+      <button type="button" onclick="this.closest('.line-row').remove()" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+    </div>`;
+  document.getElementById('lines-container').appendChild(div);
+  // Add sentinel so the loop in the view knows there are idx items
+  const sentinel = document.getElementById('line-sentinel');
+  if (!sentinel) {
+    const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'med_' + lineIndex; inp.value = ''; inp.id = 'line-sentinel';
+    document.getElementById('req-form').appendChild(inp);
+  }
+});
+// sentinel for loop termination
+document.getElementById('req-form').addEventListener('submit', () => {
+  const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'med_' + lineIndex; inp.value = '';
+  document.getElementById('req-form').appendChild(inp);
+});
+</script>
+{% endblock %}

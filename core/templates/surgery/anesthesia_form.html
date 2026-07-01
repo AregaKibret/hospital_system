@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Anesthesia Record — {{ order.order_number }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if record %}Edit{% else %}Create{% endif %} Anesthesia Record — {{ order.order_number }}</h1>
+</div>
+
+<div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 mb-5 text-sm">
+  <span class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-600 dark:text-slate-300">{{ order.planned_procedure }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-500">Requested: {{ order.anesthesia_type }}</span>
+</div>
+
+<form method="post">{% csrf_token %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Pre-anesthesia Assessment</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">ASA Classification</label>
+        <select name="asa_classification" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in asa_choices %}<option value="{{ val }}" {% if record and record.asa_classification == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Known Allergies</label>
+        <input type="text" name="known_allergies" value="{% if record %}{{ record.known_allergies }}{% endif %}" class="field-input" placeholder="NKDA or list allergies…" />
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Pre-assessment Notes</label>
+        <textarea name="pre_assessment_notes" rows="3" class="field-input">{% if record %}{{ record.pre_assessment_notes }}{% endif %}</textarea>
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Pre-medication</label>
+        <textarea name="pre_medication" rows="2" class="field-input">{% if record %}{{ record.pre_medication }}{% endif %}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Anesthesia Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Anesthesia Technique</label>
+        <input type="text" name="anesthesia_technique" value="{% if record %}{{ record.anesthesia_technique }}{% endif %}" class="field-input" placeholder="e.g. Endotracheal general anesthesia" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Airway Management</label>
+        <input type="text" name="airway_management" value="{% if record %}{{ record.airway_management }}{% endif %}" class="field-input" placeholder="e.g. LMA, ETT size 7.5…" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Induction Agent</label>
+        <input type="text" name="induction_agent" value="{% if record %}{{ record.induction_agent }}{% endif %}" class="field-input" placeholder="e.g. Propofol 2mg/kg IV" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Maintenance Agent</label>
+        <input type="text" name="maintenance_agent" value="{% if record %}{{ record.maintenance_agent }}{% endif %}" class="field-input" placeholder="e.g. Sevoflurane 2%, Fentanyl infusion" />
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Intraoperative Notes</h2>
+    <div class="grid grid-cols-1 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Monitoring Notes</label>
+        <textarea name="monitoring_notes" rows="3" class="field-input" placeholder="Vital signs, SpO2, EtCO2, hemodynamics…">{% if record %}{{ record.monitoring_notes }}{% endif %}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Intraoperative Complications</label>
+        <textarea name="intraop_complications" rows="2" class="field-input">{% if record %}{{ record.intraop_complications }}{% endif %}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Post-anesthesia Recovery</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">PACU Duration (minutes)</label>
+        <input type="number" name="pacu_duration_minutes" value="{% if record %}{{ record.pacu_duration_minutes }}{% endif %}" min="0" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">PACU Complications</label>
+        <input type="text" name="pacu_complications" value="{% if record %}{{ record.pacu_complications }}{% endif %}" class="field-input" />
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Post-anesthesia Notes</label>
+        <textarea name="post_anesthesia_notes" rows="3" class="field-input">{% if record %}{{ record.post_anesthesia_notes }}{% endif %}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">Save Anesthesia Record</button>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
+  </div>
+
+</form>
+{% endblock %}

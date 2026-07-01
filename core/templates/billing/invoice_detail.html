@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+{% block content %}
+
+<div class="max-w-5xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between mb-5 flex-wrap gap-3">
+    <div>
+      <div class="flex items-center gap-3 mb-1 flex-wrap">
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ invoice.invoice_number }}</h1>
+        {% include "billing/_status_badge.html" with status=invoice.status %}
+        {% if invoice.payment_type == 'Credit' %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Credit</span>
+        {% endif %}
+        {% if not invoice.visit and invoice.notes %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          Pharmacy
+        </span>
+        {% endif %}
+      </div>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ invoice.patient.full_name }} · MRN {{ invoice.patient.card_number }}</p>
+      {% if not invoice.visit and invoice.notes %}<p class="text-xs text-teal-600 dark:text-teal-400 mt-0.5">{{ invoice.notes }}</p>{% endif %}
+      {% if invoice.due_date %}<p class="text-xs text-slate-400 mt-0.5">Due: <span class="{% if invoice.due_date < today and invoice.status not in 'Paid,Cancelled,Waived' %}text-red-500 font-semibold{% else %}text-slate-400{% endif %}">{{ invoice.due_date|date:"d M Y" }}</span></p>{% endif %}
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="{% url 'invoice_list' %}" class="btn-secondary text-sm">← All Invoices</a>
+      {% if invoice.status == 'Draft' and can_manage %}
+      <form method="post" action="{% url 'invoice_update_status' invoice.id %}" class="inline">
+        {% csrf_token %}<input type="hidden" name="status" value="Issued">
+        <button type="submit" class="btn-secondary text-sm">Issue Only</button>
+      </form>
+      {% endif %}
+      {% if invoice.status in 'Draft,Issued,Partial' and can_pay %}
+      <a href="{% url 'payment_create' invoice.id %}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        Pay Now
+      </a>
+      {% endif %}
+      {% if invoice.status == 'Credit Pending' and can_pay %}
+      <a href="{% url 'payment_create' invoice.id %}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold transition-colors">
+        Record Credit Payment
+      </a>
+      {% endif %}
+      {% if invoice.status in 'Draft,Issued' and can_edit %}
+      <a href="{% url 'credit_invoice_create' invoice.id %}"
+         class="px-3 py-2 rounded-xl border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-sm font-semibold transition-colors">→ Credit</a>
+      {% endif %}
+      {% if invoice.status == 'Credit Pending' and can_approve_credit and not invoice.credit_approved_by %}
+      <form method="post" action="{% url 'credit_approve' invoice.id %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">Approve Credit</button>
+      </form>
+      {% endif %}
+      {% if invoice.status in 'Draft,Issued,Credit Pending' and can_manage %}
+      <form method="post" action="{% url 'invoice_update_status' invoice.id %}" class="inline">
+        {% csrf_token %}<input type="hidden" name="status" value="Waived">
+        <button type="submit" class="px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-sm font-semibold transition-colors">Waive</button>
+      </form>
+      <form method="post" action="{% url 'invoice_update_status' invoice.id %}" class="inline">
+        {% csrf_token %}<input type="hidden" name="status" value="Cancelled">
+        <button type="submit" class="px-3 py-2 rounded-xl border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold transition-colors">Cancel</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for m in messages %}
+    <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+      {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800
+      {% elif m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+      {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">{{ m }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Status Lifecycle Bar -->
+  {% if invoice.status not in 'Cancelled,Waived,Refunded' %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+    <div class="flex items-center justify-between">
+
+      <!-- Step 1: Draft -->
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+          {% if invoice.status == 'Draft' %}bg-slate-700 text-white ring-2 ring-slate-400
+          {% else %}bg-emerald-500 text-white{% endif %}">
+          {% if invoice.status != 'Draft' %}✓{% else %}1{% endif %}
+        </div>
+        <span class="text-xs font-medium {% if invoice.status == 'Draft' %}text-slate-900 dark:text-white{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">Draft</span>
+      </div>
+
+      <div class="flex-1 h-0.5 {% if invoice.status != 'Draft' %}bg-emerald-400{% else %}bg-slate-200 dark:bg-slate-700{% endif %} mx-1"></div>
+
+      <!-- Step 2: Issued -->
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+          {% if invoice.status == 'Issued' %}bg-blue-600 text-white ring-2 ring-blue-400
+          {% elif invoice.status in 'Partial,Paid,Overpaid,Credit Pending' %}bg-emerald-500 text-white
+          {% else %}bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500{% endif %}">
+          {% if invoice.status in 'Partial,Paid,Overpaid,Credit Pending' %}✓{% elif invoice.status == 'Issued' %}2{% else %}2{% endif %}
+        </div>
+        <span class="text-xs font-medium
+          {% if invoice.status == 'Issued' %}text-blue-700 dark:text-blue-300
+          {% elif invoice.status in 'Partial,Paid,Overpaid,Credit Pending' %}text-emerald-600 dark:text-emerald-400
+          {% else %}text-slate-400{% endif %}">Issued</span>
+      </div>
+
+      <div class="flex-1 h-0.5 {% if invoice.status in 'Partial,Paid,Overpaid' %}bg-emerald-400{% elif invoice.status == 'Credit Pending' %}bg-purple-300{% else %}bg-slate-200 dark:bg-slate-700{% endif %} mx-1"></div>
+
+      <!-- Step 3: Partial (optional) -->
+      {% if invoice.status == 'Partial' or invoice.paid_amount > 0 and invoice.status != 'Paid' %}
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+          {% if invoice.status == 'Partial' %}bg-amber-500 text-white ring-2 ring-amber-400{% else %}bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500{% endif %}">
+          ½
+        </div>
+        <span class="text-xs font-medium {% if invoice.status == 'Partial' %}text-amber-700 dark:text-amber-300{% else %}text-slate-400{% endif %}">Partial</span>
+      </div>
+      <div class="flex-1 h-0.5 {% if invoice.status == 'Paid' %}bg-emerald-400{% else %}bg-slate-200 dark:bg-slate-700{% endif %} mx-1"></div>
+      {% elif invoice.status == 'Credit Pending' %}
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-purple-500 text-white ring-2 ring-purple-400">C</div>
+        <span class="text-xs font-medium text-purple-700 dark:text-purple-300">Credit</span>
+      </div>
+      <div class="flex-1 h-0.5 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+      {% else %}
+      <div class="flex-1 h-0.5 {% if invoice.status in 'Paid,Overpaid' %}bg-emerald-400{% else %}bg-slate-200 dark:bg-slate-700{% endif %} mx-1"></div>
+      {% endif %}
+
+      <!-- Step 4: Paid -->
+      <div class="flex flex-col items-center gap-1 flex-1">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+          {% if invoice.status == 'Paid' %}bg-emerald-600 text-white ring-2 ring-emerald-400
+          {% elif invoice.status == 'Overpaid' %}bg-teal-600 text-white
+          {% else %}bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500{% endif %}">
+          {% if invoice.status in 'Paid,Overpaid' %}✓{% else %}4{% endif %}
+        </div>
+        <span class="text-xs font-medium
+          {% if invoice.status == 'Paid' %}text-emerald-700 dark:text-emerald-300 font-semibold
+          {% elif invoice.status == 'Overpaid' %}text-teal-600
+          {% else %}text-slate-400{% endif %}">Paid</span>
+      </div>
+    </div>
+    {% if invoice.status == 'Draft' %}
+    <p class="text-xs text-slate-400 text-center mt-2">Invoice is in draft — click <strong>Pay Now</strong> to collect payment immediately, or <strong>Issue Only</strong> first.</p>
+    {% elif invoice.status == 'Issued' %}
+    <p class="text-xs text-slate-400 text-center mt-2">Invoice is issued and awaiting payment.</p>
+    {% elif invoice.status == 'Partial' %}
+    <p class="text-xs text-amber-600 dark:text-amber-400 text-center mt-2 font-medium">Partial payment received. Balance of <strong>ETB {{ invoice.balance|floatformat:2 }}</strong> is outstanding.</p>
+    {% elif invoice.status == 'Credit Pending' %}
+    <p class="text-xs text-purple-600 dark:text-purple-400 text-center mt-2">Credit payment — awaiting {% if not invoice.credit_approved_by %}approval then {% endif %}collection.</p>
+    {% elif invoice.status == 'Paid' %}
+    <p class="text-xs text-emerald-600 dark:text-emerald-400 text-center mt-2 font-medium">Invoice fully paid.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Paid / Cancelled / Waived banner -->
+  {% if invoice.status == 'Paid' %}
+  <div class="mb-5 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center">
+        <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-emerald-800 dark:text-emerald-300">Payment Complete</p>
+        <p class="text-xs text-emerald-600 dark:text-emerald-500">ETB {{ invoice.paid_amount|floatformat:2 }} received · Invoice fully settled</p>
+        {% if invoice.visit_id %}
+        <p class="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">Patient is now available in the doctor queue.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% if payments %}
+    <a href="{% url 'invoice_receipt' invoice.id payments.0.pk %}" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold transition">Print Receipt</a>
+    {% endif %}
+  </div>
+  {% elif invoice.status == 'Cancelled' %}
+  <div class="mb-5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4">
+    <p class="text-sm font-semibold text-red-700 dark:text-red-300">This invoice has been cancelled.</p>
+  </div>
+  {% elif invoice.status == 'Waived' %}
+  <div class="mb-5 bg-slate-50 dark:bg-slate-700/20 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+    <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">This invoice has been waived — no payment required.</p>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <!-- Left: Items + payments -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Invoice Items -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="font-semibold text-slate-800 dark:text-slate-200 text-sm">Invoice Items</h2>
+          {% if invoice.status == 'Draft' and can_edit %}
+          <span class="text-xs text-slate-400">Add or remove items below</span>
+          {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <tr>
+                <th class="px-4 py-2.5 text-left">Description</th>
+                <th class="px-4 py-2.5 text-left">Type</th>
+                <th class="px-4 py-2.5 text-right">Qty</th>
+                <th class="px-4 py-2.5 text-right">Unit Price</th>
+                <th class="px-4 py-2.5 text-right">Total</th>
+                {% if invoice.status == 'Draft' and can_edit %}<th class="px-4 py-2.5"></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              {% for item in items %}
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                <td class="px-4 py-3 text-slate-800 dark:text-slate-200 font-medium">{{ item.description }}</td>
+                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{{ item.service_type }}</td>
+                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{{ item.quantity }}</td>
+                <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">ETB {{ item.unit_price|floatformat:2 }}</td>
+                <td class="px-4 py-3 text-right font-semibold text-slate-800 dark:text-slate-200">ETB {{ item.total|floatformat:2 }}</td>
+                {% if invoice.status == 'Draft' and can_edit %}
+                <td class="px-4 py-3 text-right">
+                  <form method="post" action="{% url 'invoice_delete_item' item.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
+                  </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">No items yet</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="bg-slate-50 dark:bg-slate-900/40 text-sm">
+              <tr>
+                <td colspan="{% if invoice.status == 'Draft' and can_edit %}4{% else %}3{% endif %}" class="px-4 py-2.5 text-right text-slate-500">Subtotal</td>
+                <td class="px-4 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">ETB {{ invoice.total_amount|floatformat:2 }}</td>
+                {% if invoice.status == 'Draft' and can_edit %}<td></td>{% endif %}
+              </tr>
+              {% if invoice.discount > 0 %}
+              <tr>
+                <td colspan="{% if invoice.status == 'Draft' and can_edit %}4{% else %}3{% endif %}" class="px-4 py-2.5 text-right text-purple-600 dark:text-purple-400">Discount</td>
+                <td class="px-4 py-2.5 text-right font-semibold text-purple-600 dark:text-purple-400">- ETB {{ invoice.discount|floatformat:2 }}</td>
+                {% if invoice.status == 'Draft' and can_edit %}<td></td>{% endif %}
+              </tr>
+              {% endif %}
+              <tr class="border-t border-slate-200 dark:border-slate-700">
+                <td colspan="{% if invoice.status == 'Draft' and can_edit %}4{% else %}3{% endif %}" class="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">Balance Due</td>
+                <td class="px-4 py-3 text-right font-bold text-lg {% if invoice.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">ETB {{ invoice.balance|floatformat:2 }}</td>
+                {% if invoice.status == 'Draft' and can_edit %}<td></td>{% endif %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Add item -->
+        {% if invoice.status == 'Draft' and can_edit %}
+        <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">Add Item</p>
+          <form method="post" action="{% url 'invoice_add_item' invoice.id %}">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div class="sm:col-span-2 field-wrapper">
+                <input type="text" name="description" placeholder="Description *" required class="field-input text-sm">
+              </div>
+              <div class="field-wrapper">
+                <select name="service_type" class="field-input text-sm">
+                  {% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="quantity" value="1" min="0.01" step="0.01" placeholder="Qty" class="field-input text-sm">
+                <input type="number" name="unit_price" step="0.01" min="0" placeholder="Price" class="field-input text-sm">
+              </div>
+            </div>
+            <button type="submit" class="mt-2 btn-primary text-sm">Add Item</button>
+          </form>
+        </div>
+        {% endif %}
+
+        <!-- Discount form -->
+        {% if invoice.status not in 'Paid,Cancelled,Waived' and can_manage %}
+        <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-700">
+          <details class="group">
+            <summary class="text-xs font-semibold text-slate-500 cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition">
+              Apply Discount (Finance Manager)
+            </summary>
+            <form method="post" action="{% url 'invoice_apply_discount' invoice.id %}" class="mt-3">
+              {% csrf_token %}
+              <div class="flex gap-3 items-end flex-wrap">
+                <div class="field-wrapper mb-0">
+                  <label class="field-label text-xs">Discount (ETB)</label>
+                  <input type="number" name="discount" value="{{ invoice.discount }}" step="0.01" min="0" class="field-input text-sm w-36">
+                </div>
+                <div class="field-wrapper mb-0 flex-1">
+                  <label class="field-label text-xs">Reason</label>
+                  <input type="text" name="discount_reason" placeholder="e.g. Insurance adjustment, staff discount…" class="field-input text-sm">
+                </div>
+                <button type="submit" class="btn-secondary text-sm self-end">Apply</button>
+              </div>
+            </form>
+          </details>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Payment History -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="font-semibold text-slate-800 dark:text-slate-200 text-sm">Payment History</h2>
+          {% if invoice.status in 'Issued,Partial,Credit Pending,Draft' and can_pay %}
+          <a href="{% url 'payment_create' invoice.id %}" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">+ Record Payment</a>
+          {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <tr>
+                <th class="px-4 py-2.5 text-left">Date</th>
+                <th class="px-4 py-2.5 text-left">Method</th>
+                <th class="px-4 py-2.5 text-left">Receipt</th>
+                <th class="px-4 py-2.5 text-left hidden md:table-cell">Cash / Change</th>
+                <th class="px-4 py-2.5 text-left hidden lg:table-cell">Received By</th>
+                <th class="px-4 py-2.5 text-right">Amount</th>
+                <th class="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              {% for p in payments %}
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+                <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ p.payment_date|date:"d M Y H:i" }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                    {% if p.payment_method == 'Cash' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                    {% elif p.payment_method == 'Insurance' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                    {% else %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300{% endif %}">
+                    {{ p.payment_method }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{{ p.receipt_number|default:"—" }}</td>
+                <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500 dark:text-slate-400">
+                  {% if p.cash_received %}<span>Rcvd: ETB {{ p.cash_received|floatformat:2 }}</span>{% if p.change_given %}<br><span class="text-amber-600 dark:text-amber-400">Change: ETB {{ p.change_given|floatformat:2 }}</span>{% endif %}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3 hidden lg:table-cell text-xs text-slate-500 dark:text-slate-400">{{ p.received_by.get_full_name|default:p.received_by.username }}</td>
+                <td class="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-400">ETB {{ p.amount|floatformat:2 }}</td>
+                <td class="px-4 py-3 text-right">
+                  <a href="{% url 'invoice_receipt' invoice.id p.pk %}" class="text-xs text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">Receipt</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400 text-sm">No payments recorded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right sidebar -->
+    <div class="space-y-4">
+
+      <!-- Financial Summary -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Financial Summary</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-600 dark:text-slate-400">Total</span>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">ETB {{ invoice.total_amount|floatformat:2 }}</span>
+          </div>
+          {% if invoice.discount > 0 %}
+          <div class="flex justify-between">
+            <span class="text-purple-600 dark:text-purple-400">Discount</span>
+            <span class="text-purple-600 dark:text-purple-400 font-semibold">- ETB {{ invoice.discount|floatformat:2 }}</span>
+          </div>
+          {% endif %}
+          <div class="flex justify-between">
+            <span class="text-slate-600 dark:text-slate-400">Paid</span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-semibold">ETB {{ invoice.paid_amount|floatformat:2 }}</span>
+          </div>
+          <div class="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between font-bold text-base">
+            <span>Balance</span>
+            <span class="{% if invoice.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">ETB {{ invoice.balance|floatformat:2 }}</span>
+          </div>
+        </div>
+
+        {% if invoice.status in 'Draft,Issued,Partial' and can_pay %}
+        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+          <a href="{% url 'payment_create' invoice.id %}"
+             class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            Pay Now — ETB {{ invoice.balance|floatformat:2 }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Patient -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Patient</h3>
+        <p class="font-semibold text-slate-800 dark:text-slate-200">{{ invoice.patient.full_name }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">MRN: {{ invoice.patient.card_number }}</p>
+        {% if invoice.visit %}
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Visit: {{ invoice.visit.visit_type }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">Dept: {{ invoice.visit.department.name }}</p>
+        {% endif %}
+        {% if invoice.visit %}
+        <a href="{% url 'patient_journey_detail' invoice.visit.pk %}" class="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-400">View Patient Journey →</a>
+        {% endif %}
+      </div>
+
+      <!-- Invoice Info -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+        <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Invoice Details</h3>
+        <dl class="space-y-1.5 text-sm">
+          <div class="flex justify-between"><dt class="text-slate-500">Created</dt><dd class="text-slate-700 dark:text-slate-300">{{ invoice.created_at|date:"d M Y, H:i" }}</dd></div>
+          {% if invoice.due_date %}<div class="flex justify-between"><dt class="text-slate-500">Due Date</dt><dd class="text-slate-700 dark:text-slate-300">{{ invoice.due_date|date:"d M Y" }}</dd></div>{% endif %}
+          <div class="flex justify-between"><dt class="text-slate-500">Created By</dt><dd class="text-slate-700 dark:text-slate-300">{{ invoice.created_by.get_full_name|default:invoice.created_by.username }}</dd></div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">Payment Type</dt>
+            <dd><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {% if invoice.payment_type == 'Credit' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% endif %}">{{ invoice.payment_type }}</span></dd>
+          </div>
+        </dl>
+        {% if invoice.notes %}
+        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+          <p class="text-xs text-slate-500 font-medium mb-1">Notes</p>
+          <p class="text-sm text-slate-700 dark:text-slate-300">{{ invoice.notes }}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Credit Info -->
+      {% if invoice.payment_type == 'Credit' %}
+      <div class="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800 p-4">
+        <h3 class="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-3">Credit Details</h3>
+        <dl class="space-y-2 text-sm">
+          {% if invoice.credit_reason %}<div><dt class="text-xs text-purple-600 font-medium">Reason</dt><dd class="text-slate-700 dark:text-slate-300 mt-0.5">{{ invoice.credit_reason }}</dd></div>{% endif %}
+          <div class="flex justify-between"><dt class="text-purple-600">Approved By</dt><dd class="text-slate-700 dark:text-slate-300">{% if invoice.credit_approved_by %}{{ invoice.credit_approved_by.get_full_name }}{% else %}<span class="text-amber-600">Pending approval</span>{% endif %}</dd></div>
+          {% if invoice.credit_approved_at %}<div class="flex justify-between"><dt class="text-purple-600">Approved At</dt><dd class="text-slate-700 dark:text-slate-300">{{ invoice.credit_approved_at|date:"d M Y H:i" }}</dd></div>{% endif %}
+        </dl>
+        {% if invoice.status == 'Credit Pending' and can_approve_credit and not invoice.credit_approved_by %}
+        <form method="post" action="{% url 'credit_approve' invoice.id %}" class="mt-3">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">Approve This Credit</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

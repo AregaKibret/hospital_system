@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Consumption Report{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Consumption Report</h1>
+    {% if usages %}
+    <a href="?store={{ store_id }}&from={{ date_from }}&to={{ date_to }}&type={{ u_type }}&export=csv" class="btn-secondary text-sm">Export CSV</a>
+    {% endif %}
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+        <select name="store" class="field-input text-sm py-1.5">
+          <option value="">All</option>
+          {% for s in stores %}<option value="{{ s.id }}" {% if store_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Usage Type</label>
+        <select name="type" class="field-input text-sm py-1.5">
+          <option value="">All</option>
+          {% for val, label in usage_types %}<option value="{{ val }}" {% if u_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+        <input type="date" name="from" value="{{ date_from }}" class="field-input text-sm py-1.5">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+        <input type="date" name="to" value="{{ date_to }}" class="field-input text-sm py-1.5">
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="btn-primary text-sm w-full py-1.5">Run</button>
+      </div>
+    </div>
+  </form>
+
+  {% if usages %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Records</p>
+      <p class="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ usages|length }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Units Used</p>
+      <p class="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ total_units }}</p>
+    </div>
+    {% if store %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Department</p>
+      <p class="text-lg font-bold text-slate-800 dark:text-slate-100 mt-1">{{ store.name }}</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 dark:text-slate-400">{{ date_from }} to {{ date_to }} · Generated {{ generated_at|date:"M d, Y H:i" }}</p>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">Date</th>
+            <th class="px-5 py-3 font-medium">Department</th>
+            <th class="px-5 py-3 font-medium">Medication</th>
+            <th class="px-5 py-3 font-medium text-right">Qty</th>
+            <th class="px-5 py-3 font-medium">Type</th>
+            <th class="px-5 py-3 font-medium">Patient</th>
+            <th class="px-5 py-3 font-medium">Staff</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for u in usages %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ u.usage_date|date:"M d, H:i" }}</td>
+            <td class="px-5 py-3 text-slate-700 dark:text-slate-300">{{ u.department_store.name }}</td>
+            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ u.medication.name }}</td>
+            <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ u.quantity_used }}</td>
+            <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ u.get_usage_type_display }}</span></td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ u.patient|default:"—" }}</td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ u.responsible_staff.get_full_name|default:u.responsible_staff.username|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400 dark:text-slate-500">No usage records in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

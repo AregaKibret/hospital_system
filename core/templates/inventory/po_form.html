@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Order — HMS{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'purchase_order_list' %}"
+     class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">New Purchase Order</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Create a new purchase order header</p>
+  </div>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="max-w-2xl">
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier Name <span class="text-red-500">*</span></label>
+        <div class="field-wrapper">
+          <input type="text" name="supplier_name" placeholder="e.g. MedSupply Ltd." required>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier Contact</label>
+        <div class="field-wrapper">
+          <input type="text" name="supplier_contact" placeholder="Phone, email or person name">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Expected Delivery</label>
+        <div class="field-wrapper">
+          <input type="date" name="expected_delivery">
+        </div>
+      </div>
+
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Notes</label>
+        <div class="field-wrapper">
+          <textarea name="notes" rows="3" placeholder="Special instructions, delivery notes…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+        Create Purchase Order
+      </button>
+      <a href="{% url 'purchase_order_list' %}"
+         class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ proc.name }}{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="font-mono text-sm font-bold text-slate-500 dark:text-slate-400">{{ proc.code }}</span>
+      {% include "surgery/_complexity_badge.html" with complexity=proc.complexity %}
+      {% if not proc.is_active %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Inactive</span>{% endif %}
+    </div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ proc.name }}</h1>
+    {% if proc.category %}<p class="text-sm text-slate-500 dark:text-slate-400">{{ proc.category.name }}</p>{% endif %}
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.manage_procedure_master %}
+    <a href="{% url 'procedure_master_edit' proc.pk %}" class="btn-secondary text-sm">Edit</a>
+    {% endif %}
+    {% if perms.core.order_surgery %}
+    <a href="{% url 'surgery_order_create' %}" class="btn-primary text-sm">Order This Procedure</a>
+    {% endif %}
+    <a href="{% url 'procedure_master_list' %}" class="btn-secondary text-sm">← List</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <div class="lg:col-span-2 space-y-5">
+
+    <!-- Overview -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm mb-4">
+        <div><span class="text-xs text-slate-400 block">Specialty</span><span class="text-slate-700 dark:text-slate-300">{{ proc.required_specialty|default:"—" }}</span></div>
+        <div><span class="text-xs text-slate-400 block">Est. Duration</span><span class="text-slate-700 dark:text-slate-300">{{ proc.estimated_duration_minutes }} min</span></div>
+        <div><span class="text-xs text-slate-400 block">Anesthesia</span><span class="text-slate-700 dark:text-slate-300">{{ proc.get_required_anesthesia_type_display }}</span></div>
+        {% if proc.or_type_required %}<div><span class="text-xs text-slate-400 block">OR Type</span><span class="text-slate-700 dark:text-slate-300">{{ proc.or_type_required }}</span></div>{% endif %}
+        {% if proc.department %}<div><span class="text-xs text-slate-400 block">Department</span><span class="text-slate-700 dark:text-slate-300">{{ proc.department.name }}</span></div>{% endif %}
+        {% if proc.billing_category %}<div><span class="text-xs text-slate-400 block">Billing Category</span><span class="text-slate-700 dark:text-slate-300">{{ proc.billing_category }}</span></div>{% endif %}
+      </div>
+      {% if proc.description %}<p class="text-sm text-slate-600 dark:text-slate-300">{{ proc.description }}</p>{% endif %}
+    </div>
+
+    <!-- Clinical -->
+    {% if proc.indications or proc.contraindications or proc.required_preparation or proc.required_investigations %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Clinical Information</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        {% if proc.indications %}<div><p class="text-xs text-slate-400 mb-1">Indications</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.indications }}</p></div>{% endif %}
+        {% if proc.contraindications %}<div><p class="text-xs text-slate-400 mb-1">Contraindications</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.contraindications }}</p></div>{% endif %}
+        {% if proc.required_investigations %}<div><p class="text-xs text-slate-400 mb-1">Required Investigations</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_investigations }}</p></div>{% endif %}
+        {% if proc.required_preparation %}<div><p class="text-xs text-slate-400 mb-1">Required Preparation</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_preparation }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Resources -->
+    {% if proc.required_equipment or proc.required_instruments or proc.required_medications or proc.required_consumables or proc.required_implants %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Resource Requirements</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        {% if proc.required_equipment %}<div><p class="text-xs text-slate-400 mb-1">Equipment</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_equipment }}</p></div>{% endif %}
+        {% if proc.required_instruments %}<div><p class="text-xs text-slate-400 mb-1">Instruments</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_instruments }}</p></div>{% endif %}
+        {% if proc.required_medications %}<div><p class="text-xs text-slate-400 mb-1">Medications</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_medications }}</p></div>{% endif %}
+        {% if proc.required_consumables %}<div><p class="text-xs text-slate-400 mb-1">Consumables</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_consumables }}</p></div>{% endif %}
+        {% if proc.required_implants %}<div><p class="text-xs text-slate-400 mb-1">Implants / Materials</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ proc.required_implants }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Orders -->
+    {% if recent_orders %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Recent Orders Using This Procedure</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Order #</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+          </tr></thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for o in recent_orders %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+              <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400"><a href="{% url 'surgery_order_detail' o.pk %}" class="hover:underline text-blue-600 dark:text-blue-400">{{ o.order_number }}</a></td>
+              <td class="px-4 py-2.5 text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.patient.full_name }}</td>
+              <td class="px-4 py-2.5 text-xs text-slate-500">Dr. {{ o.surgeon.get_full_name }}</td>
+              <td class="px-4 py-2.5">{% include "surgery/_status_badge.html" with status=o.status %}</td>
+              <td class="px-4 py-2.5 text-xs text-slate-400">{{ o.ordered_at|date:"d M Y" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Fees Sidebar -->
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Fee Schedule (ETB)</h2>
+      <div class="space-y-2 text-sm">
+        {% if proc.procedure_price %}<div class="flex justify-between"><span class="text-slate-500">Procedure fee</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ proc.procedure_price|floatformat:2 }}</span></div>{% endif %}
+        {% if proc.surgeon_fee %}<div class="flex justify-between"><span class="text-slate-500">Surgeon fee</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ proc.surgeon_fee|floatformat:2 }}</span></div>{% endif %}
+        {% if proc.anesthesia_fee %}<div class="flex justify-between"><span class="text-slate-500">Anesthesia fee</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ proc.anesthesia_fee|floatformat:2 }}</span></div>{% endif %}
+        {% if proc.facility_fee %}<div class="flex justify-between"><span class="text-slate-500">Facility / OR fee</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ proc.facility_fee|floatformat:2 }}</span></div>{% endif %}
+        {% if proc.consumable_charges %}<div class="flex justify-between"><span class="text-slate-500">Consumable charges</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ proc.consumable_charges|floatformat:2 }}</span></div>{% endif %}
+        <div class="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2 font-bold text-base"><span class="text-slate-700 dark:text-slate-200">Total</span><span class="text-slate-900 dark:text-white">{{ proc.total_fee|floatformat:2 }}</span></div>
+        {% if proc.insurance_price %}<div class="flex justify-between text-xs mt-1"><span class="text-slate-400">Insurance price</span><span class="text-slate-500">{{ proc.insurance_price|floatformat:2 }}</span></div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

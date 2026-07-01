@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Stock on Hand Report{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Stock on Hand</h1>
+    <p class="text-xs text-slate-400 mt-0.5">Generated {{ generated_at|date:"d M Y H:i" }} by {{ generated_by.get_full_name|default:generated_by.username }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if category %}category={{ category }}&{% endif %}{% if status_f %}status={{ status_f }}&{% endif %}export=csv" class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">CSV</a>
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if category %}category={{ category }}&{% endif %}{% if status_f %}status={{ status_f }}&{% endif %}export=excel" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors">Excel</a>
+    <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Print</button>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="flex flex-wrap gap-3">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search…" class="flex-1 min-w-40 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+    <select name="category" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+      <option value="">All Categories</option>
+      {% for cat in categories %}<option value="{{ cat.id }}" {% if category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+      <option value="">All Status</option>
+      <option value="out_of_stock" {% if status_f == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+      <option value="low_stock" {% if status_f == 'low_stock' %}selected{% endif %}>Low Stock</option>
+      <option value="near_expiry" {% if status_f == 'near_expiry' %}selected{% endif %}>Near Expiry (30d)</option>
+      <option value="expired" {% if status_f == 'expired' %}selected{% endif %}>Has Expired Stock</option>
+    </select>
+    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Filter</button>
+  </form>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Code</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Medication</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Category</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Stock</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Unit</th>
+          <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Reorder Lvl</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Price (ETB)</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Value (ETB)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for m in medications %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40">
+          <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ m.code }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-200">{{ m.name }}</p>
+            <p class="text-xs text-slate-400">{{ m.generic_name }} · {{ m.strength }}</p>
+          </td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">{{ m.category.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-right font-bold {% if m.is_out_of_stock %}text-red-600{% elif m.is_low_stock %}text-amber-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">{{ m.current_stock }}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs">{{ m.unit_of_measure }}</td>
+          <td class="px-4 py-3 text-center">
+            <span class="text-xs px-2 py-0.5 rounded-full
+              {% if m.stock_status == 'Out of Stock' %}bg-red-100 text-red-700{% elif m.stock_status == 'Low Stock' %}bg-amber-100 text-amber-700{% elif m.stock_status == 'Overstock' %}bg-violet-100 text-violet-700{% else %}bg-green-100 text-green-700{% endif %}">
+              {{ m.stock_status }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{{ m.reorder_level }}</td>
+          <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{{ m.purchase_price }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">{{ m.inventory_value|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="bg-slate-50 dark:bg-slate-700/60 border-t border-slate-200 dark:border-slate-700">
+          <td colspan="7" class="px-4 py-3 text-right font-semibold text-slate-600 dark:text-slate-400 text-sm">Total Inventory Value:</td>
+          <td colspan="2" class="px-4 py-3 text-right font-bold text-lg text-emerald-600 dark:text-emerald-400">ETB {{ total_value|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

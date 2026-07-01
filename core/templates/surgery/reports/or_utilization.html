@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}OR Utilization Report{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">OR Utilization Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {% if date_from %}{{ date_from }} to {% endif %}{% if date_to %}{{ date_to }}{% else %}All time{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'surgery_reports' %}" class="btn-secondary text-sm">← Reports</a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-2 gap-3 mb-3">
+    <div class="field-wrapper"><label class="field-label text-xs">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm" /></div>
+    <div class="field-wrapper"><label class="field-label text-xs">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input text-sm" /></div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Apply</button>
+    <a href="{% url 'report_or_utilization' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+  {% for row in utilization_data %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">{{ row.name }}</h2>
+      <span class="text-xs text-slate-400">{{ row.room_type }}</span>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-3 text-center">
+      <div>
+        <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ row.total_scheduled }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">Scheduled</p>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ row.completed }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">Completed</p>
+      </div>
+    </div>
+    {% if row.total_scheduled > 0 %}
+    {% widthratio row.completed row.total_scheduled 100 as util_pct %}
+    <div class="mt-2">
+      <div class="flex justify-between text-xs text-slate-500 mb-1">
+        <span>Completion rate</span>
+        <span class="font-semibold">{{ util_pct }}%</span>
+      </div>
+      <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+        <div class="h-2 rounded-full {% if util_pct >= 75 %}bg-emerald-500{% elif util_pct >= 50 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width:{{ util_pct }}%"></div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="col-span-3 py-10 text-center text-slate-400">No OR utilization data for the selected period.</div>
+  {% endfor %}
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Room Summary Table</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Room</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Scheduled</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Completed</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Utilization</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for row in utilization_data %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ row.name }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ row.room_type }}</td>
+          <td class="px-4 py-3 text-center text-slate-700 dark:text-slate-300">{{ row.total_scheduled }}</td>
+          <td class="px-4 py-3 text-center text-emerald-700 dark:text-emerald-300 font-semibold">{{ row.completed }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if row.total_scheduled > 0 %}
+            {% widthratio row.completed row.total_scheduled 100 as up %}
+            <span class="font-semibold {% if up >= 75 %}text-emerald-600{% elif up >= 50 %}text-amber-600{% else %}text-red-500{% endif %}">{{ up }}%</span>
+            {% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">No data.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

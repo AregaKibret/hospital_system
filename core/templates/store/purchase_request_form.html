@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Request{% endblock %}
+{% block content %}
+<div class="max-w-3xl">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'purchase_request_list' %}" class="hover:text-blue-600">Purchase Requests</a> / New</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-5">New Purchase Request</h1>
+
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <!-- Header -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Request Details</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department <span class="text-red-500">*</span></label>
+          <select name="department" required class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            <option value="">— Select —</option>
+            {% for dept in departments %}<option value="{{ dept.pk }}">{{ dept.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+          <select name="priority" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            {% for val, lbl in priority_choices %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Required By</label>
+          <input type="date" name="required_by" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason / Justification</label>
+          <textarea name="reason" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white" placeholder="Why is this purchase needed?"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Items Requested</h3>
+        <button type="button" id="addRow" class="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg">+ Add Item</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="itemsTable">
+          <thead>
+            <tr class="border-b border-slate-100 dark:border-slate-700">
+              <th class="text-left px-2 py-2 text-xs font-semibold text-slate-500">Item</th>
+              <th class="text-left px-2 py-2 text-xs font-semibold text-slate-500">Qty</th>
+              <th class="text-left px-2 py-2 text-xs font-semibold text-slate-500">Unit</th>
+              <th class="text-left px-2 py-2 text-xs font-semibold text-slate-500">Est. Cost (ETB)</th>
+              <th class="text-left px-2 py-2 text-xs font-semibold text-slate-500">Notes</th>
+              <th class="px-2 py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            <tr class="item-row">
+              <td class="px-2 py-1.5">
+                <select name="item_id[]" class="item-select w-full px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                  <option value="">— Select or type below —</option>
+                  {% for item in items %}<option value="{{ item.pk }}">{{ item.name }} ({{ item.unit }})</option>{% endfor %}
+                </select>
+                <input type="text" name="item_name[]" placeholder="Or type item name" class="mt-1 w-full px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+              </td>
+              <td class="px-2 py-1.5"><input type="number" name="quantity[]" step="0.01" min="0.01" required class="w-20 px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></td>
+              <td class="px-2 py-1.5"><input type="text" name="unit[]" placeholder="pcs" class="w-16 px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></td>
+              <td class="px-2 py-1.5"><input type="number" name="estimated_cost[]" step="0.01" min="0" class="w-24 px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></td>
+              <td class="px-2 py-1.5"><input type="text" name="item_notes[]" class="w-full px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></td>
+              <td class="px-2 py-1.5"><button type="button" class="remove-row text-red-400 hover:text-red-600 text-xs px-1">✕</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Submit Request</button>
+      <a href="{% url 'purchase_request_list' %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const tbody = document.getElementById('itemsBody');
+const rowTemplate = tbody.querySelector('.item-row').cloneNode(true);
+
+document.getElementById('addRow').addEventListener('click', () => {
+  const newRow = rowTemplate.cloneNode(true);
+  newRow.querySelectorAll('input').forEach(i => i.value = '');
+  newRow.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  tbody.appendChild(newRow);
+  bindRemove(newRow);
+});
+
+function bindRemove(row) {
+  row.querySelector('.remove-row').addEventListener('click', () => {
+    if (tbody.querySelectorAll('.item-row').length > 1) row.remove();
+  });
+}
+tbody.querySelectorAll('.item-row').forEach(bindRemove);
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Return Medication — {{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'dept_store_detail' store.id %}" class="text-sm text-indigo-600 hover:underline">&larr; {{ store.name }}</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Return Medication to Pharmacy</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ store.name }}</p>
+  </div>
+
+  <form method="post" class="space-y-5" id="return-form">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Items to Return</h3>
+        <button type="button" id="add-return-line" class="btn-secondary text-xs py-1 px-3">+ Add</button>
+      </div>
+      <div id="return-lines" class="space-y-3">
+        <div class="return-line grid grid-cols-12 gap-2 items-end">
+          <div class="col-span-5">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
+            <select name="stock_0" class="field-input text-sm" required>
+              <option value="">Select item</option>
+              {% for s in stock_items %}<option value="{{ s.id }}">{{ s.medication.name }} ({{ s.quantity_available }} avail.)</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Return Qty</label>
+            <input type="number" name="qty_0" min="1" required class="field-input text-sm">
+          </div>
+          <div class="col-span-4">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Reason</label>
+            <input type="text" name="reason_0" class="field-input text-sm" placeholder="Excess, expired, etc.">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="field-wrapper">
+        <label class="field-label">Overall Notes</label>
+        <textarea name="notes" rows="2" class="field-input"></textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Process Return</button>
+      <a href="{% url 'dept_store_detail' store.id %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let rIdx = 1;
+const stockOptions = `{% for s in stock_items %}<option value="{{ s.id }}">{{ s.medication.name }} ({{ s.quantity_available }} avail.)</option>{% endfor %}`;
+document.getElementById('add-return-line').addEventListener('click', () => {
+  const i = rIdx++;
+  const div = document.createElement('div');
+  div.className = 'return-line grid grid-cols-12 gap-2 items-end';
+  div.innerHTML = `
+    <div class="col-span-5">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
+      <select name="stock_${i}" class="field-input text-sm" required><option value="">Select item</option>${stockOptions}</select>
+    </div>
+    <div class="col-span-3">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Return Qty</label>
+      <input type="number" name="qty_${i}" min="1" required class="field-input text-sm">
+    </div>
+    <div class="col-span-3">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Reason</label>
+      <input type="text" name="reason_${i}" class="field-input text-sm" placeholder="Excess, expired, etc.">
+    </div>
+    <div class="col-span-1 flex items-end pb-1">
+      <button type="button" onclick="this.closest('.return-line').remove()" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+    </div>`;
+  document.getElementById('return-lines').appendChild(div);
+});
+document.getElementById('return-form').addEventListener('submit', () => {
+  const inp = document.createElement('input'); inp.type='hidden'; inp.name='stock_'+rIdx; inp.value='';
+  document.getElementById('return-form').appendChild(inp);
+});
+</script>
+{% endblock %}

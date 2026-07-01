@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Transfer Requests{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Transfer Requests</h1>
+    {% if perms.core.request_medication_transfer %}
+    <a href="{% url 'transfer_request_create' %}" class="btn-primary text-sm">+ New Request</a>
+    {% endif %}
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+        <select name="status" class="field-input text-sm py-1.5">
+          <option value="">All</option>
+          {% for val, label in statuses %}<option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+        <select name="store" class="field-input text-sm py-1.5">
+          <option value="">All</option>
+          {% for s in stores %}<option value="{{ s.id }}" {% if store_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+        <select name="priority" class="field-input text-sm py-1.5">
+          <option value="">All</option>
+          {% for val, label in priorities %}<option value="{{ val }}" {% if priority == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="btn-primary text-sm w-full py-1.5">Filter</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">Request #</th>
+            <th class="px-5 py-3 font-medium">Department</th>
+            <th class="px-5 py-3 font-medium">Priority</th>
+            <th class="px-5 py-3 font-medium">Status</th>
+            <th class="px-5 py-3 font-medium">Requested By</th>
+            <th class="px-5 py-3 font-medium">Date</th>
+            <th class="px-5 py-3 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for r in page_obj %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">{{ r.request_number }}</td>
+            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ r.requesting_store.name }}</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                {% if r.priority == 'emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+                {% elif r.priority == 'urgent' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+                {{ r.get_priority_display }}
+              </span>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                {% if r.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                {% elif r.status == 'approved' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                {% elif r.status == 'fulfilled' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                {% elif r.status == 'rejected' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+                {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+                {{ r.get_status_display }}
+              </span>
+            </td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ r.requested_by.get_full_name|default:r.requested_by.username }}</td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ r.request_date|date:"M d, Y" }}</td>
+            <td class="px-5 py-3">
+              <a href="{% url 'transfer_request_detail' r.id %}" class="text-xs text-indigo-600 hover:underline mr-2">View</a>
+              {% if r.status == 'pending' and perms.core.approve_medication_transfer %}
+              <a href="{% url 'transfer_request_approve' r.id %}" class="text-xs text-emerald-600 hover:underline">Approve</a>
+              {% endif %}
+              {% if r.status == 'approved' and perms.core.approve_medication_transfer %}
+              <a href="{% url 'transfer_request_fulfill' r.id %}" class="text-xs text-purple-600 hover:underline">Fulfill</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400 dark:text-slate-500">No transfer requests found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&status={{ status }}&store={{ store_id }}&priority={{ priority }}" class="btn-secondary text-xs py-1 px-3">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&status={{ status }}&store={{ store_id }}&priority={{ priority }}" class="btn-secondary text-xs py-1 px-3">Next</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Convert to PO — {{ pr.request_number }}{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'purchase_request_detail' pr.pk %}" class="hover:text-blue-600">{{ pr.request_number }}</a> / Convert to PO</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">Convert to Purchase Order</h1>
+  <p class="text-sm text-slate-500 mb-5">{{ pr.items.count }} item(s) will be added to the new PO.</p>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Supplier Name <span class="text-red-500">*</span></label>
+      <select name="supplier_name" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="TBD">TBD (fill later)</option>
+        {% for s in suppliers %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Supplier Contact</label>
+      <input type="text" name="supplier_contact" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Expected Delivery</label>
+      <input type="date" name="expected_delivery" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Create Purchase Order</button>
+      <a href="{% url 'purchase_request_detail' pr.pk %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Medications{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Medication Catalog</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ page_obj.paginator.count }} medications</p>
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.manage_medication %}
+    <a href="{% url 'medication_create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      Add Medication
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5">
+  <form method="get" class="flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-48">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search name, code, barcode…"
+        class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all">
+    </div>
+    <div>
+      <select name="category" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Categories</option>
+        {% for cat in categories %}<option value="{{ cat.id }}" {% if category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <select name="drug_type" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Types</option>
+        {% for val, label in drug_types %}<option value="{{ val }}" {% if drug_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <select name="status" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Status</option>
+        <option value="low_stock" {% if status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+        <option value="out_of_stock" {% if status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+        <option value="near_expiry" {% if status == 'near_expiry' %}selected{% endif %}>Near Expiry (90d)</option>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Filter</button>
+    {% if q or category or status or drug_type %}
+    <a href="{% url 'medication_list' %}" class="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 transition-colors">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Alert bar -->
+{% if alerts.out_of_stock or alerts.near_expiry %}
+<div class="flex flex-wrap gap-3 mb-4">
+  {% if alerts.out_of_stock %}
+  <div class="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400">
+    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <strong>{{ alerts.out_of_stock }}</strong> medication(s) are out of stock
+  </div>
+  {% endif %}
+  {% if alerts.near_expiry %}
+  <div class="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl text-sm text-orange-700 dark:text-orange-400">
+    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <strong>{{ alerts.near_expiry }}</strong> batch(es) expiring within 30 days
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Code</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Medication</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Category</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Type</th>
+          <th class="text-right px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Stock</th>
+          <th class="text-center px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-right px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Price (ETB)</th>
+          <th class="text-right px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for m in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+          <td class="px-5 py-3.5">
+            <span class="font-mono text-xs text-slate-500 dark:text-slate-400">{{ m.code }}</span>
+          </td>
+          <td class="px-5 py-3.5">
+            <p class="font-medium text-slate-800 dark:text-slate-200">{{ m.name }}</p>
+            <p class="text-xs text-slate-400">{{ m.generic_name }} · {{ m.strength }}</p>
+          </td>
+          <td class="px-5 py-3.5 text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ m.category.name|default:"—" }}</td>
+          <td class="px-5 py-3.5 text-slate-600 dark:text-slate-400 hidden lg:table-cell">{{ m.drug_type }}</td>
+          <td class="px-5 py-3.5 text-right font-semibold text-slate-800 dark:text-slate-200">
+            {{ m.current_stock }}<span class="text-xs font-normal text-slate-400 ml-1">{{ m.unit_of_measure }}</span>
+          </td>
+          <td class="px-5 py-3.5 text-center">
+            {% with s=m.stock_status %}
+            <span class="text-xs px-2.5 py-0.5 rounded-full font-medium
+              {% if s == 'Out of Stock' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif s == 'Low Stock' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+              {% elif s == 'Overstock' %}bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400
+              {% else %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% endif %}">
+              {{ s }}
+            </span>
+            {% endwith %}
+          </td>
+          <td class="px-5 py-3.5 text-right text-slate-600 dark:text-slate-400 hidden lg:table-cell">{{ m.selling_price }}</td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="{% url 'medication_detail' m.id %}" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">View</a>
+              {% if perms.core.manage_medication %}
+              <a href="{% url 'batch_receive' m.id %}" class="px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg hover:bg-emerald-100 transition-colors">+ Stock</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="py-16 text-center">
+            <p class="text-slate-500 dark:text-slate-400 font-medium">No medications found</p>
+            {% if q %}<p class="text-sm text-slate-400 mt-1">Try a different search term.</p>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if category %}&category={{ category }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if drug_type %}&drug_type={{ drug_type }}{% endif %}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">← Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if category %}&category={{ category }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if drug_type %}&drug_type={{ drug_type }}{% endif %}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

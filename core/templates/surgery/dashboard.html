@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Surgery Dashboard{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Surgery & Procedures</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Manage surgical orders, OR schedule, and clinical documentation</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if perms.core.order_surgery %}
+    <a href="{% url 'surgery_order_create' %}" class="btn-primary text-sm">+ New Surgery Order</a>
+    {% endif %}
+    {% if perms.core.read_surgery %}
+    <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">All Orders</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+  {% include "surgery/_kpi.html" with label="Total Orders" value=total_orders color="slate" %}
+  {% include "surgery/_kpi.html" with label="Pending Review" value=pending color="yellow" %}
+  {% include "surgery/_kpi.html" with label="Approved" value=approved color="blue" %}
+  {% include "surgery/_kpi.html" with label="Today's Ops" value=scheduled_today color="indigo" %}
+  {% include "surgery/_kpi.html" with label="In OR Now" value=in_or color="orange" %}
+  {% include "surgery/_kpi.html" with label="Completed (month)" value=completed_month color="emerald" %}
+  {% include "surgery/_kpi.html" with label="Cancelled (month)" value=cancelled_month color="red" %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <!-- Today's Schedule -->
+  <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Today's OR Schedule — {{ today|date:"d M Y" }}</h2>
+      {% if perms.core.manage_or_schedule %}
+      <a href="{% url 'or_dashboard' %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">OR Dashboard →</a>
+      {% endif %}
+    </div>
+    {% if todays_schedule %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Time</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Room</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for sched in todays_schedule %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+            <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ sched.scheduled_start_time|time:"H:i" }}</td>
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100 text-sm">{{ sched.surgery_order.patient.full_name }}</p>
+              <p class="text-xs text-slate-400">{{ sched.surgery_order.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{{ sched.surgery_order.planned_procedure|truncatechars:40 }}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500">{{ sched.or_room.name }}</td>
+            <td class="px-4 py-2.5">{% include "surgery/_status_badge.html" with status=sched.surgery_order.status %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-slate-400 text-sm">No surgeries scheduled for today.</div>
+    {% endif %}
+  </div>
+
+  <!-- Urgent / Emergency -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Urgent / Emergency Orders</h2>
+    </div>
+    {% if urgent %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for order in urgent %}
+      <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              {% include "surgery/_priority_badge.html" with priority=order.priority %}
+              {% include "surgery/_status_badge.html" with status=order.status %}
+            </div>
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ order.patient.full_name }}</p>
+            <p class="text-xs text-slate-500 truncate">{{ order.planned_procedure }}</p>
+          </div>
+          <a href="{% url 'surgery_order_detail' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400 shrink-0">View</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-slate-400 text-sm">No urgent orders pending.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Recent Orders -->
+<div class="mt-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Recent Surgery Orders</h2>
+    <a href="{% url 'surgery_order_list' %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View all →</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Order #</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Priority</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+          <th class="px-4 py-2.5"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for order in recent %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">{{ order.order_number }}</td>
+          <td class="px-4 py-2.5">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</p>
+            <p class="text-xs text-slate-400">{{ order.patient.card_number }}</p>
+          </td>
+          <td class="px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{{ order.planned_procedure|truncatechars:35 }}</td>
+          <td class="px-4 py-2.5">{% include "surgery/_priority_badge.html" with priority=order.priority %}</td>
+          <td class="px-4 py-2.5">{% include "surgery/_status_badge.html" with status=order.status %}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-500">Dr. {{ order.surgeon.get_full_name|default:order.surgeon.username }}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-400">{{ order.ordered_at|date:"d M Y" }}</td>
+          <td class="px-4 py-2.5 text-right">
+            <a href="{% url 'surgery_order_detail' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+  {% if perms.core.read_surgery %}
+  <a href="{% url 'procedure_master_list' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-blue-300 dark:hover:border-blue-600 transition text-center group">
+    <div class="text-2xl mb-1">🔬</div>
+    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">Procedure List</p>
+  </a>
+  {% endif %}
+  {% if perms.core.manage_or_schedule %}
+  <a href="{% url 'or_dashboard' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 dark:hover:border-indigo-600 transition text-center">
+    <div class="text-2xl mb-1">🏥</div>
+    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">OR Schedule</p>
+  </a>
+  <a href="{% url 'or_room_list' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-purple-300 dark:hover:border-purple-600 transition text-center">
+    <div class="text-2xl mb-1">🚪</div>
+    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">OR Rooms</p>
+  </a>
+  {% endif %}
+  {% if perms.core.read_surgery_reports %}
+  <a href="{% url 'surgery_reports' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-emerald-300 dark:hover:border-emerald-600 transition text-center">
+    <div class="text-2xl mb-1">📊</div>
+    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">Reports</p>
+  </a>
+  {% endif %}
+  {% if perms.core.manage_procedure_master %}
+  <a href="{% url 'procedure_master_create' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-orange-300 dark:hover:border-orange-600 transition text-center">
+    <div class="text-2xl mb-1">➕</div>
+    <p class="text-xs font-medium text-slate-700 dark:text-slate-300">Add Procedure</p>
+  </a>
+  {% endif %}
+</div>
+
+{% endblock %}

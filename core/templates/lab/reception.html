@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Lab Reception — HMS{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Lab Reception</h1>
+    <p class="text-sm text-slate-500">Patient check-in · Payment verification · Sample handoff</p>
+  </div>
+  <a href="{% url 'lab_dashboard' %}" class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 transition-colors">← Lab Dashboard</a>
+</div>
+
+<!-- Filters -->
+<div class="flex flex-wrap gap-2 mb-4 no-print">
+  <form method="get" class="flex flex-wrap gap-2 items-center">
+    <button name="pay" value="all" class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors {% if pay_filter == 'all' %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %}">All</button>
+    <button name="pay" value="unpaid" class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors {% if pay_filter == 'unpaid' %}bg-amber-600 text-white border-amber-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-amber-400{% endif %}">Waiting Payment</button>
+    <button name="pay" value="paid" class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors {% if pay_filter == 'paid' %}bg-emerald-600 text-white border-emerald-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-emerald-400{% endif %}">Ready</button>
+    <select name="priority" class="px-3 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+      <option value="">All Priorities</option>
+      <option value="STAT" {% if priority_f == 'STAT' %}selected{% endif %}>STAT</option>
+      <option value="Urgent" {% if priority_f == 'Urgent' %}selected{% endif %}>Urgent</option>
+      <option value="Routine" {% if priority_f == 'Routine' %}selected{% endif %}>Routine</option>
+    </select>
+    <input type="text" name="q" value="{{ search }}" placeholder="Search patient / test…" class="px-3 py-1.5 text-sm rounded-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white min-w-40">
+  </form>
+</div>
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Patient</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Test</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Doctor</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Payment</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden sm:table-cell">Priority</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Invoice</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for order in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if order.priority == 'STAT' %}bg-red-50/40 dark:bg-red-900/10{% endif %}">
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ order.visit.patient.full_name }}</p>
+            <p class="text-xs text-slate-400 font-mono">{{ order.visit.patient.card_number }}</p>
+          </td>
+          <td class="px-4 py-3">
+            <p class="text-slate-700 dark:text-slate-300 font-medium">{{ order.test_name }}</p>
+            {% if order.unit_price > 0 %}<p class="text-xs text-slate-400">ETB {{ order.unit_price|floatformat:2 }}</p>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">
+            Dr. {{ order.ordered_by.get_full_name|default:order.ordered_by.username }}
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if order.payment_status == 'Paid' %}bg-emerald-100 text-emerald-700
+              {% elif order.payment_status == 'Credit' %}bg-purple-100 text-purple-700
+              {% elif order.payment_status == 'Partial' %}bg-blue-100 text-blue-700
+              {% elif order.payment_status == 'Waived' %}bg-slate-100 text-slate-500
+              {% else %}bg-amber-100 text-amber-700{% endif %}">
+              {{ order.payment_status }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if order.status == 'Sample Pending' %}bg-teal-100 text-teal-700
+              {% elif order.status == 'Sample Collected' %}bg-indigo-100 text-indigo-700
+              {% elif order.status == 'Waiting Payment' or order.status == 'Pending' %}bg-amber-100 text-amber-700
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ order.status }}
+            </span>
+          </td>
+          <td class="px-4 py-3 hidden sm:table-cell">
+            <span class="text-xs font-semibold {% if order.priority == 'STAT' %}text-red-600{% elif order.priority == 'Urgent' %}text-amber-600{% else %}text-slate-400{% endif %}">{{ order.priority }}</span>
+          </td>
+          <td class="px-4 py-3 hidden lg:table-cell">
+            {% if order.invoice_item %}
+            <a href="{% url 'invoice_detail' order.invoice_item.invoice.pk %}" class="text-xs text-blue-600 hover:text-blue-800 font-mono">{{ order.invoice_item.invoice.invoice_number }}</a>
+            {% else %}<span class="text-xs text-slate-300">No invoice</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'lab_order_detail' order.pk %}" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-slate-400">No orders in queue.</div>
+    {% endif %}
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between no-print">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?pay={{ pay_filter }}&q={{ search }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 hover:bg-slate-50 transition">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?pay={{ pay_filter }}&q={{ search }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 hover:bg-slate-50 transition">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ svc.name }} — Lab Services — HMS{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between mb-5">
+  <div>
+    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'lab_service_list' %}" class="hover:text-blue-600">Lab Services</a> / {{ svc.code }}</nav>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ svc.name }}</h1>
+    <p class="text-sm text-slate-500 font-mono">{{ svc.code }} · {{ svc.section }}</p>
+  </div>
+  <a href="{% url 'lab_service_edit' svc.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Edit Service</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Info -->
+  <div class="lg:col-span-2 space-y-4">
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Test Details</h3></div>
+      <div class="px-5 py-4 grid grid-cols-2 gap-4 text-sm">
+        <div><p class="text-xs text-slate-500 mb-0.5">Section</p><p class="text-slate-700 dark:text-slate-300">{{ svc.section }}</p></div>
+        <div><p class="text-xs text-slate-500 mb-0.5">Sample Type</p><p class="text-slate-700 dark:text-slate-300">{{ svc.sample_type }}</p></div>
+        <div><p class="text-xs text-slate-500 mb-0.5">Category</p><p class="text-slate-700 dark:text-slate-300">{{ svc.category|default:"—" }}</p></div>
+        <div><p class="text-xs text-slate-500 mb-0.5">Turnaround</p><p class="text-slate-700 dark:text-slate-300">{{ svc.turnaround_hours }} hours</p></div>
+        <div><p class="text-xs text-slate-500 mb-0.5">Status</p>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if svc.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{% if svc.is_active %}Active{% else %}Inactive{% endif %}</span>
+        </div>
+        {% if svc.sample_requirements %}
+        <div class="col-span-2"><p class="text-xs text-slate-500 mb-0.5">Sample Requirements</p><p class="text-slate-600 dark:text-slate-400">{{ svc.sample_requirements }}</p></div>
+        {% endif %}
+        {% if svc.preparation_instructions %}
+        <div class="col-span-2"><p class="text-xs text-slate-500 mb-0.5">Patient Preparation</p><p class="text-slate-600 dark:text-slate-400">{{ svc.preparation_instructions }}</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent Orders</h3></div>
+      {% if recent_orders %}
+      <table class="w-full text-sm">
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for order in recent_orders %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ order.visit.patient.full_name }}</p>
+              <p class="text-xs text-slate-400">{{ order.ordered_at|date:"d M Y H:i" }}</p>
+            </td>
+            <td class="px-4 py-2.5 text-xs">
+              <span class="px-2 py-0.5 rounded-full {% if order.status == 'Released' or order.status == 'Completed' %}bg-emerald-100 text-emerald-700{% elif order.status == 'Result Ready' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ order.status }}</span>
+            </td>
+            <td class="px-4 py-2.5 text-right">
+              <a href="{% url 'lab_order_detail' order.pk %}" class="text-xs text-blue-600 hover:text-blue-800">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="px-5 py-6 text-sm text-slate-400 text-center">No orders yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pricing sidebar -->
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Pricing</h3></div>
+      <div class="px-5 py-4 space-y-3 text-sm">
+        <div class="flex justify-between"><span class="text-slate-500">Standard</span><span class="font-bold text-slate-800 dark:text-slate-100">ETB {{ svc.standard_price|floatformat:2 }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Insurance</span><span class="text-slate-600 dark:text-slate-400">{% if svc.insurance_price %}ETB {{ svc.insurance_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Corporate</span><span class="text-slate-600 dark:text-slate-400">{% if svc.corporate_price %}ETB {{ svc.corporate_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Emergency</span><span class="text-slate-600 dark:text-slate-400">{% if svc.emergency_price %}ETB {{ svc.emergency_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
+        {% if svc.tax_percent > 0 %}
+        <div class="flex justify-between border-t border-slate-100 dark:border-slate-700 pt-3"><span class="text-slate-500">Tax</span><span class="text-slate-600 dark:text-slate-400">{{ svc.tax_percent }}%</span></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Statistics</h3></div>
+      <div class="px-5 py-4 space-y-3 text-sm">
+        <div class="flex justify-between"><span class="text-slate-500">Total Orders</span><span class="font-semibold text-slate-700 dark:text-slate-300">{{ stats.total|default:0 }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Released</span><span class="font-semibold text-emerald-600">{{ stats.released|default:0 }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Revenue (Paid)</span><span class="font-semibold text-blue-600">ETB {{ stats.revenue|floatformat:2|default:"0.00" }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

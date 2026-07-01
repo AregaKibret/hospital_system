@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Equipment Assets — Store{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Equipment & Assets</h1>
+    <p class="text-sm text-slate-500">Hospital equipment registry and maintenance tracking</p>
+  </div>
+  <a href="{% url 'equipment_create' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">+ Register Asset</a>
+</div>
+
+<!-- KPIs -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Total Assets</p>
+    <p class="text-2xl font-bold text-slate-700 dark:text-slate-300">{{ total }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Active</p>
+    <p class="text-2xl font-bold text-emerald-600">{{ active }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">In Repair</p>
+    <p class="text-2xl font-bold text-amber-600">{{ in_repair }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-center">
+    <p class="text-xs text-slate-400 mb-0.5">Maintenance Due</p>
+    <p class="text-2xl font-bold text-red-600">{{ maint_due }}</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="flex flex-wrap gap-2 mb-4 items-center">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search name, code, serial…" class="flex-1 min-w-48 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white">
+  <select name="status" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <option value="">All Status</option>
+    {% for val, lbl in status_choices %}<option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+  </select>
+  <select name="dept" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <option value="">All Depts</option>
+    {% for dept in departments %}<option value="{{ dept.pk }}" {% if dept_f == dept.pk|stringformat:'s' %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+  </select>
+  <label class="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50">
+    <input type="checkbox" name="maintenance_due" value="1" {% if maintenance_due == '1' %}checked{% endif %}> Maintenance Due
+  </label>
+  <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg transition-colors">Filter</button>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+        <tr>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Code</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Name</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Department</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Brand / Serial</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Warranty</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Next Maint.</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for asset in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if asset.maintenance_overdue %}bg-amber-50 dark:bg-amber-900/10{% endif %}">
+          <td class="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{{ asset.asset_code }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ asset.name }}</p>
+            {% if asset.location_detail %}<p class="text-xs text-slate-400">{{ asset.location_detail }}</p>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ asset.department|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">
+            {% if asset.brand %}{{ asset.brand }}{% endif %}
+            {% if asset.serial_number %}<br><span class="font-mono">{{ asset.serial_number }}</span>{% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if asset.status == 'Active' %}bg-emerald-100 text-emerald-700
+              {% elif asset.status == 'In Repair' %}bg-amber-100 text-amber-700
+              {% elif asset.status == 'Idle' %}bg-slate-100 text-slate-600
+              {% elif asset.status == 'Retired' or asset.status == 'Disposed' %}bg-red-100 text-red-600
+              {% else %}bg-purple-100 text-purple-700{% endif %}">{{ asset.status }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs hidden lg:table-cell">
+            {% if asset.warranty_expiry %}
+            <span class="{% if asset.warranty_status == 'Expired' %}text-red-500{% elif asset.warranty_status == 'Expiring Soon' %}text-amber-500{% else %}text-emerald-600{% endif %}">{{ asset.warranty_expiry|date:"d M Y" }}</span>
+            {% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-xs hidden lg:table-cell">
+            {% if asset.next_maintenance %}
+            <span class="{% if asset.maintenance_overdue %}text-red-600 font-semibold{% else %}text-slate-600 dark:text-slate-400{% endif %}">{{ asset.next_maintenance|date:"d M Y" }}</span>
+            {% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap">
+            <a href="{% url 'equipment_detail' asset.pk %}" class="text-xs text-blue-600 hover:text-blue-800 font-medium mr-2">View</a>
+            <a href="{% url 'equipment_edit' asset.pk %}" class="text-xs text-slate-500 hover:text-slate-700">Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-slate-400 text-sm">No assets found. <a href="{% url 'equipment_create' %}" class="text-blue-600 hover:underline">Register one</a>.</div>
+    {% endif %}
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?q={{ q }}&status={{ status_f }}&dept={{ dept_f }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?q={{ q }}&status={{ status_f }}&dept={{ dept_f }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% for inv in page_obj %}
+<div class="border-b border-slate-50 dark:border-slate-700/50 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition" data-invoice-id="{{ inv.pk }}">
+  <div class="px-4 py-3">
+
+    <!-- Invoice # + Balance -->
+    <div class="flex items-center justify-between gap-2 mb-0.5">
+      <span class="font-mono text-xs text-slate-400">{{ inv.invoice_number }}</span>
+      <div class="flex items-center gap-2">
+        {% include "billing/_status_badge.html" with status=inv.status %}
+        <span class="font-bold text-red-600 dark:text-red-400">ETB {{ inv.balance|floatformat:2 }}</span>
+      </div>
+    </div>
+
+    <!-- Patient -->
+    <div class="flex items-start justify-between gap-2 mb-2">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ inv.patient.full_name }}</p>
+        <p class="text-xs text-slate-400 font-mono">{{ inv.patient.card_number }}</p>
+      </div>
+      <div class="text-right shrink-0">
+        {% if inv.visit %}
+        <p class="text-xs text-slate-500 dark:text-slate-400">{{ inv.visit.visit_type }}</p>
+        <p class="text-xs text-slate-400">{{ inv.visit.department.name|default:"—" }}</p>
+        {% if inv.visit.doctor %}<p class="text-xs text-slate-400">Dr. {{ inv.visit.doctor.get_full_name }}</p>{% endif %}
+        {% elif inv.notes %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          Pharmacy
+        </span>
+        <p class="text-xs text-slate-400 mt-0.5 text-right">{{ inv.notes|truncatechars:20 }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Amounts -->
+    <div class="flex items-center gap-4 text-xs mb-2">
+      <span class="text-slate-500">Total: <span class="font-semibold text-slate-700 dark:text-slate-300">ETB {{ inv.total_amount|floatformat:2 }}</span></span>
+      {% if inv.paid_amount > 0 %}<span class="text-emerald-600">Paid: <span class="font-semibold">ETB {{ inv.paid_amount|floatformat:2 }}</span></span>{% endif %}
+      <span class="text-slate-400">{{ inv.created_at|date:"d M Y H:i" }}</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2 flex-wrap">
+      {% if can_pay %}
+      <a href="{% url 'payment_create' inv.id %}?return_to=split"
+         class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        Pay Now
+      </a>
+      {% endif %}
+      <a href="{% url 'invoice_detail' inv.id %}" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">View</a>
+      {% if can_manage and inv.status not in 'Paid,Cancelled,Waived' %}
+      <form method="post" action="{% url 'invoice_update_status' inv.id %}" class="inline" onsubmit="return confirm('Cancel this invoice?')">
+        {% csrf_token %}<input type="hidden" name="status" value="Cancelled">
+        <button type="submit" class="text-xs px-2 py-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition">Cancel</button>
+      </form>
+      {% endif %}
+      {% if inv.visit %}
+      <a href="{% url 'patient_journey_detail' inv.visit.pk %}" class="text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition">Journey →</a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% empty %}
+<div class="px-4 py-14 text-center">
+  <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  </div>
+  <p class="text-sm text-slate-400 font-medium">No pending invoices{% if q %} for "{{ q }}"{% endif %}</p>
+  <p class="text-xs text-slate-400 mt-1">All invoices have been paid.</p>
+</div>
+{% endfor %}
+
+{% if page_obj.has_other_pages %}
+<div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+  <span class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  <div class="flex gap-1.5">
+    {% if page_obj.has_previous %}<button onclick="loadUnpaidPanel({{ page_obj.previous_page_number }})" class="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">← Prev</button>{% endif %}
+    {% if page_obj.has_next %}<button onclick="loadUnpaidPanel({{ page_obj.next_page_number }})" class="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">Next →</button>{% endif %}
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Lab Order — {{ order.test_name }} — HMS{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-start justify-between mb-5">
+  <div>
+    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'lab_dashboard' %}" class="hover:text-blue-600">Laboratory</a> / Order #{{ order.pk }}</nav>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ order.test_name }}</h1>
+    <div class="flex items-center gap-2 mt-1">
+      <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+        {% if order.priority == 'STAT' %}bg-red-100 text-red-700{% elif order.priority == 'Urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ order.priority }}
+      </span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+        {% if order.status == 'Released' or order.status == 'Completed' %}bg-emerald-100 text-emerald-700
+        {% elif order.status == 'Result Ready' %}bg-blue-100 text-blue-700
+        {% elif order.status == 'Processing' or order.status == 'Sample Collected' %}bg-indigo-100 text-indigo-700
+        {% elif order.status == 'Sample Pending' %}bg-teal-100 text-teal-700
+        {% elif order.status == 'Waiting Payment' or order.status == 'Pending' %}bg-amber-100 text-amber-700
+        {% elif order.status == 'Cancelled' %}bg-red-100 text-red-700
+        {% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ order.status }}
+      </span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+        {% if order.payment_status == 'Paid' %}bg-emerald-100 text-emerald-700
+        {% elif order.payment_status == 'Credit' %}bg-purple-100 text-purple-700
+        {% elif order.payment_status == 'Partial' %}bg-blue-100 text-blue-700
+        {% elif order.payment_status == 'Waived' %}bg-slate-100 text-slate-500
+        {% else %}bg-amber-100 text-amber-700{% endif %}">
+        {{ order.payment_status }}
+      </span>
+    </div>
+  </div>
+  <div class="flex gap-2 no-print">
+    {% if can_release and order.status == 'Result Ready' %}
+    <form method="post" action="{% url 'lab_result_release' order.pk %}" onsubmit="return confirm('Release result to patient?')">
+      {% csrf_token %}
+      <button class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">Release Result</button>
+    </form>
+    {% endif %}
+    {% if can_process and order.status not in 'Cancelled,Released,Completed' %}
+    <form method="post" action="{% url 'lab_order_cancel' order.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="reason" value="">
+      <button onclick="return confirm('Cancel this lab order?')" class="px-3 py-2 border border-red-300 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-50 transition-colors">Cancel</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Payment alert -->
+{% if order.payment_status == 'Pending Payment' %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5 flex items-center gap-3">
+  <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+  <div>
+    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">Payment Required</p>
+    <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">Sample collection is blocked until payment is confirmed through Billing.
+      {% if order.invoice_item %}<a href="{% url 'invoice_detail' order.invoice_item.invoice.pk %}" class="underline ml-1">View Invoice →</a>{% endif %}
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Main Info -->
+  <div class="lg:col-span-2 space-y-4">
+
+    <!-- Patient & Order -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Order Information</h3>
+      </div>
+      <div class="px-5 py-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Patient</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-100">{{ order.visit.patient.full_name }}</p>
+          <p class="text-xs text-slate-400 font-mono">{{ order.visit.patient.card_number }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Ordered By</p>
+          <p class="text-slate-700 dark:text-slate-300">Dr. {{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p>
+          <p class="text-xs text-slate-400">{{ order.ordered_at|date:"d M Y H:i" }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Department</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ order.visit.department.name|default:"—" }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Category</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ order.test_category|default:"—" }}</p>
+        </div>
+        {% if order.lab_service %}
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Section</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ order.lab_service.section }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Sample Type</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ order.lab_service.sample_type }}</p>
+        </div>
+        {% endif %}
+        {% if order.clinical_notes %}
+        <div class="col-span-2">
+          <p class="text-xs text-slate-500 mb-0.5">Clinical Notes</p>
+          <p class="text-slate-700 dark:text-slate-300">{{ order.clinical_notes }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sample Preparation (from service) -->
+    {% if order.lab_service and order.lab_service.preparation_instructions %}
+    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 px-5 py-4">
+      <p class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Patient Preparation</p>
+      <p class="text-sm text-blue-700 dark:text-blue-300">{{ order.lab_service.preparation_instructions }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Sample Collection -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Sample Collection</h3>
+      </div>
+      <div class="px-5 py-4">
+        {% if sample %}
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div><p class="text-xs text-slate-500 mb-0.5">Sample Type</p><p class="text-slate-700 dark:text-slate-300">{{ sample.sample_type }}</p></div>
+          <div><p class="text-xs text-slate-500 mb-0.5">Barcode</p><p class="font-mono text-blue-600 dark:text-blue-400">{{ sample.barcode|default:"—" }}</p></div>
+          <div><p class="text-xs text-slate-500 mb-0.5">Collected By</p><p class="text-slate-700 dark:text-slate-300">{{ sample.collected_by.get_full_name|default:sample.collected_by.username }}</p></div>
+          <div><p class="text-xs text-slate-500 mb-0.5">Collected At</p><p class="text-slate-700 dark:text-slate-300">{{ sample.collected_at|date:"d M Y H:i" }}</p></div>
+          <div><p class="text-xs text-slate-500 mb-0.5">Patient Verified</p><p class="text-slate-700 dark:text-slate-300">{% if sample.patient_verified %}Yes{% else %}No{% endif %}</p></div>
+          {% if sample.notes %}<div class="col-span-2"><p class="text-xs text-slate-500 mb-0.5">Notes</p><p class="text-slate-600 dark:text-slate-400">{{ sample.notes }}</p></div>{% endif %}
+        </div>
+        {% elif can_collect and order.payment_cleared %}
+        <form method="post" action="{% url 'lab_sample_collect' order.pk %}">
+          {% csrf_token %}
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            {% for field in sample_form %}
+            <div class="{% if forloop.last %}col-span-2{% endif %}">
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<p class="text-xs text-red-500 mt-0.5">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">Record Sample Collection</button>
+        </form>
+        {% else %}
+        <p class="text-sm text-slate-400">
+          {% if not order.payment_cleared %}Sample collection is waiting for payment confirmation.{% else %}No permission to collect samples.{% endif %}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Laboratory Result</h3>
+      </div>
+      <div class="px-5 py-4">
+        {% if order.result %}
+        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-4 text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-mono mb-3">{{ order.result }}</div>
+        {% if order.resulted_at %}<p class="text-xs text-slate-400">Entered: {{ order.resulted_at|date:"d M Y H:i" }}</p>{% endif %}
+        {% if order.released_at %}<p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Released: {{ order.released_at|date:"d M Y H:i" }} by {{ order.released_by.get_full_name|default:"—" }}</p>{% endif %}
+        {% else %}
+        <p class="text-sm text-slate-400 mb-3">No result entered yet.</p>
+        {% endif %}
+
+        {% if can_process and order.status not in 'Cancelled,Released,Completed' and order.status != 'Waiting Payment' %}
+        <form method="post" action="{% url 'lab_result_enter' order.pk %}" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+          {% csrf_token %}
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Enter / Update Result</label>
+          <textarea name="result" rows="5" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white font-mono" placeholder="Enter result text…">{{ order.result }}</textarea>
+          <div class="flex items-center gap-3 mt-2">
+            <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Save Result</button>
+            <span class="text-xs text-slate-400">Status will change to "Result Ready"</span>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-4">
+    <!-- Billing -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Billing</h3>
+      </div>
+      <div class="px-5 py-4 text-sm">
+        <div class="flex justify-between mb-2">
+          <span class="text-slate-500">Test Price</span>
+          <span class="font-semibold text-slate-700 dark:text-slate-300">ETB {{ order.unit_price|floatformat:2 }}</span>
+        </div>
+        <div class="flex justify-between mb-3">
+          <span class="text-slate-500">Payment Status</span>
+          <span class="font-semibold {% if order.payment_status == 'Paid' %}text-emerald-600{% elif order.payment_status == 'Pending Payment' %}text-amber-600{% else %}text-blue-600{% endif %}">{{ order.payment_status }}</span>
+        </div>
+        {% if order.invoice_item %}
+        <a href="{% url 'invoice_detail' order.invoice_item.invoice.pk %}" class="block w-full text-center px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-lg hover:bg-blue-100 transition-colors">
+          View Invoice {{ order.invoice_item.invoice.invoice_number }}
+        </a>
+        {% else %}
+        <p class="text-xs text-slate-400 text-center">No invoice linked</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Service Info -->
+    {% if order.lab_service %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Service Details</h3>
+      </div>
+      <div class="px-5 py-4 text-sm space-y-2">
+        <div class="flex justify-between"><span class="text-slate-500">Code</span><span class="font-mono text-xs text-slate-700 dark:text-slate-300">{{ order.lab_service.code }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Section</span><span class="text-slate-700 dark:text-slate-300">{{ order.lab_service.section }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Turnaround</span><span class="text-slate-700 dark:text-slate-300">{{ order.lab_service.turnaround_hours }}h</span></div>
+        {% if order.lab_service.sample_requirements %}
+        <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+          <p class="text-xs text-slate-500 mb-1">Sample Requirements</p>
+          <p class="text-xs text-slate-600 dark:text-slate-400">{{ order.lab_service.sample_requirements }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Status Update -->
+    {% if can_process and order.status not in 'Cancelled,Released,Completed' %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Update Status</h3>
+      </div>
+      <div class="px-5 py-4">
+        <form method="post" action="{% url 'lab_order_update_status' order.pk %}">
+          {% csrf_token %}
+          <select name="status" class="w-full mb-3 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            {% for val, lbl in status_choices %}
+            <option value="{{ val }}" {% if order.status == val %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors">Update Status</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

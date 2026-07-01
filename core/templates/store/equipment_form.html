@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Equipment Asset{% endblock %}
+{% block content %}
+<div class="max-w-3xl">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'equipment_list' %}" class="hover:text-blue-600">Equipment</a> / {{ action }}</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-5">{{ action }} Equipment Asset</h1>
+
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <!-- Basic -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Asset Identification</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Asset Name <span class="text-red-500">*</span></label>
+          <input type="text" name="name" value="{{ asset.name|default:'' }}" required class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Asset Code <span class="text-red-500">*</span></label>
+          <input type="text" name="asset_code" value="{{ asset.asset_code|default:'' }}" {% if asset %}readonly class="w-full px-3 py-2 text-sm rounded-lg border border-slate-100 bg-slate-50 dark:bg-slate-700 text-slate-500"{% else %}required class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"{% endif %} placeholder="e.g. EQ-2025-001">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Serial Number</label>
+          <input type="text" name="serial_number" value="{{ asset.serial_number|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Brand</label>
+          <input type="text" name="brand" value="{{ asset.brand|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Model Number</label>
+          <input type="text" name="model_number" value="{{ asset.model_number|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
+          <select name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            <option value="">— Select —</option>
+            {% for cat in categories %}<option value="{{ cat.pk }}" {% if asset.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+          <select name="department" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            <option value="">— Select —</option>
+            {% for dept in departments %}<option value="{{ dept.pk }}" {% if asset.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Location Detail</label>
+          <input type="text" name="location_detail" value="{{ asset.location_detail|default:'' }}" placeholder="Room / Ward / Shelf" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+          <select name="status" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            {% for val, lbl in status_choices %}<option value="{{ val }}" {% if asset.status == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Procurement -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Procurement Details</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Purchase Date</label>
+          <input type="date" name="purchase_date" value="{{ asset.purchase_date|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Purchase Price (ETB)</label>
+          <input type="number" name="purchase_price" value="{{ asset.purchase_price|default:'' }}" step="0.01" min="0" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Supplier</label>
+          <select name="supplier" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            <option value="">— Select —</option>
+            {% for s in suppliers %}<option value="{{ s.pk }}" {% if asset.supplier_id == s.pk %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Invoice Number</label>
+          <input type="text" name="invoice_number" value="{{ asset.invoice_number|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Warranty Expiry</label>
+          <input type="date" name="warranty_expiry" value="{{ asset.warranty_expiry|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Next Maintenance</label>
+          <input type="date" name="next_maintenance" value="{{ asset.next_maintenance|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+          <textarea name="notes" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">{{ asset.notes|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">{{ action }} Asset</button>
+      <a href="{% if asset %}{% url 'equipment_detail' asset.pk %}{% else %}{% url 'equipment_list' %}{% endif %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

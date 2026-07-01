@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Credit Sales Report{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Credit Sales Outstanding</h1>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<div class="grid grid-cols-2 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500">Outstanding Amount (ETB)</p>
+    <p class="text-3xl font-bold text-amber-600 mt-1">{{ totals.outstanding|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500">Open Credit Accounts</p>
+    <p class="text-3xl font-bold text-indigo-600 mt-1">{{ totals.count }}</p>
+  </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-900/50">
+      <tr>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Sale #</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Customer</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Total</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Paid</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Outstanding</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Due Date</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Action</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for s in credits %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+        <td class="px-4 py-3">
+          <a href="{% url 'pharmacy_sale_detail' s.id %}" class="font-mono text-xs text-indigo-600 hover:underline">{{ s.sale_number }}</a>
+        </td>
+        <td class="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{{ s.customer_display|truncatechars:22 }}</td>
+        <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{{ s.total_amount|floatformat:2 }}</td>
+        <td class="px-4 py-3 text-right text-emerald-600">{{ s.paid_amount|floatformat:2 }}</td>
+        <td class="px-4 py-3 text-right font-bold text-amber-600">
+          {% widthratio s.total_amount 1 1 as dummy %}
+          {{ s.total_amount|add:"-0"|floatformat:2 }}
+        </td>
+        <td class="px-4 py-3 text-xs {% if s.credit_due_date %}text-slate-500{% else %}text-slate-300{% endif %}">
+          {{ s.credit_due_date|date:"d M Y"|default:"—" }}
+        </td>
+        <td class="px-4 py-3 text-right">
+          <a href="{% url 'pharmacy_sale_detail' s.id %}" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">View</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No outstanding credit sales.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>@media print { button, a[href], nav, header { display: none !important; } }</style>
+{% endblock %}

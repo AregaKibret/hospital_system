@@ -65,12 +65,27 @@
                 {{ form.sex.errors }}
             </div>
 
+            <!-- Date of Birth -->
             <div class="field-wrapper">
                 <label for="id_date_of_birth" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                     Date of Birth
                 </label>
                 {{ form.date_of_birth }}
                 {{ form.date_of_birth.errors }}
+            </div>
+
+            <!-- Age — linked bidirectionally with Date of Birth via JS -->
+            <div class="field-wrapper">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                    Age
+                    <span class="ml-1 font-normal text-xs text-slate-400 dark:text-slate-500">(auto-synced)</span>
+                </label>
+                <div class="flex gap-2">
+                    <div style="flex:1;min-width:0">{{ form.age_value }}</div>
+                    <div style="width:6.5rem;flex-shrink:0">{{ form.age_unit }}</div>
+                </div>
+                {{ form.age_value.errors }}
+                <p id="age-sync-hint" class="text-xs mt-1"></p>
             </div>
 
         </div>
@@ -207,4 +222,105 @@
 
 </form>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var dobInput  = document.getElementById('id_date_of_birth');
+    var ageInput  = document.getElementById('id_age_value');
+    var unitSel   = document.getElementById('id_age_unit');
+    var hint      = document.getElementById('age-sync-hint');
+    if (!dobInput || !ageInput || !unitSel) return;
+
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
+                  'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    // ── helpers ──────────────────────────────────────────────────
+    function ageFromDOB(dobVal) {
+        var dob   = new Date(dobVal + 'T00:00:00');
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (isNaN(dob) || dob > today) return null;
+
+        var years  = today.getFullYear() - dob.getFullYear();
+        var mDiff  = today.getMonth() - dob.getMonth();
+        var dDiff  = today.getDate()  - dob.getDate();
+        if (dDiff < 0) mDiff--;
+        if (mDiff < 0) { years--; mDiff += 12; }
+
+        if (years >= 1)  return { value: years,  unit: 'Years'  };
+        if (mDiff >= 1)  return { value: mDiff,  unit: 'Months' };
+        var days = Math.floor((today - dob) / 86400000);
+        return { value: days, unit: 'Days' };
+    }
+
+    function dobFromAge(val, unit) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var d = new Date(today);
+        if (unit === 'Years')  d.setFullYear(today.getFullYear() - val);
+        else if (unit === 'Months') d.setMonth(today.getMonth() - val);
+        else d.setDate(today.getDate() - val);
+        return (d.getFullYear()
+            + '-' + String(d.getMonth() + 1).padStart(2, '0')
+            + '-' + String(d.getDate()).padStart(2, '0'));
+    }
+
+    function fmtDate(iso) {
+        var p = iso.split('-');
+        return parseInt(p[2], 10) + ' ' + MONTHS[+p[1] - 1] + ' ' + p[0];
+    }
+
+    function setHint(msg, isError) {
+        hint.textContent = msg;
+        hint.className   = 'text-xs mt-1 ' + (isError ? 'text-red-500' : 'text-slate-400 dark:text-slate-500');
+    }
+
+    // ── DOB → Age ─────────────────────────────────────────────────
+    dobInput.addEventListener('change', function () {
+        var val = this.value;
+        if (!val) { ageInput.value = ''; unitSel.value = 'Years'; setHint(''); return; }
+        var today = new Date(); today.setHours(0,0,0,0);
+        var dob   = new Date(val + 'T00:00:00');
+        if (dob > today) { setHint('Date of birth cannot be in the future.', true); return; }
+        var age = ageFromDOB(val);
+        if (!age) return;
+        ageInput.value = age.value;
+        unitSel.value  = age.unit;
+        setHint('Age calculated automatically.');
+    });
+
+    // ── Age → DOB ─────────────────────────────────────────────────
+    function syncDOBFromAge() {
+        var val  = parseInt(ageInput.value, 10);
+        var unit = unitSel.value;
+        if (ageInput.value === '' || isNaN(val)) { setHint(''); return; }
+        if (val < 0) { setHint('Age cannot be negative.', true); return; }
+        if (unit === 'Years' && val > 150) { setHint('Age cannot exceed 150 years.', true); return; }
+        var dob = dobFromAge(val, unit);
+        // Update via flatpickr if available, else update raw value
+        var fp = dobInput._flatpickr;
+        if (fp) {
+            fp.setDate(dob, false); // false = skip onChange → no loop
+        } else {
+            dobInput.value = dob;
+        }
+        setHint('Estimated DOB: ' + fmtDate(dob));
+    }
+
+    ageInput.addEventListener('input',  syncDOBFromAge);
+    unitSel.addEventListener('change',  syncDOBFromAge);
+
+    // ── Initialise age display from existing DOB (edit mode) ──────
+    if (dobInput.value) {
+        var age = ageFromDOB(dobInput.value);
+        if (age) {
+            ageInput.value = age.value;
+            unitSel.value  = age.unit;
+            setHint('Age calculated automatically.');
+        }
+    }
+})();
+</script>
 {% endblock %}

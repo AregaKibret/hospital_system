@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Schedule Surgery — {{ order.order_number }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Schedule Surgery — {{ order.order_number }}</h1>
+</div>
+
+<!-- Order Summary -->
+<div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 mb-5">
+  <div class="flex flex-wrap gap-4 text-sm">
+    <div><span class="text-xs text-blue-500 block">Patient</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</span></div>
+    <div><span class="text-xs text-blue-500 block">Procedure</span><span class="text-slate-700 dark:text-slate-300">{{ order.planned_procedure }}</span></div>
+    <div><span class="text-xs text-blue-500 block">Priority</span>{% include "surgery/_priority_badge.html" with priority=order.priority %}</div>
+    <div><span class="text-xs text-blue-500 block">Anesthesia</span><span class="text-slate-700 dark:text-slate-300">{{ order.anesthesia_type }}</span></div>
+    {% if order.planned_date %}<div><span class="text-xs text-blue-500 block">Requested Date</span><span class="text-slate-700 dark:text-slate-300">{{ order.planned_date|date:"d M Y" }}</span></div>{% endif %}
+  </div>
+</div>
+
+<form method="post">{% csrf_token %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">OR Scheduling</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">OR Room <span class="text-red-500">*</span></label>
+        <select name="or_room" class="field-input" required>
+          <option value="">— Select Room —</option>
+          {% for room in rooms %}<option value="{{ room.pk }}" {% if schedule and schedule.or_room_id == room.pk %}selected{% endif %}>{{ room.name }} ({{ room.get_room_type_display }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Scheduled Date <span class="text-red-500">*</span></label>
+        <input type="date" name="scheduled_date" value="{{ schedule.scheduled_date|date:'Y-m-d'|default:'' }}" required class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Start Time <span class="text-red-500">*</span></label>
+        <input type="time" name="scheduled_start_time" value="{{ schedule.scheduled_start_time|time:'H:i'|default:'' }}" required class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Estimated End Time</label>
+        <input type="time" name="estimated_end_time" value="{{ schedule.estimated_end_time|time:'H:i'|default:'' }}" class="field-input" />
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">OR Team Assignment</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Scrub Nurse</label>
+        <select name="scrub_nurse" class="field-input">
+          <option value="">— Not assigned —</option>
+          {% for nurse in nurses %}<option value="{{ nurse.pk }}" {% if schedule and schedule.scrub_nurse_id == nurse.pk %}selected{% endif %}>{{ nurse.get_full_name|default:nurse.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Circulating Nurse</label>
+        <select name="circulating_nurse" class="field-input">
+          <option value="">— Not assigned —</option>
+          {% for nurse in nurses %}<option value="{{ nurse.pk }}" {% if schedule and schedule.circulating_nurse_id == nurse.pk %}selected{% endif %}>{{ nurse.get_full_name|default:nurse.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Anesthesiologist</label>
+        <select name="anesthesiologist" class="field-input">
+          <option value="">— Not assigned —</option>
+          {% for a in anesthesiologists %}<option value="{{ a.pk }}" {% if schedule and schedule.anesthesiologist_id == a.pk %}selected{% endif %}>{{ a.get_full_name|default:a.username }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <div class="field-wrapper">
+      <label class="field-label">Notes</label>
+      <textarea name="notes" rows="3" class="field-input">{% if schedule %}{{ schedule.notes }}{% endif %}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">{% if schedule %}Update Schedule{% else %}Schedule Surgery{% endif %}</button>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

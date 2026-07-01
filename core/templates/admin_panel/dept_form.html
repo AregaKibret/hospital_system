@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Department{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'dept_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Departments</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">{{ action }} Department</h1>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Department Name *</label>
+        <input type="text" name="name" value="{{ dept.name|default:post.name|default:'' }}" required class="field-input">
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Department Type *</label>
+        <select name="dept_type" class="field-input">
+          {% for val, label in dept_types %}
+          <option value="{{ val }}" {% if dept.dept_type == val or post.dept_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Department Head</label>
+        <input type="text" name="head" value="{{ dept.head|default:post.head|default:'' }}" class="field-input" placeholder="Name of head">
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Phone / Extension</label>
+        <input type="text" name="phone" value="{{ dept.phone|default:post.phone|default:'' }}" class="field-input">
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Location / Room</label>
+        <input type="text" name="location" value="{{ dept.location|default:post.location|default:'' }}" class="field-input" placeholder="e.g. Block A, Floor 2">
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Description</label>
+        <textarea name="description" rows="3" class="field-input">{{ dept.description|default:post.description|default:'' }}</textarea>
+      </div>
+      {% if dept %}
+      <div class="field-wrapper">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="is_active" {% if dept.is_active %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-indigo-600">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Active</span>
+        </label>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit" class="btn-primary">{{ action }} Department</button>
+      <a href="{% url 'dept_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

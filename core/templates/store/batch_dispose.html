@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dispose Batch — {{ batch.batch_number }}{% endblock %}
+{% block content %}
+<div class="max-w-lg">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'store_item_detail' item.pk %}" class="hover:text-blue-600">{{ item.name }}</a> / Dispose Batch</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-5">Dispose from Batch</h1>
+
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 mb-5">
+    <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Batch {{ batch.batch_number }}</p>
+    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Available: {{ batch.quantity_available|floatformat:0 }} {{ item.unit }} · Expires: {{ batch.expiration_date|date:"d M Y"|default:"N/A" }}</p>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Quantity to Dispose <span class="text-red-500">*</span></label>
+      <input type="number" name="quantity" step="0.0001" min="0.0001" max="{{ batch.quantity_available }}" required
+             class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason <span class="text-red-500">*</span></label>
+      <select name="reason" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="expired">Expired</option>
+        <option value="damaged">Damaged</option>
+        <option value="lost">Lost / Missing</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+      <textarea name="notes" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></textarea>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">Confirm Disposal</button>
+      <a href="{% url 'store_item_detail' item.pk %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

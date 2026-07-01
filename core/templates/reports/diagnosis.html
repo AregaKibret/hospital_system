@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Diagnosis Report — HMS{% endblock %}
+{% block content %}
+{% include "reports/_toolbar.html" with title="Diagnosis Report" %}
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 no-print">
+  <div class="flex flex-wrap gap-3 items-end">
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Depts</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select></div>
+    <div class="flex-1 min-w-40"><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search Diagnosis</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Description, ICD code…" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Apply</button>
+    <a href="{% url 'report_diagnosis' %}" class="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 underline">Reset</a>
+  </div>
+</form>
+
+<!-- Stats + Status -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-rose-600 dark:text-rose-400">{{ total_diagnoses }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Diagnoses</p>
+  </div>
+  {% for s in status_summary %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-xl font-bold {% if s.status == 'Active' %}text-red-600 dark:text-red-400{% elif s.status == 'Chronic' %}text-amber-600 dark:text-amber-400{% else %}text-green-600 dark:text-green-400{% endif %}">{{ s.count }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ s.status }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Top diagnoses table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Top Diagnoses</h3>
+  </div>
+  <div class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">#</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Diagnosis</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden sm:table-cell">ICD Code</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Cases</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Patients</th>
+          <th class="px-4 py-3 hidden lg:table-cell"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for row in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-4 py-3 text-xs text-slate-400">{{ forloop.counter }}</td>
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ row.description }}</td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-500 hidden sm:table-cell">{{ row.icd_code|default:"—" }}</td>
+          <td class="px-4 py-3 text-right font-bold text-rose-600 dark:text-rose-400">{{ row.total_cases }}</td>
+          <td class="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ row.unique_patients }}</td>
+          <td class="px-4 py-3 hidden lg:table-cell">
+            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+              <div class="bg-rose-500 rounded-full h-1.5" style="width:{{ row.pct }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-slate-400">No diagnoses found for the selected filters.</div>
+    {% endif %}
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between no-print">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?{{ qp }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?{{ qp }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

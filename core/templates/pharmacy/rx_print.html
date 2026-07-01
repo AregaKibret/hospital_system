@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Print Rx {{ rx.prescription_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Screen toolbar (hidden when printing) -->
+  <div class="flex items-center justify-between mb-5 print:hidden">
+    <a href="{% url 'rx_detail' rx.id %}" class="btn-secondary text-sm">← Back</a>
+    <div class="flex gap-2">
+      <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print Prescription
+      </button>
+      <a href="{% url 'rx_queue' %}" class="btn-secondary text-sm">Pharmacy Queue</a>
+    </div>
+  </div>
+
+  <!-- Prescription card -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden" id="rx-card">
+
+    <!-- Header -->
+    <div class="bg-indigo-700 text-white px-8 py-5 text-center">
+      <h1 class="text-lg font-bold tracking-wide">PRESCRIPTION</h1>
+      <p class="text-indigo-200 text-sm">Hospital Management System</p>
+    </div>
+
+    <!-- Rx number + date -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Prescription No.</p>
+          <p class="font-bold text-slate-900 dark:text-white font-mono text-base">{{ rx.prescription_number }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-500 mb-0.5">Date</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.created_at|date:"d F Y" }}</p>
+          <p class="text-xs text-slate-400">{{ rx.created_at|date:"H:i" }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Status</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.status }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-500 mb-0.5">Visit Type</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.visit.visit_type }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient info -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Patient Information</p>
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p class="text-xs text-slate-400">Name</p>
+          <p class="font-bold text-slate-800 dark:text-white">{{ rx.patient.full_name }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">MRN / Card #</p>
+          <p class="font-semibold font-mono text-slate-700 dark:text-slate-300">{{ rx.patient.card_number }}</p>
+        </div>
+        {% if rx.patient.age_display %}
+        <div>
+          <p class="text-xs text-slate-400">Age / Sex</p>
+          <p class="font-semibold text-slate-700 dark:text-slate-300">{{ rx.patient.age_display }} / {{ rx.patient.sex }}</p>
+        </div>
+        {% endif %}
+        {% if rx.patient.blood_group and rx.patient.blood_group != '' %}
+        <div>
+          <p class="text-xs text-slate-400">Blood Group</p>
+          <p class="font-semibold text-slate-700 dark:text-slate-300">{{ rx.patient.blood_group }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Doctor info -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Prescribing Doctor</p>
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p class="text-xs text-slate-400">Doctor</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.prescribed_by.get_full_name|default:rx.prescribed_by.username }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">Department</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.visit.department.name }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diagnosis -->
+    {% if rx.diagnosis %}
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Diagnosis</p>
+      <p class="text-sm text-slate-700 dark:text-slate-300">{{ rx.diagnosis }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Medications -->
+    <div class="px-8 py-5 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-4">Prescribed Medications</p>
+      <div class="space-y-4">
+        {% for item in rx.items.all %}
+        <div class="border-l-4 border-indigo-400 pl-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">{{ forloop.counter }}. {{ item.drug_name }}</p>
+              <p class="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+                Take <strong>{{ item.dose }}</strong> &mdash; <em>{{ item.get_route_display }}</em>
+              </p>
+              <p class="text-sm text-slate-600 dark:text-slate-300">
+                {{ item.get_frequency_display }}
+                {% if item.duration_days %} for {{ item.duration_days }} day{{ item.duration_days|pluralize }}{% endif %}
+              </p>
+              {% if item.meal_instruction %}
+              <p class="text-xs text-slate-500 mt-0.5">{{ item.get_meal_instruction_display }}</p>
+              {% endif %}
+              {% if item.special_instructions %}
+              <p class="text-xs italic text-slate-500 mt-0.5">{{ item.special_instructions }}</p>
+              {% endif %}
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-xs text-slate-500">Qty</p>
+              <p class="font-bold text-slate-800 dark:text-slate-200">{{ item.quantity }}</p>
+              {% if item.quantity_dispensed > 0 %}
+              <p class="text-xs text-emerald-600 font-semibold mt-1">{{ item.quantity_dispensed }} dispensed</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if rx.notes %}
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Notes</p>
+      <p class="text-sm text-slate-600 dark:text-slate-300">{{ rx.notes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Footer / Signature -->
+    <div class="px-8 py-5">
+      <div class="grid grid-cols-2 gap-8">
+        <div>
+          <div class="border-b border-slate-300 dark:border-slate-600 mb-1 mt-8 h-0"></div>
+          <p class="text-xs text-slate-500 text-center">Doctor Signature</p>
+          <p class="text-xs text-slate-700 dark:text-slate-300 text-center mt-1 font-semibold">{{ rx.prescribed_by.get_full_name|default:rx.prescribed_by.username }}</p>
+        </div>
+        <div>
+          {% if rx.verified_by %}
+          <div class="border-b border-slate-300 dark:border-slate-600 mb-1 mt-8 h-0"></div>
+          <p class="text-xs text-slate-500 text-center">Pharmacist Signature</p>
+          <p class="text-xs text-slate-700 dark:text-slate-300 text-center mt-1 font-semibold">{{ rx.verified_by.get_full_name|default:rx.verified_by.username }}</p>
+          {% else %}
+          <div class="border-b border-slate-300 dark:border-slate-600 mb-1 mt-8 h-0"></div>
+          <p class="text-xs text-slate-500 text-center">Pharmacist Signature</p>
+          {% endif %}
+        </div>
+      </div>
+      <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-4">This is a computer-generated prescription. Valid only with doctor signature.</p>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+@media print {
+  body > *:not(#rx-card) { display: none !important; }
+  .print\:hidden { display: none !important; }
+  #rx-card { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+}
+</style>
+{% endblock %}

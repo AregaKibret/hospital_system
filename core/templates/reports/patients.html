@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Patient Statistics — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'reports_dashboard' %}"
+         class="p-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+      </a>
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Patient Statistics</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ from_date|date:"M j, Y" }} — {{ to_date|date:"M j, Y" }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Date Range Filter -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm px-5 py-4 mb-6">
+  <form method="get" class="flex flex-wrap items-end gap-4">
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">From Date</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}">
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">To Date</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}">
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+      Apply Filter
+    </button>
+  </form>
+</div>
+
+<!-- Total New Patients Summary -->
+<div class="bg-blue-600 dark:bg-blue-700 rounded-xl p-6 mb-6 text-white">
+  <p class="text-sm font-semibold opacity-80 uppercase tracking-wide mb-1">New Patients Registered</p>
+  <p class="text-4xl font-bold">{{ total_new }}</p>
+  <p class="text-sm opacity-70 mt-1">{{ from_date|date:"M j, Y" }} to {{ to_date|date:"M j, Y" }}</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+  <!-- Sex Distribution -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-white">Sex Distribution</h2>
+    </div>
+    {% if sex_data %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700">
+            <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Sex</th>
+            <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Count</th>
+            <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">%</th>
+            <th class="px-6 py-3 w-1/3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for s in sex_data %}
+          <tr>
+            <td class="px-6 py-3 font-medium text-slate-800 dark:text-slate-200">{{ s.sex }}</td>
+            <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ s.count }}</td>
+            <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400">{{ s.pct }}%</td>
+            <td class="px-6 py-3">
+              <div class="bg-slate-100 dark:bg-slate-700 h-2 rounded-full">
+                <div class="bg-blue-500 h-2 rounded-full" style="width: {{ s.pct }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-10 text-center">
+      <p class="text-sm text-slate-400">No data for this period</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Age Distribution -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-white">Age Group Distribution</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700">
+            <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Age Group</th>
+            <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Count</th>
+            <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">%</th>
+            <th class="px-6 py-3 w-1/3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for a in age_data %}
+          <tr>
+            <td class="px-6 py-3 font-medium text-slate-800 dark:text-slate-200">{{ a.label }}</td>
+            <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ a.count }}</td>
+            <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400">{{ a.pct }}%</td>
+            <td class="px-6 py-3">
+              <div class="bg-slate-100 dark:bg-slate-700 h-2 rounded-full">
+                <div class="bg-green-500 h-2 rounded-full" style="width: {{ a.pct }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Regional Distribution -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-6">
+  <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Regional Distribution</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Top 10 regions by patient registration</p>
+  </div>
+  {% if region_data %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Region</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patients</th>
+          <th class="px-6 py-3 w-1/2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for r in region_data %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-6 py-3 font-medium text-slate-800 dark:text-slate-200">{{ r.region }}</td>
+          <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ r.count }}</td>
+          <td class="px-6 py-3">
+            <div class="bg-slate-100 dark:bg-slate-700 h-2 rounded-full">
+              <div class="bg-purple-500 h-2 rounded-full" style="width: {{ r.pct }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="px-6 py-10 text-center">
+    <p class="text-sm text-slate-400">No regional data available for this period</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Weekly Registrations -->
+{% if weekly_data %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Weekly Registrations</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Week Starting</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">New Patients</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for row in weekly_data %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-6 py-3 text-slate-700 dark:text-slate-300">{{ row.week|date:"M j, Y" }}</td>
+          <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ row.count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Attendance — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Attendance</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ filter_date|date:"l, F j, Y" }} — {{ employee_attendance|length }} employee{{ employee_attendance|length|pluralize }}</p>
+  </div>
+  <a href="{% url 'hr_dashboard' %}"
+     class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors self-start">
+    Dashboard
+  </a>
+</div>
+
+<!-- Date + Dept Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
+    <div class="field-wrapper">
+      <input type="date" name="date" value="{{ filter_date|date:'Y-m-d' }}">
+    </div>
+  </div>
+  <div class="w-48">
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+    <div class="field-wrapper">
+      <select name="department">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+        <option value="{{ dept.id }}" {% if dept_id == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <button type="submit"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+    Apply
+  </button>
+</form>
+
+<!-- Attendance Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    {% if employee_attendance %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Employee</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Department</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Time In</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Time Out</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Hours</th>
+          <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+          <th class="text-right px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for entry in employee_attendance %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-900 dark:text-white">{{ entry.employee.full_name }}</p>
+            <p class="text-xs text-slate-400">{{ entry.employee.position|default:"—" }}</p>
+          </td>
+          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ entry.employee.department.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs hidden sm:table-cell">
+            {{ entry.record.time_in|time:"H:i"|default:"—" }}
+          </td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs hidden sm:table-cell">
+            {{ entry.record.time_out|time:"H:i"|default:"—" }}
+          </td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs hidden lg:table-cell">
+            {% if entry.record %}{{ entry.record.hours_worked|default:"—" }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center">
+            {% if entry.record %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if entry.record.status == 'Present' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+              {% elif entry.record.status == 'Late' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+              {% elif entry.record.status == 'Absent' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif entry.record.status == 'Half Day' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+              {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+              {{ entry.record.status }}
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+              Not Marked
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <button type="button"
+                    onclick="openMarkModal({{ entry.employee.id }}, '{{ entry.employee.full_name|escapejs }}', '{{ entry.record.status|default:'' }}', '{{ entry.record.time_in|time:'H:i'|default:'' }}', '{{ entry.record.time_out|time:'H:i'|default:'' }}')"
+                    class="px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+              {% if entry.record %}Update{% else %}Mark{% endif %}
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="px-5 py-12 text-center">
+      <p class="text-sm text-slate-400 dark:text-slate-500">No active employees found for this filter</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Mark Attendance Modal -->
+<div id="mark-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Mark Attendance</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4" id="mark-emp-label">—</p>
+    <form method="post" action="{% url 'attendance_mark' %}">
+      {% csrf_token %}
+      <input type="hidden" name="employee_id" id="mark-emp-id">
+      <input type="hidden" name="date" value="{{ filter_date|date:'Y-m-d' }}">
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+          <div class="field-wrapper">
+            <select name="status" id="mark-status">
+              {% for val, label in status_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time In</label>
+            <div class="field-wrapper">
+              <input type="time" name="time_in" id="mark-time-in">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time Out</label>
+            <div class="field-wrapper">
+              <input type="time" name="time_out" id="mark-time-out">
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+          <div class="field-wrapper">
+            <input type="text" name="notes" placeholder="Optional notes">
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button type="submit"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+          Save
+        </button>
+        <button type="button" onclick="closeMarkModal()"
+                class="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openMarkModal(empId, empName, status, timeIn, timeOut) {
+  document.getElementById('mark-emp-id').value = empId;
+  document.getElementById('mark-emp-label').textContent = empName;
+  var sel = document.getElementById('mark-status');
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === status) { sel.selectedIndex = i; break; }
+  }
+  document.getElementById('mark-time-in').value = timeIn || '';
+  document.getElementById('mark-time-out').value = timeOut || '';
+  document.getElementById('mark-modal').classList.remove('hidden');
+}
+function closeMarkModal() {
+  document.getElementById('mark-modal').classList.add('hidden');
+}
+document.getElementById('mark-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeMarkModal();
+});
+</script>
+
+{% endblock %}

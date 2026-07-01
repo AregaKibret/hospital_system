@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Medication Sales Report{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Medication Sales Report</h1>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<form method="get" class="flex flex-wrap gap-3 items-end mb-5">
+  <div>
+    <label class="text-xs text-slate-500 block mb-1">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}"
+      class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500 block mb-1">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}"
+      class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+  </div>
+  <button type="submit" class="btn-primary text-sm">View</button>
+</form>
+
+<div class="grid grid-cols-2 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500">Total Revenue (ETB)</p>
+    <p class="text-3xl font-bold text-emerald-600 mt-1">{{ totals.revenue|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-4 text-center">
+    <p class="text-xs text-slate-500">Total Units Sold</p>
+    <p class="text-3xl font-bold text-indigo-600 mt-1">{{ totals.qty }}</p>
+  </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-900/50">
+      <tr>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">#</th>
+        <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Medication</th>
+        <th class="px-4 py-2.5 text-center text-xs text-slate-500 uppercase">Qty Sold</th>
+        <th class="px-4 py-2.5 text-center text-xs text-slate-500 uppercase">Transactions</th>
+        <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Revenue (ETB)</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for item in items %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+        <td class="px-4 py-3 text-slate-400 text-xs">{{ forloop.counter }}</td>
+        <td class="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{{ item.drug_name }}</td>
+        <td class="px-4 py-3 text-center text-slate-600 dark:text-slate-400">{{ item.qty_sold }}</td>
+        <td class="px-4 py-3 text-center text-slate-500">{{ item.transactions }}</td>
+        <td class="px-4 py-3 text-right font-bold text-emerald-600">{{ item.revenue|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="px-4 py-10 text-center text-slate-400">No sales data for this period.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>@media print { button, nav, header, form { display: none !important; } }</style>
+{% endblock %}

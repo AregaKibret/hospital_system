@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Return Items — {{ sale.sale_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Return / Refund Request</h1>
+    <a href="{% url 'pharmacy_sale_detail' sale.id %}" class="btn-secondary text-sm">← Sale {{ sale.sale_number }}</a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Return Details</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="field-wrapper">
+          <label class="field-label">Return Type</label>
+          <select name="return_type" required class="field-input">
+            {% for val, label in return_type_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Refund Method</label>
+          <select name="refund_method" class="field-input">
+            {% for val, label in payment_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Reason <span class="text-red-500">*</span></label>
+        <textarea name="reason" rows="2" required class="field-input"></textarea>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="restock" value="1" checked class="rounded text-teal-600">
+        Return items to inventory stock
+      </label>
+    </div>
+
+    <!-- Items selection -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Items to Return</h2>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-900/50">
+          <tr>
+            <th class="px-4 py-2.5 text-left text-xs text-slate-500 uppercase">Medication</th>
+            <th class="px-4 py-2.5 text-center text-xs text-slate-500 uppercase">Sold Qty</th>
+            <th class="px-4 py-2.5 text-center text-xs text-slate-500 uppercase">Return Qty</th>
+            <th class="px-4 py-2.5 text-right text-xs text-slate-500 uppercase">Unit Price</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for item in items %}
+          <tr>
+            <td class="px-4 py-3">
+              <p class="font-semibold text-slate-800 dark:text-slate-200">{{ item.drug_name }}</p>
+              {% if item.batch_number %}<p class="text-xs text-slate-400 font-mono">{{ item.batch_number }}</p>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-center text-slate-600 dark:text-slate-400">{{ item.quantity }}</td>
+            <td class="px-4 py-3 text-center">
+              <input type="number" name="qty_{{ item.pk }}" min="0" max="{{ item.quantity }}" value="0"
+                class="w-16 text-center text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 py-1 focus:ring-1 focus:ring-teal-400">
+            </td>
+            <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{{ item.unit_price|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex gap-3">
+      <a href="{% url 'pharmacy_sale_detail' sale.id %}" class="btn-secondary flex-1 text-center">Cancel</a>
+      <button type="submit" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition text-sm">Submit Return Request</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Front Desk Dashboard — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Front Desk</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ today|date:"l, F j, Y" }}</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'appointment_create' %}"
+       class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      New Appointment
+    </a>
+    <a href="{% url 'register_patient' %}"
+       class="inline-flex items-center gap-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+      </svg>
+      Register Patient
+    </a>
+  </div>
+</div>
+
+<!-- Stats Row -->
+<div class="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+
+  <!-- Today's Appointments -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ today_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Today's Appointments</p>
+    </div>
+  </div>
+
+  <!-- Waiting -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ waiting_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Waiting</p>
+    </div>
+  </div>
+
+  <!-- Scheduled / Confirmed -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ scheduled_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Scheduled / Confirmed</p>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ completed_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Completed</p>
+    </div>
+  </div>
+
+  <!-- New Patients -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-teal-100 dark:bg-teal-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">{{ new_patients_today }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">New Patients</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Left: Today's Schedule (col-span-2) -->
+  <div class="lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900 dark:text-white text-sm">Today's Schedule</h2>
+        <a href="{% url 'appointment_list' %}"
+           class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+          View all →
+        </a>
+      </div>
+
+      {% if today_appointments %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 dark:border-slate-700">
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Time</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Doctor</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Type</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+              <th class="text-right px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for appt in today_appointments %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+
+              <!-- Time -->
+              <td class="px-5 py-3 text-sm font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                {{ appt.appointment_time|time:"H:i" }}
+              </td>
+
+              <!-- Patient -->
+              <td class="px-5 py-3">
+                <p class="font-medium text-slate-900 dark:text-white text-sm">{{ appt.patient.full_name }}</p>
+                <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
+              </td>
+
+              <!-- Doctor -->
+              <td class="px-5 py-3 hidden md:table-cell">
+                <p class="text-sm text-slate-700 dark:text-slate-300">{{ appt.doctor.full_name }}</p>
+                <p class="text-xs text-slate-400">{{ appt.department.name }}</p>
+              </td>
+
+              <!-- Type -->
+              <td class="px-5 py-3 hidden lg:table-cell text-xs text-slate-500 dark:text-slate-400">
+                {{ appt.appointment_type }}
+              </td>
+
+              <!-- Status Badge -->
+              <td class="px-5 py-3">
+                {% if appt.status == 'Scheduled' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Scheduled</span>
+                {% elif appt.status == 'Confirmed' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">Confirmed</span>
+                {% elif appt.status == 'Waiting' %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span class="relative flex h-1.5 w-1.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                  </span>
+                  Waiting
+                </span>
+                {% elif appt.status == 'In Progress' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">In Progress</span>
+                {% elif appt.status == 'Completed' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Completed</span>
+                {% elif appt.status == 'No Show' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">No Show</span>
+                {% elif appt.status == 'Cancelled' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Cancelled</span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">{{ appt.status }}</span>
+                {% endif %}
+              </td>
+
+              <!-- Action -->
+              <td class="px-5 py-3 text-right">
+                <a href="{% url 'appointment_detail' appt.id %}"
+                   class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+                  View
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <!-- Empty State -->
+      <div class="px-5 py-16 text-center">
+        <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="text-slate-500 dark:text-slate-400 font-medium">No appointments scheduled for today</p>
+        <a href="{% url 'appointment_create' %}"
+           class="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Create an appointment
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div class="space-y-5">
+
+    <!-- Upcoming Appointments -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h3 class="font-semibold text-slate-900 dark:text-white text-sm">Upcoming</h3>
+        <a href="{% url 'appointment_list' %}"
+           class="text-xs text-blue-600 dark:text-blue-400 hover:underline">All →</a>
+      </div>
+      {% if upcoming_appointments %}
+      <ul class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for appt in upcoming_appointments %}
+        <li class="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <a href="{% url 'appointment_detail' appt.id %}" class="block group">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  {{ appt.patient.full_name }}
+                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Dr. {{ appt.doctor.full_name }}
+                </p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ appt.appointment_time|date:"M j" }}</p>
+                <p class="text-xs text-slate-400 font-mono">{{ appt.appointment_time|time:"H:i" }}</p>
+              </div>
+            </div>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-5 py-8 text-center">
+        <p class="text-sm text-slate-400 dark:text-slate-500">No upcoming appointments</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Registrations -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h3 class="font-semibold text-slate-900 dark:text-white text-sm">Recent Registrations</h3>
+        <a href="{% url 'patient_search' %}"
+           class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Search →</a>
+      </div>
+      {% if recent_registrations %}
+      <ul class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for patient in recent_registrations %}
+        <li class="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-teal-100 dark:bg-teal-900/40 rounded-full flex items-center justify-center shrink-0">
+              <span class="text-xs font-bold text-teal-600 dark:text-teal-400">
+                {{ patient.full_name|first|upper }}
+              </span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-slate-900 dark:text-white truncate">{{ patient.full_name }}</p>
+              <p class="text-xs font-mono text-slate-400">{{ patient.card_number }}</p>
+            </div>
+            <p class="text-xs text-slate-400 shrink-0">{{ patient.created_at|date:"M j" }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-5 py-8 text-center">
+        <p class="text-sm text-slate-400 dark:text-slate-500">No recent registrations</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

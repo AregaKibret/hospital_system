@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Inventory Items — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Inventory Items</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }} total</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'inventory_dashboard' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">
+      Dashboard
+    </a>
+    {% if perms.core.manage_inventory %}
+    <a href="{% url 'inventory_item_create' %}"
+       class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add Item
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 flex flex-wrap gap-3 items-end">
+  <div class="flex-1 min-w-48">
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search</label>
+    <div class="field-wrapper">
+      <input type="text" name="q" value="{{ query }}" placeholder="Name, SKU, supplier…" class="w-full">
+    </div>
+  </div>
+  <div class="w-48">
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
+    <div class="field-wrapper">
+      <select name="category">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if category_id == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <button type="submit"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+    Filter
+  </button>
+  {% if query or category_id %}
+  <a href="{% url 'inventory_item_list' %}"
+     class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+    Clear
+  </a>
+  {% endif %}
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    {% if page_obj %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Name</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">SKU</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Category</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Stock</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Reorder</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Unit Cost</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden xl:table-cell">Supplier</th>
+          <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+          <th class="text-right px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for item in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors
+          {% if item.quantity_in_stock == 0 %}bg-red-50/30 dark:bg-red-900/5
+          {% elif item.is_low_stock %}bg-orange-50/30 dark:bg-orange-900/5{% endif %}">
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-900 dark:text-white">{{ item.name }}</p>
+            <p class="text-xs text-slate-400">{{ item.unit }}</p>
+          </td>
+          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ item.sku|default:"—" }}</td>
+          <td class="px-4 py-3 hidden sm:table-cell">
+            {% if item.category %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+              {{ item.category.name }}
+            </span>
+            {% else %}
+            <span class="text-xs text-slate-400">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-slate-900 dark:text-white text-sm">{{ item.quantity_in_stock }}</span>
+              {% if item.reorder_level > 0 %}
+              <div class="w-20 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden hidden sm:block">
+                {% with pct=item.quantity_in_stock|divisibleby:item.reorder_level %}
+                <div class="h-full rounded-full transition-all
+                  {% if item.quantity_in_stock == 0 %}bg-red-500
+                  {% elif item.is_low_stock %}bg-orange-500
+                  {% else %}bg-green-500{% endif %}"
+                  style="width: {% widthratio item.quantity_in_stock item.reorder_level 100 %}%; max-width:100%"></div>
+                {% endwith %}
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell">{{ item.reorder_level }}</td>
+          <td class="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs hidden lg:table-cell">ETB {{ item.unit_cost }}</td>
+          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden xl:table-cell truncate max-w-32">{{ item.supplier_name|default:"—" }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if item.quantity_in_stock == 0 %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Out of Stock</span>
+            {% elif item.is_low_stock %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">Low Stock</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">OK</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <div class="flex items-center justify-end gap-1">
+              {% if perms.core.manage_inventory %}
+              <!-- Adjust stock modal trigger -->
+              <button type="button"
+                      onclick="openAdjust({{ item.id }}, '{{ item.name|escapejs }}', {{ item.quantity_in_stock }}, '{{ item.unit }}')"
+                      class="px-2 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors">
+                Adjust
+              </button>
+              <a href="{% url 'inventory_item_edit' item.id %}"
+                 class="px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                Edit
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="px-5 py-16 text-center">
+      <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/>
+      </svg>
+      <p class="text-slate-400 dark:text-slate-500">No items found</p>
+      {% if perms.core.manage_inventory %}
+      <a href="{% url 'inventory_item_create' %}" class="mt-3 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">Add the first item</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </p>
+    <div class="flex gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?q={{ query }}&category={{ category_id }}&page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors">Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?q={{ query }}&category={{ category_id }}&page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Adjust Stock Modal -->
+<div id="adjust-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Adjust Stock</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4" id="adjust-item-label">—</p>
+    <form method="post" id="adjust-form" action="">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Adjustment (+ to add, − to issue)</label>
+          <input type="number" name="adjustment" id="adjust-qty" placeholder="e.g. 50 or -10" class="w-full" required>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason (optional)</label>
+          <input type="text" name="reason" placeholder="e.g. Restocked from supplier" class="w-full">
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button type="submit"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+          Apply
+        </button>
+        <button type="button" onclick="closeAdjust()"
+                class="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAdjust(itemId, itemName, currentQty, unit) {
+  document.getElementById('adjust-form').action = '/inventory/items/' + itemId + '/adjust/';
+  document.getElementById('adjust-item-label').textContent = itemName + ' · Current: ' + currentQty + ' ' + unit;
+  document.getElementById('adjust-qty').value = '';
+  document.getElementById('adjust-modal').classList.remove('hidden');
+}
+function closeAdjust() {
+  document.getElementById('adjust-modal').classList.add('hidden');
+}
+document.getElementById('adjust-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAdjust();
+});
+</script>
+
+{% endblock %}

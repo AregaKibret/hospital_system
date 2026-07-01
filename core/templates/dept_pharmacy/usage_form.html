@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Record Usage — {{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'dept_store_detail' store.id %}" class="text-sm text-indigo-600 hover:underline">&larr; {{ store.name }}</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Record Medication Usage</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ store.name }}</p>
+  </div>
+
+  <form method="post" class="space-y-5" id="usage-form">
+    {% csrf_token %}
+
+    <!-- Header info -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Date & Time *</label>
+        <input type="datetime-local" name="usage_date" value="{{ now }}" required class="field-input">
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Patient (optional)</label>
+        <select name="patient" class="field-input">
+          <option value="">No patient</option>
+          {% for p in patients %}<option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="field-label">General Notes</label>
+        <input type="text" name="notes" class="field-input" placeholder="Optional">
+      </div>
+    </div>
+
+    <!-- Usage lines -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Medications Used</h3>
+        <button type="button" id="add-usage" class="btn-secondary text-xs py-1 px-3">+ Add Line</button>
+      </div>
+      <div id="usage-lines" class="space-y-4">
+        <div class="usage-line grid grid-cols-12 gap-2 items-end border-b border-slate-100 dark:border-slate-700 pb-4">
+          <div class="col-span-4">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication (in stock)</label>
+            <select name="stock_0" required class="field-input text-sm">
+              <option value="">Select</option>
+              {% for s in stock_items %}<option value="{{ s.id }}">{{ s.medication.name }} ({{ s.quantity_available }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty Used</label>
+            <input type="number" name="qty_0" min="1" required class="field-input text-sm">
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Type</label>
+            <select name="usage_type_0" class="field-input text-sm">
+              {% for val, label in usage_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Reason</label>
+            <input type="text" name="reason_0" class="field-input text-sm">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Save Usage</button>
+      <a href="{% url 'dept_store_detail' store.id %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let uIdx = 1;
+const stockOpts = `{% for s in stock_items %}<option value="{{ s.id }}">{{ s.medication.name }} ({{ s.quantity_available }})</option>{% endfor %}`;
+const typeOpts  = `{% for val, label in usage_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}`;
+
+document.getElementById('add-usage').addEventListener('click', () => {
+  const i = uIdx++;
+  const div = document.createElement('div');
+  div.className = 'usage-line grid grid-cols-12 gap-2 items-end border-b border-slate-100 dark:border-slate-700 pb-4';
+  div.innerHTML = `
+    <div class="col-span-4">
+      <label class="block text-xs text-slate-500 mb-1">Medication</label>
+      <select name="stock_${i}" required class="field-input text-sm"><option value="">Select</option>${stockOpts}</select>
+    </div>
+    <div class="col-span-2">
+      <label class="block text-xs text-slate-500 mb-1">Qty</label>
+      <input type="number" name="qty_${i}" min="1" required class="field-input text-sm">
+    </div>
+    <div class="col-span-3">
+      <label class="block text-xs text-slate-500 mb-1">Type</label>
+      <select name="usage_type_${i}" class="field-input text-sm">${typeOpts}</select>
+    </div>
+    <div class="col-span-2">
+      <label class="block text-xs text-slate-500 mb-1">Reason</label>
+      <input type="text" name="reason_${i}" class="field-input text-sm">
+    </div>
+    <div class="col-span-1 flex items-end pb-1">
+      <button type="button" onclick="this.closest('.usage-line').remove()" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+    </div>`;
+  document.getElementById('usage-lines').appendChild(div);
+});
+
+document.getElementById('usage-form').addEventListener('submit', () => {
+  const inp = document.createElement('input'); inp.type='hidden'; inp.name='stock_'+uIdx; inp.value='';
+  document.getElementById('usage-form').appendChild(inp);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Dept Stock on Hand Report{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Dept Stock on Hand</h1>
+    {% if store and stock_items %}
+    <a href="?store={{ store.id }}&q={{ q }}&export=csv" class="btn-secondary text-sm">Export CSV</a>
+    {% endif %}
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department *</label>
+        <select name="store" required class="field-input text-sm py-1.5">
+          <option value="">Select department</option>
+          {% for s in stores %}<option value="{{ s.id }}" {% if store and store.id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search</label>
+        <input type="text" name="q" value="{{ q }}" class="field-input text-sm py-1.5" placeholder="Medication name">
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="btn-primary text-sm w-full py-1.5">Run Report</button>
+      </div>
+    </div>
+  </form>
+
+  {% if store %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ store.name }}</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400">As of {{ generated_at|date:"M d, Y H:i" }} · By {{ generated_by.get_full_name|default:generated_by.username }}</p>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">#</th>
+            <th class="px-5 py-3 font-medium">Medication</th>
+            <th class="px-5 py-3 font-medium">Generic Name</th>
+            <th class="px-5 py-3 font-medium">Category</th>
+            <th class="px-5 py-3 font-medium text-right">Stock Qty</th>
+            <th class="px-5 py-3 font-medium">Unit</th>
+            <th class="px-5 py-3 font-medium text-right">Min Qty</th>
+            <th class="px-5 py-3 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for s in stock_items %}
+          <tr class="{% if s.is_out_of_stock %}bg-red-50 dark:bg-red-900/10{% elif s.is_low_stock %}bg-amber-50 dark:bg-amber-900/10{% endif %} hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3 text-slate-400 dark:text-slate-500">{{ forloop.counter }}</td>
+            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ s.medication.name }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ s.medication.generic_name }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ s.medication.category.name|default:"—" }}</td>
+            <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ s.quantity_available }}</td>
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ s.medication.unit_of_measure }}</td>
+            <td class="px-5 py-3 text-right text-slate-500 dark:text-slate-400">{{ s.minimum_quantity }}</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                {% if s.is_out_of_stock %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+                {% elif s.is_low_stock %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                {% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% endif %}">
+                {{ s.stock_status }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="px-5 py-12 text-center text-slate-400 dark:text-slate-500">No stock recorded for this department.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Close Cash Session{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-5">
+
+  <div>
+    <a href="{% url 'cash_session_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Cash Sessions</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">Close Cash Session</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ session.date|date:"l, F j, Y" }}</p>
+  </div>
+
+  <!-- Session summary -->
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Opening Balance</p>
+      <p class="text-lg font-bold text-slate-800 dark:text-slate-100">ETB {{ session.opening_balance|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-emerald-100 dark:border-emerald-900/30 p-4 text-center">
+      <p class="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Cash Collected</p>
+      <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">ETB {{ total_collected|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-blue-900/30 p-4 text-center">
+      <p class="text-xs text-blue-600 dark:text-blue-400 mb-1">Expected Total</p>
+      <p class="text-lg font-bold text-blue-600 dark:text-blue-400">ETB {{ expected|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+
+    <div class="field-wrapper">
+      <label class="field-label">Actual Cash in Drawer (ETB) <span class="text-red-500">*</span></label>
+      <input type="number" name="closing_balance" id="closing-input" step="0.01" min="0"
+             value="{{ expected|floatformat:2 }}" required class="field-input text-lg"
+             placeholder="Count and enter actual cash">
+    </div>
+
+    <!-- Live discrepancy display -->
+    <div id="disc-display" class="rounded-xl p-4 text-center hidden">
+      <p class="text-xs font-medium mb-1" id="disc-label"></p>
+      <p class="text-2xl font-bold" id="disc-value"></p>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="field-label">Closing Notes</label>
+      <textarea name="notes" rows="2" class="field-input" placeholder="Discrepancy reason, comments…"></textarea>
+    </div>
+
+    <div class="flex gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit" class="btn-primary">Close Session</button>
+      <a href="{% url 'cash_session_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const expected = {{ expected }};
+const input = document.getElementById('closing-input');
+const display = document.getElementById('disc-display');
+const label = document.getElementById('disc-label');
+const value = document.getElementById('disc-value');
+
+function update() {
+  const actual = parseFloat(input.value) || 0;
+  const disc = actual - expected;
+  display.classList.remove('hidden');
+  if (Math.abs(disc) < 0.01) {
+    display.className = 'rounded-xl p-4 text-center bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700';
+    label.textContent = 'No Discrepancy';
+    label.className = 'text-xs font-medium mb-1 text-emerald-600 dark:text-emerald-400';
+    value.textContent = 'Balanced ✓';
+    value.className = 'text-xl font-bold text-emerald-600 dark:text-emerald-400';
+  } else if (disc > 0) {
+    display.className = 'rounded-xl p-4 text-center bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700';
+    label.textContent = 'Surplus (more cash than expected)';
+    label.className = 'text-xs font-medium mb-1 text-blue-600 dark:text-blue-400';
+    value.textContent = '+ETB ' + disc.toLocaleString('en-ET', {minimumFractionDigits:2, maximumFractionDigits:2});
+    value.className = 'text-2xl font-bold text-blue-600 dark:text-blue-400';
+  } else {
+    display.className = 'rounded-xl p-4 text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700';
+    label.textContent = 'Shortage (less cash than expected)';
+    label.className = 'text-xs font-medium mb-1 text-red-600 dark:text-red-400';
+    value.textContent = 'ETB ' + disc.toLocaleString('en-ET', {minimumFractionDigits:2, maximumFractionDigits:2});
+    value.className = 'text-2xl font-bold text-red-600 dark:text-red-400';
+  }
+}
+input.addEventListener('input', update);
+update();
+</script>
+{% endblock %}

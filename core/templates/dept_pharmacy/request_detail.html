@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Request {{ req.request_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Requests</a>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ req.request_number }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ req.requesting_store.name }} · {{ req.request_date|date:"M d, Y H:i" }}</p>
+    </div>
+    <div class="flex gap-2">
+      {% if req.status == 'pending' and perms.core.approve_medication_transfer %}
+      <a href="{% url 'transfer_request_approve' req.id %}" class="btn-primary text-sm">Review</a>
+      {% endif %}
+      {% if req.status == 'approved' and perms.core.approve_medication_transfer %}
+      <a href="{% url 'transfer_request_fulfill' req.id %}" class="btn-primary text-sm">Fulfill</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Meta -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</p>
+      <span class="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+        {% if req.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+        {% elif req.status == 'approved' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+        {% elif req.status == 'fulfilled' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+        {% elif req.status == 'rejected' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+        {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+        {{ req.get_status_display }}
+      </span>
+    </div>
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Priority</p>
+      <p class="mt-1 font-semibold text-slate-800 dark:text-slate-100">{{ req.get_priority_display }}</p>
+    </div>
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Requested By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.requested_by.get_full_name|default:req.requested_by.username }}</p>
+    </div>
+    {% if req.required_by %}
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Required By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.required_by|date:"M d, Y" }}</p>
+    </div>
+    {% endif %}
+    {% if req.approved_by %}
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Approved By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.approved_by.get_full_name|default:req.approved_by.username }}</p>
+    </div>
+    {% endif %}
+    {% if req.notes %}
+    <div class="col-span-2">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Notes</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.notes }}</p>
+    </div>
+    {% endif %}
+    {% if req.rejection_reason %}
+    <div class="col-span-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2">
+      <p class="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">Rejection Reason</p>
+      <p class="mt-1 text-red-700 dark:text-red-300">{{ req.rejection_reason }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Items -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Requested Items</h3>
+    </div>
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+          <th class="px-5 py-3 font-medium">Medication</th>
+          <th class="px-5 py-3 font-medium text-right">Requested</th>
+          <th class="px-5 py-3 font-medium text-right">Approved</th>
+          <th class="px-5 py-3 font-medium">Item Note</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for item in items %}
+        <tr>
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.medication.name }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
+          </td>
+          <td class="px-5 py-3 text-right text-slate-700 dark:text-slate-300">{{ item.quantity_requested }}</td>
+          <td class="px-5 py-3 text-right">
+            {% if item.quantity_approved is not None %}
+            <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ item.quantity_approved }}</span>
+            {% else %}<span class="text-slate-400 dark:text-slate-500">—</span>{% endif %}
+          </td>
+          <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ item.notes|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Associated transfers -->
+  {% if transfers %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Fulfilled Transfers</h3>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for t in transfers %}
+      <div class="px-5 py-4 flex items-center justify-between">
+        <div>
+          <a href="{% url 'dept_transfer_detail' t.id %}" class="font-medium text-indigo-600 hover:underline">{{ t.transfer_number }}</a>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ t.get_status_display }} · {{ t.items.count }} items</p>
+        </div>
+        <span class="text-xs text-slate-500 dark:text-slate-400">{{ t.created_at|date:"M d, H:i" }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

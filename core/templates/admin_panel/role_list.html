@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Role Management{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Role Management</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ total_roles }} roles · {{ total_users }} active users</p>
+    </div>
+    <a href="{% url 'role_create' %}" class="btn-primary text-sm">+ New Role</a>
+  </div>
+
+  <!-- Role categories -->
+  {% for cat in role_categories %}
+  {% with cat_roles=role_data %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 rounded-t-2xl">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ cat.label }}</h2>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for rd in role_data %}
+        {% if rd.group.name in cat.roles %}
+        <div class="flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold {{ rd.badge }} whitespace-nowrap">
+              {{ rd.group.name }}
+            </span>
+            <p class="text-sm text-slate-500 dark:text-slate-400 truncate">{{ rd.desc }}</p>
+          </div>
+          <div class="flex items-center gap-4 shrink-0 ml-4">
+            <div class="text-right hidden sm:block">
+              <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ rd.user_count }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">users</p>
+            </div>
+            <div class="text-right hidden sm:block">
+              <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ rd.perm_count }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">perms</p>
+            </div>
+            <div class="flex gap-1.5">
+              <a href="{% url 'role_detail' rd.group.id %}" class="btn-secondary text-xs py-1 px-3">View</a>
+              <a href="{% url 'role_permissions_edit' rd.group.id %}" class="btn-primary text-xs py-1 px-3">Edit Perms</a>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endwith %}
+  {% endfor %}
+
+  <!-- Any uncategorised roles -->
+  {% with cat_role_names="" %}
+  {% for rd in role_data %}
+    {% comment %}Collect all categorised names{% endcomment %}
+  {% endfor %}
+  {% endwith %}
+
+  <!-- All roles flat table (for search/sort) -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">All Roles ({{ total_roles }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">Role</th>
+            <th class="px-5 py-3 font-medium">Description</th>
+            <th class="px-5 py-3 font-medium text-right">Users</th>
+            <th class="px-5 py-3 font-medium text-right">Permissions</th>
+            <th class="px-5 py-3 font-medium text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for rd in role_data %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold {{ rd.badge }}">
+                {{ rd.group.name }}
+              </span>
+            </td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ rd.desc }}</td>
+            <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ rd.user_count }}</td>
+            <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ rd.perm_count }}</td>
+            <td class="px-5 py-3 text-right">
+              <a href="{% url 'role_detail' rd.group.id %}" class="text-xs text-indigo-600 hover:underline mr-2">View</a>
+              <a href="{% url 'role_permissions_edit' rd.group.id %}" class="text-xs text-indigo-600 hover:underline">Edit Perms</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

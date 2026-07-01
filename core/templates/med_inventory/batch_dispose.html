@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Dispose Batch{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-10">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-red-50/50 dark:bg-red-900/10">
+      <h1 class="text-base font-bold text-slate-800 dark:text-slate-100">Dispose Batch</h1>
+    </div>
+    <div class="p-6">
+      <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-5">
+        <p class="font-semibold text-slate-800 dark:text-slate-200">{{ batch.medication.name }}</p>
+        <p class="text-sm text-slate-500">Batch: {{ batch.batch_number }} · {{ batch.quantity_available }} units · Expires {{ batch.expiration_date|date:"d M Y" }}</p>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="field-wrapper mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Disposal Type</label>
+          <select name="dispose_type">
+            <option value="expired_disposal" {% if batch.is_expired %}selected{% endif %}>Expired — Disposal</option>
+            <option value="damage">Damaged / Wastage</option>
+          </select>
+        </div>
+        <div class="field-wrapper mb-5">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Notes</label>
+          <textarea name="notes" rows="2" placeholder="Reason or reference…"></textarea>
+        </div>
+        <div class="flex gap-3 justify-end">
+          <a href="{% url 'medication_detail' batch.medication_id %}" class="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">Cancel</a>
+          <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors">Confirm Disposal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

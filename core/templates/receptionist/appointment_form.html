@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit Appointment{% else %}New Appointment{% endif %} — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'appointment_list' %}"
+     class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
+      {% if is_edit %}Edit Appointment{% else %}New Appointment{% endif %}
+    </h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {% if is_edit %}Editing appointment {{ appointment.appointment_number }}{% else %}Schedule a new patient appointment{% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="max-w-3xl">
+  <form method="post" id="appointment-form"
+        class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-6">
+    {% csrf_token %}
+
+    <!-- ── Patient Section ─────────────────────────────────────────── -->
+    <div>
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+        Patient
+      </h2>
+
+      {% if pre_patient %}
+      <!-- Pre-selected patient — locked -->
+      <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+        <div class="w-9 h-9 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center shrink-0">
+          <span class="text-sm font-bold text-blue-600 dark:text-blue-400">{{ pre_patient.full_name|first|upper }}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ pre_patient.full_name }}</p>
+          <p class="text-xs font-mono text-slate-500 dark:text-slate-400">{{ pre_patient.card_number }}</p>
+        </div>
+        <input type="hidden" name="patient" value="{{ pre_patient.id }}">
+        <span class="text-xs text-blue-600 dark:text-blue-400 font-medium">Pre-selected</span>
+      </div>
+      {% else %}
+      <!-- Patient search + select -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Patient <span class="text-red-500">*</span>
+        </label>
+        <div class="field-wrapper mb-2">
+          <input type="text" id="patient-search-input" placeholder="Type to filter patients by name or MRN…"
+                 autocomplete="off">
+        </div>
+        <div class="field-wrapper">
+          <select name="patient" id="patient-select" required>
+            <option value="">— Select a patient —</option>
+            {% for p in patients %}
+            <option value="{{ p.id }}"
+                    data-name="{{ p.full_name|lower }}"
+                    data-mrn="{{ p.card_number|lower }}"
+                    {% if is_edit and appointment.patient_id == p.id %}selected{% endif %}>
+              {{ p.card_number }} — {{ p.full_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Type in the search box above to filter the list.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Doctor Section ──────────────────────────────────────────── -->
+    <div>
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+        Doctor &amp; Department
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Doctor <span class="text-red-500">*</span>
+          </label>
+          <div class="field-wrapper">
+            <select name="doctor" id="doctor-select" required>
+              <option value="">— Select a doctor —</option>
+              {% for doc in doctors %}
+              <option value="{{ doc.id }}"
+                      data-department="{{ doc.department.name|default:'' }}"
+                      data-dept-id="{{ doc.department.id|default:'' }}"
+                      {% if is_edit and appointment.doctor_id == doc.id %}selected{% endif %}>
+                Dr. {{ doc.full_name }}{% if doc.department %} ({{ doc.department.name }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <!-- Department hint shown when doctor is selected -->
+          <p id="doctor-dept-hint" class="mt-1 text-xs text-indigo-600 dark:text-indigo-400 hidden">
+            <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            Department: <span id="doctor-dept-name"></span>
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+          <div class="field-wrapper">
+            <select name="department" id="department-select">
+              <option value="">— Auto-filled from doctor —</option>
+              {% for dept in departments %}
+              <option value="{{ dept.id }}"
+                      {% if is_edit and appointment.department_id == dept.id %}selected{% endif %}>
+                {{ dept.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Date & Time ─────────────────────────────────────────────── -->
+    <div>
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+        Date &amp; Time
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Appointment Date <span class="text-red-500">*</span>
+          </label>
+          <div class="field-wrapper">
+            <input type="date" name="appointment_date" id="appointment-date" required
+                   value="{% if is_edit %}{{ appointment.appointment_time|date:'Y-m-d' }}{% endif %}">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Appointment Time <span class="text-red-500">*</span>
+          </label>
+          <div class="field-wrapper">
+            <input type="time" name="appointment_time" id="appointment-time" required
+                   value="{% if is_edit %}{{ appointment.appointment_time|time:'H:i' }}{% endif %}">
+          </div>
+          <!-- Availability note -->
+          <p id="availability-note" class="mt-1 text-xs text-slate-400 hidden">
+            <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span id="availability-text">Checking availability…</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Appointment Details ─────────────────────────────────────── -->
+    <div>
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+        Appointment Details
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Appointment Type <span class="text-red-500">*</span>
+          </label>
+          <div class="field-wrapper">
+            <select name="appointment_type" required>
+              <option value="">— Select type —</option>
+              {% for value, label in appointment_types %}
+              <option value="{{ value }}"
+                      {% if is_edit and appointment.appointment_type == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        {% if is_edit %}
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Status</label>
+          <div class="field-wrapper">
+            <select name="status">
+              {% for value, label in status_choices %}
+              <option value="{{ value }}"
+                      {% if appointment.status == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="mt-5">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Chief Complaint <span class="text-red-500">*</span>
+        </label>
+        <div class="field-wrapper">
+          <textarea name="chief_complaint" rows="3"
+                    placeholder="Briefly describe the patient's main complaint or reason for visit…"
+                    required>{% if is_edit %}{{ appointment.chief_complaint }}{% endif %}</textarea>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Notes <span class="text-xs font-normal text-slate-400">(optional)</span>
+        </label>
+        <div class="field-wrapper">
+          <textarea name="notes" rows="2"
+                    placeholder="Any additional notes for the appointment…">{% if is_edit %}{{ appointment.notes }}{% endif %}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Submit ──────────────────────────────────────────────────── -->
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-colors">
+        {% if is_edit %}Save Changes{% else %}Create Appointment{% endif %}
+      </button>
+      <a href="{% url 'appointment_list' %}"
+         class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── 1. Patient search/filter ──────────────────────────────────── */
+  var patientSearchInput = document.getElementById('patient-search-input');
+  var patientSelect = document.getElementById('patient-select');
+
+  if (patientSearchInput && patientSelect) {
+    // Cache all options once
+    var allPatientOptions = Array.from(patientSelect.querySelectorAll('option[value]')).filter(function (o) {
+      return o.value !== '';
+    });
+
+    patientSearchInput.addEventListener('input', function () {
+      var q = this.value.toLowerCase().trim();
+      var currentVal = patientSelect.value;
+
+      allPatientOptions.forEach(function (opt) {
+        var name = opt.getAttribute('data-name') || '';
+        var mrn  = opt.getAttribute('data-mrn')  || '';
+        var match = !q || name.indexOf(q) !== -1 || mrn.indexOf(q) !== -1;
+        opt.style.display = match ? '' : 'none';
+        opt.disabled = !match;
+      });
+
+      // Restore selection if it still matches, otherwise reset
+      if (q && patientSelect.querySelector('option[value="' + currentVal + '"]:not([disabled])') === null) {
+        patientSelect.value = '';
+      } else {
+        patientSelect.value = currentVal;
+      }
+    });
+  }
+
+  /* ── 2. Doctor → Department hint & auto-fill ───────────────────── */
+  var doctorSelect = document.getElementById('doctor-select');
+  var deptSelect   = document.getElementById('department-select');
+  var deptHint     = document.getElementById('doctor-dept-hint');
+  var deptHintName = document.getElementById('doctor-dept-name');
+
+  function syncDoctorDept() {
+    if (!doctorSelect) return;
+    var selected = doctorSelect.options[doctorSelect.selectedIndex];
+    var deptName = selected ? selected.getAttribute('data-department') : '';
+    var deptId   = selected ? selected.getAttribute('data-dept-id')   : '';
+
+    if (deptName && deptHint && deptHintName) {
+      deptHintName.textContent = deptName;
+      deptHint.classList.remove('hidden');
+    } else if (deptHint) {
+      deptHint.classList.add('hidden');
+    }
+
+    if (deptSelect && deptId) {
+      deptSelect.value = deptId;
+    }
+  }
+
+  if (doctorSelect) {
+    doctorSelect.addEventListener('change', function () {
+      syncDoctorDept();
+      checkAvailability();
+    });
+    // Run on load to pre-fill if editing
+    syncDoctorDept();
+  }
+
+  /* ── 3. Doctor availability check ─────────────────────────────── */
+  var apptDateInput = document.getElementById('appointment-date');
+  var apptTimeInput = document.getElementById('appointment-time');
+  var availNote     = document.getElementById('availability-note');
+  var availText     = document.getElementById('availability-text');
+  var _availTimer   = null;
+
+  function checkAvailability() {
+    if (!doctorSelect || !apptDateInput || !apptTimeInput || !availNote || !availText) return;
+
+    var doctorId = doctorSelect.value;
+    var date     = apptDateInput.value;
+
+    if (!doctorId || !date) {
+      availNote.classList.add('hidden');
+      return;
+    }
+
+    clearTimeout(_availTimer);
+    _availTimer = setTimeout(function () {
+      availNote.classList.remove('hidden');
+      availText.textContent = 'Checking availability…';
+
+      fetch('/receptionist/api/doctor-availability/?doctor_id=' + encodeURIComponent(doctorId) + '&date=' + encodeURIComponent(date))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) {
+            availText.textContent = 'Could not load availability.';
+            return;
+          }
+
+          var takenSlots = data.taken_slots || [];
+          var currentTime = apptTimeInput.value;
+
+          if (takenSlots.length === 0) {
+            availText.textContent = 'No other appointments on this date — all times available.';
+            apptTimeInput.classList.remove('border-red-400');
+          } else {
+            var isTaken = takenSlots.indexOf(currentTime) !== -1;
+            if (isTaken) {
+              availText.textContent = 'Warning: ' + currentTime + ' is already booked. Taken slots: ' + takenSlots.join(', ');
+              apptTimeInput.classList.add('border-red-400');
+            } else {
+              availText.textContent = 'Taken slots on this date: ' + takenSlots.join(', ') + '. Your selected time is available.';
+              apptTimeInput.classList.remove('border-red-400');
+            }
+          }
+        })
+        .catch(function () {
+          availText.textContent = 'Could not load availability.';
+        });
+    }, 400);
+  }
+
+  if (apptDateInput) {
+    apptDateInput.addEventListener('change', checkAvailability);
+  }
+  if (apptTimeInput) {
+    apptTimeInput.addEventListener('change', checkAvailability);
+  }
+
+  // Run once on load if editing (date + doctor already set)
+  if (apptDateInput && apptDateInput.value && doctorSelect && doctorSelect.value) {
+    checkAvailability();
+  }
+
+})();
+</script>
+
+{% endblock %}

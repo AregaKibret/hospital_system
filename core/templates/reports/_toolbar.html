@@ -1,0 +1,71 @@
+{# Shared report toolbar: title, period, export buttons. #}
+{# Expects: title, from_date_str, to_date_str, qp (query params without page/export) #}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 no-print">
+  <div>
+    <div class="flex items-center gap-2 mb-0.5">
+      <a href="{% url 'reports_hub' %}" class="text-xs text-slate-400 hover:text-indigo-500 transition">Reports</a>
+      <span class="text-slate-300 dark:text-slate-600">/</span>
+      <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{{ title }}</span>
+    </div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ title }}</h1>
+    {% if from_date_str and to_date_str %}
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {{ from_date|date:"d M Y" }} – {{ to_date|date:"d M Y" }}
+      {% if period_extra %}&nbsp;·&nbsp;{{ period_extra }}{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-2 flex-wrap">
+    <a href="?{{ qp }}&export=excel"
+       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-xs font-semibold transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      Excel
+    </a>
+    <a href="?{{ qp }}&export=csv"
+       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs font-semibold transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      CSV
+    </a>
+    <button onclick="window.print()"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+      </svg>
+      Print / PDF
+    </button>
+  </div>
+</div>
+
+<!-- Print-only header (hidden on screen) -->
+<div class="print-only hidden" style="display:none">
+  <div style="text-align:center;border-bottom:2px solid #1E3A5F;padding-bottom:12px;margin-bottom:16px">
+    <div style="font-size:18px;font-weight:bold;color:#1E3A5F">HOSPITAL MANAGEMENT SYSTEM</div>
+    <div style="font-size:14px;font-weight:bold;margin-top:4px">{{ title }}</div>
+    {% if from_date_str %}<div style="font-size:11px;color:#666;margin-top:2px">Period: {{ from_date|date:"d M Y" }} – {{ to_date|date:"d M Y" }}</div>{% endif %}
+    <div style="font-size:10px;color:#888;margin-top:2px">
+      Generated: {% now "d M Y H:i" %} &nbsp;|&nbsp; By: {{ request.user.get_full_name|default:request.user.username }}
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  .no-print, nav, header, footer, .hms-nav,
+  form, button, [data-no-print] { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: white !important; color: black !important; }
+  table { border-collapse: collapse; width: 100%; font-size: 10px; }
+  th { background: #1E3A5F !important; color: white !important; padding: 4px 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f7f9fc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bg-white, .dark\:bg-slate-800 { background: white !important; border: 1px solid #e2e8f0; }
+  @page { margin: 1.2cm; }
+}
+</style>

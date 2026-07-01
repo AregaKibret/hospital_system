@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Imaging Order — {{ order.imaging_type }} {{ order.body_part }} — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Back link -->
+<div class="mb-4">
+  <a href="{% url 'radiology_dashboard' %}"
+     class="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Back to Radiology Dashboard
+  </a>
+</div>
+
+<!-- Patient Header Card -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-4">
+  <div class="flex items-start gap-4">
+    <div class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center shrink-0">
+      <span class="text-lg font-bold text-white">
+        {{ order.visit.patient.first_name|first|upper }}{{ order.visit.patient.last_name|first|upper }}
+      </span>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ order.visit.patient.full_name }}</h1>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+          {% if order.visit.visit_type == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+          {% elif order.visit.visit_type == 'Inpatient' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
+          {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+          {{ order.visit.visit_type }}
+        </span>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <span class="font-mono">{{ order.visit.patient.card_number }}</span>
+        <span>{{ order.visit.patient.sex }}{% if order.visit.patient.date_of_birth %} · DOB {{ order.visit.patient.date_of_birth|date:"M j, Y" }}{% if order.visit.patient.age_display %} · {{ order.visit.patient.age_display }}{% endif %}{% endif %}</span>
+        <span>{{ order.visit.department.name }}</span>
+        <span>Dr. {{ order.visit.doctor.full_name }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+  <!-- Order Details + Report -->
+  <div class="lg:col-span-2 space-y-4">
+
+    <!-- Order Details Card -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Order Details</h2>
+      </div>
+      <div class="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Imaging Type</p>
+          {% if order.imaging_type == 'X-Ray' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">X-Ray</span>
+          {% elif order.imaging_type == 'CT Scan' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">CT Scan</span>
+          {% elif order.imaging_type == 'MRI' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">MRI</span>
+          {% elif order.imaging_type == 'Ultrasound' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">Ultrasound</span>
+          {% elif order.imaging_type == 'ECG' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">ECG</span>
+          {% elif order.imaging_type == 'Echo' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400">Echo</span>
+          {% elif order.imaging_type == 'Doppler' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">Doppler</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">{{ order.imaging_type }}</span>
+          {% endif %}
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Body Part</p>
+          <p class="text-sm font-medium text-slate-900 dark:text-white">{{ order.body_part }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Priority</p>
+          {% if order.priority == 'STAT' %}
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+            <span class="relative flex h-1.5 w-1.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600"></span>
+            </span>
+            STAT
+          </span>
+          {% elif order.priority == 'Urgent' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">Urgent</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">Routine</span>
+          {% endif %}
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Status</p>
+          {% if order.status == 'Pending' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pending</span>
+          {% elif order.status == 'In Progress' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">In Progress</span>
+          {% elif order.status == 'Completed' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Completed</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Cancelled</span>
+          {% endif %}
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ordered By</p>
+          <p class="text-sm text-slate-700 dark:text-slate-300">{{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ordered At</p>
+          <p class="text-sm text-slate-700 dark:text-slate-300">{{ order.ordered_at|date:"M j, Y H:i" }}</p>
+        </div>
+
+      </div>
+
+      {% if order.clinical_indication %}
+      <div class="px-5 pb-4">
+        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Clinical Indication</p>
+        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ order.clinical_indication }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Completed Report Display -->
+    {% if order.status == 'Completed' and order.report %}
+    <div class="bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="font-semibold text-green-800 dark:text-green-300">Radiology Report</h3>
+        {% if order.reported_at %}
+        <span class="ml-auto text-xs text-green-600 dark:text-green-500">{{ order.reported_at|date:"M j, Y H:i" }}</span>
+        {% endif %}
+      </div>
+      <div class="text-sm text-green-900 dark:text-green-200 whitespace-pre-wrap bg-white/60 dark:bg-green-900/30 rounded-lg p-3 border border-green-100 dark:border-green-800">{{ order.report }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Report Entry Form -->
+    {% if can_process and order.status != 'Completed' and order.status != 'Cancelled' %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="font-semibold text-slate-900 dark:text-white">Enter Radiology Report</h3>
+      </div>
+      <form method="post" action="{% url 'imaging_report_enter' order.id %}" class="px-5 py-4 space-y-4">
+        {% csrf_token %}
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+            Report
+          </label>
+          <textarea name="report" rows="8" placeholder="Enter radiology report findings here…"
+                    class="w-full resize-y"></textarea>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Submit Report
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-4">
+
+    <!-- Update Status -->
+    {% if can_process and order.status != 'Completed' and order.status != 'Cancelled' %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h3 class="font-semibold text-slate-900 dark:text-white text-sm mb-3">Update Status</h3>
+      <form method="post" action="{% url 'imaging_order_update_status' order.id %}" class="space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'imaging_order_detail' order.id %}">
+        <div class="field-wrapper">
+          <select name="status">
+            {% for val, label in status_choices %}
+            <option value="{{ val }}" {% if order.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit"
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors">
+          Update Status
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Order Summary -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h3 class="font-semibold text-slate-900 dark:text-white text-sm mb-3">Order Summary</h3>
+      <dl class="space-y-2.5 text-sm">
+        <div class="flex items-start justify-between gap-2">
+          <dt class="text-slate-500 dark:text-slate-400 shrink-0">Order ID</dt>
+          <dd class="font-mono text-slate-700 dark:text-slate-300 text-xs">#{{ order.id }}</dd>
+        </div>
+        <div class="flex items-start justify-between gap-2">
+          <dt class="text-slate-500 dark:text-slate-400 shrink-0">Visit</dt>
+          <dd class="text-slate-700 dark:text-slate-300 text-xs">#{{ order.visit.id }}</dd>
+        </div>
+        <div class="flex items-start justify-between gap-2">
+          <dt class="text-slate-500 dark:text-slate-400 shrink-0">Department</dt>
+          <dd class="text-slate-700 dark:text-slate-300 text-xs text-right">{{ order.visit.department.name }}</dd>
+        </div>
+        {% if order.reported_at %}
+        <div class="flex items-start justify-between gap-2">
+          <dt class="text-slate-500 dark:text-slate-400 shrink-0">Reported</dt>
+          <dd class="text-slate-700 dark:text-slate-300 text-xs text-right">{{ order.reported_at|date:"M j, Y H:i" }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

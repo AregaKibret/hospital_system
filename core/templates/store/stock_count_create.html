@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}New Stock Count{% endblock %}
+{% block content %}
+<div class="max-w-lg">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'stock_count_list' %}" class="hover:text-blue-600">Stock Counts</a> / New</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">Start Stock Count</h1>
+  <p class="text-sm text-slate-500 mb-5">Items will be auto-populated from the inventory based on your filters.</p>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Count Type</label>
+      <select name="count_type" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        {% for val, lbl in count_types %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category Filter <span class="text-slate-400 font-normal">(for Partial count)</span></label>
+      <select name="category" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Categories</option>
+        {% for cat in categories %}<option value="{{ cat.pk }}">{{ cat.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Location Filter</label>
+      <select name="location" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Locations</option>
+        {% for loc in locations %}<option value="{{ loc.pk }}">{{ loc.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+      <textarea name="notes" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></textarea>
+    </div>
+    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300">
+      System quantities will be recorded at this moment. Counted quantities should be entered independently (blind count).
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Start Count</button>
+      <a href="{% url 'stock_count_list' %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

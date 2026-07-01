@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Approve {{ pr.request_number }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'purchase_request_detail' pr.pk %}" class="hover:text-blue-600">{{ pr.request_number }}</a> / Approve</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-5">Approve / Reject Request</h1>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-4">
+    <div class="flex justify-between text-sm mb-3">
+      <span class="text-slate-500">Department:</span><span class="font-medium">{{ pr.department.name }}</span>
+    </div>
+    <div class="flex justify-between text-sm mb-3">
+      <span class="text-slate-500">Priority:</span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if pr.priority == 'Emergency' %}bg-red-100 text-red-700{% elif pr.priority == 'Urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ pr.priority }}</span>
+    </div>
+    <table class="w-full text-sm mt-3">
+      <thead class="bg-slate-50 dark:bg-slate-700/50">
+        <tr>
+          <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500">Item</th>
+          <th class="text-right px-3 py-2 text-xs font-semibold text-slate-500">Requested</th>
+          <th class="text-right px-3 py-2 text-xs font-semibold text-slate-500">Approved Qty</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for li in pr.items.all %}
+        <tr>
+          <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">{{ li.item_name }}</td>
+          <td class="px-3 py-2 text-right text-slate-500">{{ li.quantity_requested|floatformat:0 }} {{ li.unit }}</td>
+          <td class="px-3 py-2 text-right">
+            <input type="number" name="qty_approved_{{ li.pk }}" value="{{ li.quantity_requested|floatformat:0 }}" step="0.01" min="0" class="w-20 px-2 py-1 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white" form="approvalForm">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" id="approvalForm" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes (optional)</label>
+      <textarea name="approval_notes" rows="2" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white" placeholder="Comments or conditions…"></textarea>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="approve" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">Approve</button>
+      <button type="submit" name="action" value="reject" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">Reject</button>
+      <a href="{% url 'purchase_request_detail' pr.pk %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

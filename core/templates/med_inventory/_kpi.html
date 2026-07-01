@@ -1,0 +1,11 @@
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 {% if alert and value %}border-l-4 {% if color == 'red' %}border-l-red-500{% elif color == 'amber' %}border-l-amber-500{% elif color == 'orange' %}border-l-orange-500{% endif %}{% endif %}">
+  <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{{ label }}</p>
+  <p class="text-2xl font-bold
+    {% if color == 'blue' %}text-blue-600 dark:text-blue-400
+    {% elif color == 'teal' %}text-teal-600 dark:text-teal-400
+    {% elif color == 'violet' %}text-violet-600 dark:text-violet-400
+    {% elif color == 'amber' %}text-amber-600 dark:text-amber-400
+    {% elif color == 'red' %}text-red-600 dark:text-red-400
+    {% elif color == 'orange' %}text-orange-600 dark:text-orange-400
+    {% else %}text-slate-800 dark:text-slate-100{% endif %}">{{ value }}</p>
+</div>

@@ -1,0 +1,4 @@
+{% if priority == 'emergency' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 uppercase tracking-wide">Emergency</span>
+{% elif priority == 'urgent' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Urgent</span>
+{% elif priority == 'elective' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Elective</span>
+{% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500">{{ priority }}</span>{% endif %}

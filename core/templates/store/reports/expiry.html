@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Store Expiry Report{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Batch Expiry Report</h1>
+    <p class="text-sm text-slate-500">Inventory batches by expiry status</p>
+  </div>
+  <button onclick="window.print()" class="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 text-slate-600 rounded-lg hover:bg-slate-50 no-print">Print</button>
+</div>
+
+<div class="flex gap-2 mb-4 flex-wrap no-print">
+  {% for val, lbl in filter_options %}<a href="?filter={{ val }}" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if filter_f == val %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %} transition-colors">{{ lbl }}</a>{% endfor %}
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="overflow-x-auto">
+    {% if batches %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+        <tr>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Item</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Batch #</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Expiry Date</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Available</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Supplier</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for batch in batches %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if batch.is_expired %}bg-red-50 dark:bg-red-900/10{% endif %}">
+          <td class="px-4 py-2.5">
+            <a href="{% url 'store_item_detail' batch.inventory_item.pk %}" class="font-medium text-blue-600 hover:text-blue-800">{{ batch.inventory_item.name }}</a>
+          </td>
+          <td class="px-4 py-2.5 font-mono text-xs">{{ batch.batch_number }}</td>
+          <td class="px-4 py-2.5 text-sm">
+            {{ batch.expiration_date|date:"d M Y"|default:"—" }}
+            {% if batch.days_to_expiry is not None %}
+            <span class="text-xs ml-1 {% if batch.days_to_expiry < 0 %}text-red-500{% elif batch.days_to_expiry <= 30 %}text-amber-500{% else %}text-slate-400{% endif %}">
+              {% if batch.days_to_expiry < 0 %}(expired){% else %}({{ batch.days_to_expiry }}d){% endif %}
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">{{ batch.quantity_available|floatformat:0 }}</td>
+          <td class="px-4 py-2.5">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if batch.is_expired %}bg-red-100 text-red-700
+              {% elif batch.days_to_expiry is not None and batch.days_to_expiry <= 30 %}bg-amber-100 text-amber-700
+              {% elif batch.days_to_expiry is not None and batch.days_to_expiry <= 60 %}bg-yellow-100 text-yellow-700
+              {% else %}bg-orange-100 text-orange-700{% endif %}">{{ batch.expiry_status }}</span>
+          </td>
+          <td class="px-4 py-2.5 text-xs text-slate-500 hidden md:table-cell">{{ batch.supplier.name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-slate-400 text-sm">No batches found for selected filter.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

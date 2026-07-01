@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Sale {{ sale.sale_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ sale.sale_number }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+        {{ sale.created_at|date:"d M Y H:i" }} &middot; By: {{ sale.cashier.get_full_name|default:sale.cashier.username }}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'pharmacy_sale_receipt' sale.id %}" target="_blank"
+         class="inline-flex items-center gap-1 btn-secondary text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Receipt
+      </a>
+      <a href="{% url 'pharmacy_sales_list' %}" class="btn-secondary text-sm">← Back</a>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+    <!-- Customer -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Patient</p>
+      <p class="font-semibold text-slate-800 dark:text-slate-200">{{ sale.customer_display }}</p>
+      {% if sale.patient %}<p class="text-xs text-slate-400 font-mono">{{ sale.patient.card_number }}</p>{% endif %}
+      {% if sale.customer_phone %}<p class="text-xs text-slate-400">{{ sale.customer_phone }}</p>{% endif %}
+    </div>
+    <!-- Sale Status -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Sale Status</p>
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold
+        {% if sale.status == 'Dispensed' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+        {% elif sale.status == 'Pending' %}bg-amber-100 text-amber-700
+        {% elif sale.status == 'Cancelled' %}bg-red-100 text-red-700
+        {% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ sale.status }}
+      </span>
+      {% if sale.dispensed_at %}
+      <p class="text-xs text-slate-400 mt-1">Dispensed {{ sale.dispensed_at|date:"d M H:i" }}</p>
+      {% endif %}
+    </div>
+    <!-- Billing Invoice -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Billing Invoice</p>
+      {% if sale.invoice %}
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold
+          {% if sale.invoice.status == 'Paid' or sale.invoice.status == 'Overpaid' %}bg-emerald-100 text-emerald-700
+          {% elif sale.invoice.status == 'Draft' or sale.invoice.status == 'Issued' %}bg-amber-100 text-amber-700
+          {% elif sale.invoice.status == 'Waived' or sale.invoice.status == 'Credit Pending' %}bg-blue-100 text-blue-700
+          {% else %}bg-slate-100 text-slate-600{% endif %}">
+          {{ sale.invoice.status }}
+        </span>
+        <p class="text-xs text-slate-400 mt-1 font-mono">#{{ sale.invoice.pk }}</p>
+      {% else %}
+        <p class="text-sm text-slate-400">No invoice linked</p>
+      {% endif %}
+    </div>
+    <!-- Amount -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Amount</p>
+      <p class="text-xl font-bold text-teal-600">ETB {{ sale.total_amount|floatformat:2 }}</p>
+      {% if sale.discount_amount > 0 %}
+      <p class="text-xs text-slate-400">Discount: ETB {{ sale.discount_amount|floatformat:2 }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden mb-4">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Items</h2>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-900/50">
+        <tr>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Medication</th>
+          <th class="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase">Qty</th>
+          <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Unit Price</th>
+          <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Total</th>
+          <th class="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase">Dispensed</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for item in items %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+          <td class="px-4 py-3">
+            <p class="font-semibold text-slate-800 dark:text-slate-200">{{ item.drug_name }}</p>
+            {% if item.batch_number %}<p class="text-xs text-slate-400 font-mono">Batch: {{ item.batch_number }}{% if item.expiry_date %} · Exp: {{ item.expiry_date|date:"M Y" }}{% endif %}</p>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">{{ item.quantity }}</td>
+          <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{{ item.unit_price|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-800 dark:text-slate-200">{{ item.total|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if item.dispensed %}
+            <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Yes</span>
+            {% else %}
+            <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-slate-50 dark:bg-slate-900/40">
+        <tr>
+          <td colspan="3" class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Total</td>
+          <td class="px-4 py-2.5 text-right font-bold text-teal-600">{{ sale.total_amount|floatformat:2 }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex flex-wrap gap-3">
+    {% if sale.status == 'Pending' %}
+      {% with inv_status=sale.invoice.status %}
+      {% if inv_status == 'Paid' or inv_status == 'Overpaid' or inv_status == 'Waived' or inv_status == 'Partial' or inv_status == 'Credit Pending' %}
+      <form method="post" action="{% url 'pharmacy_sale_dispense' sale.id %}" onsubmit="return confirm('Confirm dispensing and deduct inventory?')">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Confirm Dispense
+        </button>
+      </form>
+      {% else %}
+      <div class="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-200 dark:border-amber-700 text-sm">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Awaiting payment at billing counter
+      </div>
+      {% endif %}
+      {% endwith %}
+    {% endif %}
+
+    {% if sale.status == 'Dispensed' and perms.core.manage_pharmacy_returns %}
+    <a href="{% url 'pharmacy_return_create' sale.id %}"
+       class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition text-sm">
+      Return / Refund
+    </a>
+    {% endif %}
+
+    {% if sale.status == 'Pending' %}
+    <form method="post" action="{% url 'pharmacy_sale_cancel' sale.id %}" onsubmit="return confirm('Cancel this sale?')" class="flex gap-2">
+      {% csrf_token %}
+      <input type="text" name="reason" placeholder="Cancellation reason (optional)" class="text-sm px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-red-400 w-60">
+      <button type="submit" class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition text-sm">Cancel Sale</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Returns -->
+  {% if returns %}
+  <div class="mt-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Returns</h2>
+    </div>
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for r in returns %}
+      <div class="flex items-center justify-between px-4 py-3">
+        <div>
+          <a href="{% url 'pharmacy_return_detail' r.id %}" class="text-sm font-semibold text-indigo-600 hover:underline font-mono">{{ r.return_number }}</a>
+          <p class="text-xs text-slate-400">{{ r.return_type }} · {{ r.created_at|date:"d M Y" }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm font-bold text-slate-700">ETB {{ r.return_amount|floatformat:2 }}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium
+            {% if r.status == 'Approved' %}bg-emerald-100 text-emerald-700{% elif r.status == 'Rejected' %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+            {{ r.status }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

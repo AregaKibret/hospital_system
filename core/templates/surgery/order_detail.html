@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block title %}{{ order.order_number }} — Surgery Order{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for msg in messages %}<div class="px-4 py-3 rounded-xl text-sm font-medium {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300{% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>{% endfor %}</div>
+{% endif %}
+
+<!-- Header -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2 flex-wrap mb-2">
+        <span class="font-mono text-sm font-bold text-slate-600 dark:text-slate-300">{{ order.order_number }}</span>
+        {% include "surgery/_priority_badge.html" with priority=order.priority %}
+        {% include "surgery/_status_badge.html" with status=order.status %}
+      </div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ order.planned_procedure }}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.patient.full_name }} · {{ order.patient.card_number }} · {{ order.ordered_at|date:"d M Y H:i" }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if perms.core.order_surgery and order.status in "ordered pending_review" %}
+      <a href="{% url 'surgery_order_edit' order.pk %}" class="btn-secondary text-sm">Edit</a>
+      {% endif %}
+      <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">← All Orders</a>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <!-- Left: Main Info -->
+  <div class="lg:col-span-2 space-y-5">
+
+    <!-- Patient & Order Details -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Patient & Order Details</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+        <div><span class="text-slate-400 text-xs block">Patient</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</span></div>
+        <div><span class="text-slate-400 text-xs block">Card / MRN</span><span class="font-mono text-slate-700 dark:text-slate-300">{{ order.patient.card_number }}</span></div>
+        <div><span class="text-slate-400 text-xs block">Age / Sex</span><span class="text-slate-700 dark:text-slate-300">{{ order.patient.age }} yrs / {{ order.patient.sex }}</span></div>
+        <div><span class="text-slate-400 text-xs block">Pre-op Diagnosis</span><span class="text-slate-700 dark:text-slate-300">{{ order.pre_op_diagnosis }}</span></div>
+        <div><span class="text-slate-400 text-xs block">Surgeon</span><span class="font-medium text-slate-700 dark:text-slate-300">Dr. {{ order.surgeon.get_full_name|default:order.surgeon.username }}</span></div>
+        {% if order.assistant_surgeon %}<div><span class="text-slate-400 text-xs block">Assistant Surgeon</span><span class="text-slate-700 dark:text-slate-300">Dr. {{ order.assistant_surgeon.get_full_name }}</span></div>{% endif %}
+        <div><span class="text-slate-400 text-xs block">Anesthesia Type</span><span class="text-slate-700 dark:text-slate-300">{{ order.anesthesia_type }}</span></div>
+        {% if order.department %}<div><span class="text-slate-400 text-xs block">Department</span><span class="text-slate-700 dark:text-slate-300">{{ order.department.name }}</span></div>{% endif %}
+        {% if order.planned_date %}<div><span class="text-slate-400 text-xs block">Planned Date</span><span class="text-slate-700 dark:text-slate-300">{{ order.planned_date|date:"d M Y" }}{% if order.preferred_time %} at {{ order.preferred_time|time:"H:i" }}{% endif %}</span></div>{% endif %}
+        <div><span class="text-slate-400 text-xs block">Ordered By</span><span class="text-slate-700 dark:text-slate-300">{{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</span></div>
+        {% if order.approved_by %}<div><span class="text-slate-400 text-xs block">Approved By</span><span class="text-slate-700 dark:text-slate-300">{{ order.approved_by.get_full_name }} on {{ order.approved_at|date:"d M Y" }}</span></div>{% endif %}
+        {% if order.anesthesia_assessment_requested %}<div class="sm:col-span-2"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Pre-anesthesia assessment requested</span></div>{% endif %}
+      </div>
+    </div>
+
+    {% if order.indication or order.special_instructions or order.previous_history or order.required_preparation %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Clinical Notes</h2>
+      </div>
+      <div class="p-5 space-y-3 text-sm">
+        {% if order.indication %}<div><p class="text-xs text-slate-400 mb-1">Indication</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ order.indication }}</p></div>{% endif %}
+        {% if order.special_instructions %}<div><p class="text-xs text-slate-400 mb-1">Special Instructions</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ order.special_instructions }}</p></div>{% endif %}
+        {% if order.previous_history %}<div><p class="text-xs text-slate-400 mb-1">Previous History</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ order.previous_history }}</p></div>{% endif %}
+        {% if order.required_preparation %}<div><p class="text-xs text-slate-400 mb-1">Required Preparation</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ order.required_preparation }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- OR Schedule -->
+    {% if schedule %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">OR Schedule</h2>
+        {% if perms.core.manage_or_schedule %}<a href="{% url 'surgery_schedule_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+      </div>
+      <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div><span class="text-xs text-slate-400 block">OR Room</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ schedule.or_room.name }}</span></div>
+        <div><span class="text-xs text-slate-400 block">Date</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.scheduled_date|date:"d M Y" }}</span></div>
+        <div><span class="text-xs text-slate-400 block">Start Time</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.scheduled_start_time|time:"H:i" }}{% if schedule.estimated_end_time %} → {{ schedule.estimated_end_time|time:"H:i" }}{% endif %}</span></div>
+        {% if schedule.scrub_nurse %}<div><span class="text-xs text-slate-400 block">Scrub Nurse</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.scrub_nurse.get_full_name }}</span></div>{% endif %}
+        {% if schedule.circulating_nurse %}<div><span class="text-xs text-slate-400 block">Circulating Nurse</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.circulating_nurse.get_full_name }}</span></div>{% endif %}
+        {% if schedule.anesthesiologist %}<div><span class="text-xs text-slate-400 block">Anesthesiologist</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.anesthesiologist.get_full_name }}</span></div>{% endif %}
+        {% if schedule.actual_start_time %}<div><span class="text-xs text-slate-400 block">Actual Start</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.actual_start_time|date:"H:i" }}</span></div>{% endif %}
+        {% if schedule.actual_end_time %}<div><span class="text-xs text-slate-400 block">Actual End</span><span class="text-slate-700 dark:text-slate-300">{{ schedule.actual_end_time|date:"H:i" }}</span></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Anesthesia Record -->
+    {% if anesthesia_record %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Anesthesia Record</h2>
+        {% if perms.core.write_surgery_anesthesia %}<a href="{% url 'surgery_anesthesia_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+      </div>
+      <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div><span class="text-xs text-slate-400 block">Anesthesiologist</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ anesthesia_record.anesthesiologist.get_full_name }}</span></div>
+        {% if anesthesia_record.asa_classification %}<div><span class="text-xs text-slate-400 block">ASA Classification</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.asa_classification }}</span></div>{% endif %}
+        {% if anesthesia_record.anesthesia_technique %}<div><span class="text-xs text-slate-400 block">Technique</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.anesthesia_technique }}</span></div>{% endif %}
+        {% if anesthesia_record.induction_agent %}<div><span class="text-xs text-slate-400 block">Induction Agent</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.induction_agent }}</span></div>{% endif %}
+        {% if anesthesia_record.post_anesthesia_notes %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Post-anesthesia Notes</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ anesthesia_record.post_anesthesia_notes }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Operative Note -->
+    {% if operative_note %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Operative Note</h2>
+        {% if perms.core.write_operative_note %}<a href="{% url 'operative_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+      </div>
+      <div class="p-5 space-y-4 text-sm">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div><span class="text-xs text-slate-400 block">Procedure Performed</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ operative_note.procedure_performed }}</span></div>
+          {% if operative_note.start_time %}<div><span class="text-xs text-slate-400 block">Start</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.start_time|date:"H:i" }}</span></div>{% endif %}
+          {% if operative_note.end_time %}<div><span class="text-xs text-slate-400 block">End</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.end_time|date:"H:i" }}</span></div>{% endif %}
+          <div><span class="text-xs text-slate-400 block">Pre-op Diagnosis</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.pre_op_diagnosis }}</span></div>
+          <div><span class="text-xs text-slate-400 block">Post-op Diagnosis</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.post_op_diagnosis }}</span></div>
+          {% if operative_note.blood_loss_ml %}<div><span class="text-xs text-slate-400 block">Blood Loss</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.blood_loss_ml }} mL</span></div>{% endif %}
+          {% if operative_note.complications %}<div><span class="text-xs text-slate-400 block text-red-500">Complications</span><span class="text-red-700 dark:text-red-300">{{ operative_note.complications }}</span></div>{% endif %}
+        </div>
+        <div><p class="text-xs text-slate-400 mb-1">Findings</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.findings }}</p></div>
+        <div><p class="text-xs text-slate-400 mb-1">Procedure Steps</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.procedure_steps }}</p></div>
+        {% if operative_note.post_op_instructions %}<div><p class="text-xs text-slate-400 mb-1">Post-op Instructions</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ operative_note.post_op_instructions }}</p></div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Consumables -->
+    {% if consumables %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Consumables & Supplies Used</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Item</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Qty</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Unit Cost</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Total</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Batch</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for con in consumables %}
+            <tr>
+              <td class="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-100">{{ con.item_name }}</td>
+              <td class="px-4 py-2.5 text-xs text-slate-500 capitalize">{{ con.item_type }}</td>
+              <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300">{{ con.quantity }} {{ con.unit }}</td>
+              <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300">{% if con.unit_cost %}ETB {{ con.unit_cost|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-100">{% if con.total_cost %}ETB {{ con.total_cost|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2.5 text-xs text-slate-400 hidden md:table-cell">{{ con.batch_number|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="bg-slate-50 dark:bg-slate-700/40">
+              <td colspan="4" class="px-4 py-2 text-right text-xs font-semibold text-slate-600 dark:text-slate-300">Total Consumables:</td>
+              <td class="px-4 py-2 font-bold text-slate-900 dark:text-white">ETB {{ consumable_total|floatformat:2 }}</td>
+              <td class="hidden md:table-cell"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right: Actions Sidebar -->
+  <div class="space-y-4">
+
+    <!-- Workflow Actions -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Actions</h2>
+      </div>
+      <div class="p-4 space-y-2">
+
+        {% if perms.core.approve_surgery_order and order.can_approve %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="approve" />
+          <button type="submit" class="w-full btn-primary text-sm">Approve Order</button>
+        </form>
+        {% endif %}
+
+        {% if perms.core.manage_or_schedule and order.status == 'approved' %}
+        <a href="{% url 'surgery_schedule_create' order.pk %}" class="block w-full text-center btn-primary text-sm bg-indigo-600 hover:bg-indigo-700">Schedule Surgery</a>
+        {% endif %}
+
+        {% if perms.core.manage_or_schedule and order.status == 'scheduled' %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="patient_prepared" />
+          <button type="submit" class="w-full btn-secondary text-sm">Mark Patient Prepared</button>
+        </form>
+        {% endif %}
+
+        {% if perms.core.manage_or_schedule and order.status == 'patient_prepared' %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="in_or" />
+          <button type="submit" class="w-full btn-primary text-sm bg-orange-600 hover:bg-orange-700">Start Surgery (In OR)</button>
+        </form>
+        {% endif %}
+
+        {% if perms.core.approve_surgery_order and order.status == 'in_or' %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="complete" />
+          <button type="submit" class="w-full btn-primary text-sm bg-emerald-600 hover:bg-emerald-700">Mark Completed</button>
+        </form>
+        {% endif %}
+
+        {% if perms.core.write_surgery_anesthesia and order.status in "approved scheduled patient_prepared in_or completed post_op" %}
+        <a href="{% url 'surgery_anesthesia_create' order.pk %}" class="block w-full text-center btn-secondary text-sm">{% if anesthesia_record %}Edit Anesthesia Record{% else %}Add Anesthesia Record{% endif %}</a>
+        {% endif %}
+
+        {% if perms.core.write_operative_note and order.status in "completed post_op" %}
+        <a href="{% url 'operative_note_create' order.pk %}" class="block w-full text-center btn-secondary text-sm">{% if operative_note %}Edit Operative Note{% else %}Write Operative Note{% endif %}</a>
+        {% endif %}
+
+        {% if perms.core.manage_surgery_consumables and order.status in "scheduled patient_prepared in_or completed" %}
+        <button onclick="document.getElementById('consumableModal').classList.remove('hidden')" class="w-full btn-secondary text-sm">+ Add Consumable</button>
+        {% endif %}
+
+        {% if perms.core.generate_surgery_billing and not order.invoice and order.status in "approved scheduled in_or completed post_op" %}
+        <form method="post" action="{% url 'surgery_billing_generate' order.pk %}">{% csrf_token %}
+          <button type="submit" class="w-full btn-secondary text-sm border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">Generate Billing</button>
+        </form>
+        {% endif %}
+
+        {% if order.invoice %}
+        <a href="{% url 'invoice_detail' order.invoice.pk %}" class="block w-full text-center btn-secondary text-sm border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300">View Invoice</a>
+        {% endif %}
+
+        {% if order.can_cancel %}
+        <button onclick="document.getElementById('cancelModal').classList.remove('hidden')" class="w-full text-sm px-4 py-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition">Cancel Order</button>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Procedure Master Info -->
+    {% if order.procedure_master %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Procedure Reference</h2>
+      </div>
+      <div class="p-4 space-y-2 text-sm">
+        <div><span class="text-xs text-slate-400 block">Code</span><span class="font-mono font-medium text-slate-700 dark:text-slate-300">{{ order.procedure_master.code }}</span></div>
+        <div><span class="text-xs text-slate-400 block">Complexity</span>{% include "surgery/_complexity_badge.html" with complexity=order.procedure_master.complexity %}</div>
+        {% if order.procedure_master.estimated_duration_minutes %}<div><span class="text-xs text-slate-400 block">Est. Duration</span><span class="text-slate-700 dark:text-slate-300">{{ order.procedure_master.estimated_duration_minutes }} min</span></div>{% endif %}
+        <div class="pt-1 border-t border-slate-100 dark:border-slate-700">
+          <p class="text-xs text-slate-400 mb-1">Standard Fees</p>
+          <div class="space-y-1 text-xs">
+            {% if order.procedure_master.procedure_price %}<div class="flex justify-between"><span class="text-slate-500">Procedure fee</span><span class="font-medium">ETB {{ order.procedure_master.procedure_price|floatformat:2 }}</span></div>{% endif %}
+            {% if order.procedure_master.surgeon_fee %}<div class="flex justify-between"><span class="text-slate-500">Surgeon fee</span><span class="font-medium">ETB {{ order.procedure_master.surgeon_fee|floatformat:2 }}</span></div>{% endif %}
+            {% if order.procedure_master.anesthesia_fee %}<div class="flex justify-between"><span class="text-slate-500">Anesthesia fee</span><span class="font-medium">ETB {{ order.procedure_master.anesthesia_fee|floatformat:2 }}</span></div>{% endif %}
+            {% if order.procedure_master.facility_fee %}<div class="flex justify-between"><span class="text-slate-500">Facility fee</span><span class="font-medium">ETB {{ order.procedure_master.facility_fee|floatformat:2 }}</span></div>{% endif %}
+            <div class="flex justify-between border-t border-slate-100 dark:border-slate-700 pt-1 font-semibold"><span class="text-slate-600 dark:text-slate-300">Total</span><span>ETB {{ order.procedure_master.total_fee|floatformat:2 }}</span></div>
+          </div>
+        </div>
+        <a href="{% url 'procedure_master_detail' order.procedure_master.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View full details →</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Timeline -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Timeline</h2>
+      </div>
+      <div class="p-4 space-y-2.5 text-xs">
+        <div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-blue-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Ordered</p><p class="text-slate-400">{{ order.ordered_at|date:"d M Y H:i" }} by {{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p></div></div>
+        {% if order.approved_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Approved</p><p class="text-slate-400">{{ order.approved_at|date:"d M Y H:i" }} by {{ order.approved_by.get_full_name }}</p></div></div>{% endif %}
+        {% if schedule %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-indigo-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Scheduled</p><p class="text-slate-400">{{ schedule.scheduled_date|date:"d M Y" }} at {{ schedule.scheduled_start_time|time:"H:i" }} in {{ schedule.or_room.name }}</p></div></div>{% endif %}
+        {% if schedule.actual_start_time %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-orange-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Surgery Started</p><p class="text-slate-400">{{ schedule.actual_start_time|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.completed_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-600 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Completed</p><p class="text-slate-400">{{ order.completed_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.cancelled_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-red-500 mt-1 shrink-0"></div><div><p class="font-medium text-red-600 dark:text-red-400">Cancelled</p><p class="text-slate-400">{{ order.cancelled_at|date:"d M Y H:i" }} by {{ order.cancelled_by.get_full_name }}</p>{% if order.cancellation_reason %}<p class="text-slate-500 italic">Reason: {{ order.cancellation_reason }}</p>{% endif %}</div></div>{% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+<div id="cancelModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Cancel Surgery Order</h3>
+    <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+      <input type="hidden" name="action" value="cancel" />
+      <div class="field-wrapper mb-4">
+        <label class="field-label">Cancellation Reason <span class="text-red-500">*</span></label>
+        <textarea name="cancellation_reason" rows="3" required class="field-input" placeholder="Provide reason for cancellation…"></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="btn-primary bg-red-600 hover:bg-red-700">Confirm Cancel</button>
+        <button type="button" onclick="document.getElementById('cancelModal').classList.add('hidden')" class="btn-secondary">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Consumable Modal -->
+<div id="consumableModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Add Consumable / Supply</h3>
+    <form method="post" action="{% url 'surgery_consumable_add' order.pk %}">{% csrf_token %}
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div class="field-wrapper col-span-2">
+          <label class="field-label">Item Name <span class="text-red-500">*</span></label>
+          <input type="text" name="item_name" required class="field-input" placeholder="e.g. Surgical suture, Implant…" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Type</label>
+          <select name="item_type" class="field-input">
+            <option value="supply">Surgical Supply</option>
+            <option value="medication">Medication</option>
+            <option value="implant">Implant</option>
+            <option value="disposable">Disposable</option>
+            <option value="instrument">Instrument</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Quantity</label>
+          <input type="number" name="quantity" value="1" min="0.01" step="0.01" class="field-input" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Unit</label>
+          <input type="text" name="unit" value="unit" class="field-input" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Unit Cost (ETB)</label>
+          <input type="number" name="unit_cost" value="0" min="0" step="0.01" class="field-input" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Batch #</label>
+          <input type="text" name="batch_number" class="field-input" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Expiry Date</label>
+          <input type="date" name="expiry_date" class="field-input" />
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="btn-primary">Add Item</button>
+        <button type="button" onclick="document.getElementById('consumableModal').classList.add('hidden')" class="btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

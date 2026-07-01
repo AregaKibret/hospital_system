@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load hms_extras %}
+{% block title %}Fulfill Request {{ req.request_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'transfer_request_detail' req.id %}" class="text-sm text-indigo-600 hover:underline">&larr; Request {{ req.request_number }}</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Fulfill Transfer Request</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ req.requesting_store.name }} — assign pharmacy batches</p>
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    {% for item in items %}
+    {% with batches=batch_options|get_item:item.id %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ item.medication.name }}</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Approved: {{ item.quantity_approved }} units</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="field-wrapper">
+          <label class="field-label">Select Batch *</label>
+          <select name="batch_{{ item.id }}" required class="field-input text-sm">
+            <option value="">Pick a batch</option>
+            {% for b in batches %}
+            <option value="{{ b.id }}">{{ b.batch_number }} — exp: {{ b.expiration_date|date:"M d, Y" }} — avail: {{ b.quantity_available }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Fulfill Qty (max: {{ item.quantity_approved }})</label>
+          <input type="number" name="fulfill_qty_{{ item.id }}" value="{{ item.quantity_approved }}" min="0" max="{{ item.quantity_approved }}" class="field-input text-sm">
+        </div>
+      </div>
+      {% if not batches %}
+      <p class="text-sm text-red-600 dark:text-red-400 mt-2">No available batches in pharmacy for this medication.</p>
+      {% endif %}
+    </div>
+    {% endwith %}
+    {% endfor %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="field-wrapper">
+        <label class="field-label">Transfer Notes</label>
+        <textarea name="notes" rows="2" class="field-input"></textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Create Transfer</button>
+      <a href="{% url 'transfer_request_detail' req.id %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Simple template filter replacement: |get_item is not built-in; we handle via the view context's batch_options dict access directly using the item.id in the template.
+// The above template already uses batch_options|get_item:item.id which requires a custom filter.
+// Fallback: we already pass batch_options with the items' IDs; use a simple workaround.
+</script>
+{% endblock %}

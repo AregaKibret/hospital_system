@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Lab Service — HMS{% endblock %}
+{% block content %}
+<div class="max-w-3xl">
+  <nav class="text-xs text-slate-400 mb-3"><a href="{% url 'lab_service_list' %}" class="hover:text-blue-600">Lab Services</a> / {{ action }}</nav>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-5">{{ action }} Lab Service</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="space-y-4">
+
+      <!-- Basic Info -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Test Information</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {% for field in form %}
+          {% if field.name in 'name,code,category,section,sample_type,turnaround_hours' %}
+          <div class="{% if field.name == 'name' %}sm:col-span-2{% endif %}">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+            {{ field }}
+            {% if field.errors %}<p class="text-xs text-red-500 mt-0.5">{{ field.errors.0 }}</p>{% endif %}
+          </div>
+          {% endif %}
+          {% endfor %}
+          <!-- Sample requirements & preparation -->
+          {% for field in form %}
+          {% if field.name in 'sample_requirements,preparation_instructions' %}
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{{ field.label }}</label>
+            {{ field }}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+        <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Pricing (ETB)</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {% for field in form %}
+          {% if field.name in 'standard_price,insurance_price,corporate_price,emergency_price,tax_percent' %}
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<p class="text-xs text-red-500 mt-0.5">{{ field.errors.0 }}</p>{% endif %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        <p class="text-xs text-slate-400 mt-3">Leave Insurance/Corporate/Emergency blank to use Standard price as fallback.</p>
+      </div>
+
+      <!-- Active status -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-4 flex items-center gap-3">
+        {{ form.is_active }}
+        <label for="{{ form.is_active.id_for_label }}" class="text-sm text-slate-700 dark:text-slate-300">Service is active (visible to doctors when ordering)</label>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">{{ action }} Service</button>
+        <a href="{% url 'lab_service_list' %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<style>
+  form input[type="text"], form input[type="number"], form select, form textarea {
+    @apply w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white;
+  }
+</style>
+<script>
+  document.querySelectorAll('form input:not([type="checkbox"]), form select, form textarea').forEach(el => {
+    el.className = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white';
+  });
+</script>
+{% endblock %}

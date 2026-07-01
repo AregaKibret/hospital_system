@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Patient Data Access Report{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Patient Data Access Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Who accessed patient records, diagnoses, lab results, and clinical data</p>
+  </div>
+  <a href="{% url 'audit_dashboard' %}" class="btn-secondary text-sm">&larr; Audit Dashboard</a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <input type="text" name="q" value="{{ filters.q }}" placeholder="Search patient, description…" class="field-input text-sm" />
+    <select name="module" class="field-input text-sm">
+      <option value="">All Clinical Modules</option>
+      {% for val, label in clinical_module_choices %}
+      <option value="{{ val }}" {% if filters.module == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="user_id" class="field-input text-sm">
+      <option value="">All Users</option>
+      {% for u in users %}
+      <option value="{{ u.id }}" {% if filters.user_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+      {% endfor %}
+    </select>
+    <div class="flex gap-2">
+      <input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm flex-1" />
+      <input type="date" name="date_to"   value="{{ date_to }}"   class="field-input text-sm flex-1" />
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+    <a href="{% url 'report_patient_access' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<!-- Top accessors -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+  <div class="lg:col-span-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Top Record Accessors</h2>
+    </div>
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for row in top_accessors %}
+      <div class="px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-800 dark:text-slate-100">{{ row.user_name }}</p>
+          <p class="text-xs text-slate-400">{{ row.user_role|default:"—" }} · {{ row.department|default:"—" }}</p>
+        </div>
+        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">{{ row.count }}</span>
+      </div>
+      {% empty %}
+      <p class="px-4 py-6 text-sm text-slate-400">No access events in this period.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent access events -->
+  <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Recent Record Access</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Time</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">User</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Module</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Patient / Record</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for log in access_logs %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+            <td class="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{{ log.timestamp|date:"d M Y H:i" }}</td>
+            <td class="px-4 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100">{{ log.user_name }}<br><span class="text-slate-400">{{ log.user_role }}</span></td>
+            <td class="px-4 py-2.5 text-xs text-slate-500 capitalize">{{ log.module }}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300">{{ log.description|default:log.object_repr|truncatechars:60 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">No access events found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Full log table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white">All Clinical Activity</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Timestamp</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">User</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Action</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Module</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Description</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Sev.</th>
+          <th class="px-4 py-2.5"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for log in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{{ log.timestamp|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100">{{ log.user_name }}</td>
+          <td class="px-4 py-2.5">{% include "audit/_action_badge.html" with action=log.action %}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-500 capitalize">{{ log.module }}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-300">{{ log.description|default:log.object_repr|truncatechars:70 }}</td>
+          <td class="px-4 py-2.5">{% include "audit/_severity_badge.html" with severity=log.severity %}</td>
+          <td class="px-4 py-2.5 text-right">
+            <a href="{% url 'audit_log_detail' log.id %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No clinical audit entries match your filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+    {% if page_obj.has_previous %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn-secondary text-xs">Prev</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn-secondary text-xs">Next</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

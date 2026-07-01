@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dept Stock Card{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Department Stock Card</h1>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department *</label>
+        <select name="store" required class="field-input text-sm py-1.5">
+          <option value="">Select department</option>
+          {% for s in stores %}<option value="{{ s.id }}" {% if store and store.id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Medication *</label>
+        <select name="med" class="field-input text-sm py-1.5">
+          <option value="">Select medication</option>
+          {% for m in medications %}<option value="{{ m.id }}" {% if med and med.id == m.id %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+        <input type="date" name="from" value="{{ date_from }}" class="field-input text-sm py-1.5">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+        <input type="date" name="to" value="{{ date_to }}" class="field-input text-sm py-1.5">
+      </div>
+    </div>
+    <div class="mt-3">
+      <button type="submit" class="btn-primary text-sm">Run Report</button>
+    </div>
+  </form>
+
+  {% if store and med and transactions is not None %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ med.name }} — {{ store.name }}</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400">{{ date_from }} to {{ date_to }} · Generated {{ generated_at|date:"M d, Y H:i" }}</p>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">Date</th>
+            <th class="px-5 py-3 font-medium">Event</th>
+            <th class="px-5 py-3 font-medium text-right">In</th>
+            <th class="px-5 py-3 font-medium text-right">Out</th>
+            <th class="px-5 py-3 font-medium">Reference</th>
+            <th class="px-5 py-3 font-medium">Staff</th>
+            <th class="px-5 py-3 font-medium">Reason</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for tx in transactions %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3 text-slate-600 dark:text-slate-400">{{ tx.date|date:"M d, H:i" }}</td>
+            <td class="px-5 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs
+                {% if tx.type == 'receive' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}">
+                {% if tx.type == 'receive' %}Received{% else %}{{ tx.usage_type }}{% endif %}
+              </span>
+            </td>
+            <td class="px-5 py-3 text-right font-semibold {% if tx.qty_in %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+              {% if tx.qty_in %}+{{ tx.qty_in }}{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3 text-right font-semibold {% if tx.qty_out %}text-red-600 dark:text-red-400{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+              {% if tx.qty_out %}-{{ tx.qty_out }}{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{{ tx.ref }}</td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ tx.by.get_full_name|default:tx.by.username|default:"—" }}</td>
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ tx.reason|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-5 py-10 text-center text-slate-400 dark:text-slate-500">No transactions in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

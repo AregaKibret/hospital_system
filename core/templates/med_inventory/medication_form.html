@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Medication{% endblock %}
+{% block content %}
+
+<div class="mb-5 flex items-center gap-3">
+  <a href="{% if med %}{% url 'medication_detail' med.id %}{% else %}{% url 'medication_list' %}{% endif %}"
+     class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Back
+  </a>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ action }} Medication</h1>
+</div>
+
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+
+  <!-- Basic Information -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-900/10">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Basic Information</h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% with v=med %}
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Brand Name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" value="{{ v.name|default:post.name }}" required class="block w-full">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Generic Name <span class="text-red-500">*</span></label>
+        <input type="text" name="generic_name" value="{{ v.generic_name|default:post.generic_name }}" required class="block w-full">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Scientific Name</label>
+        <input type="text" name="scientific_name" value="{{ v.scientific_name|default:post.scientific_name }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Medication Code / SKU <span class="text-red-500">*</span></label>
+        <input type="text" name="code" value="{{ v.code|default:post.code }}" required>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Barcode</label>
+        <input type="text" name="barcode" value="{{ v.barcode|default:post.barcode }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
+        <select name="category">
+          <option value="">— Select Category —</option>
+          {% for cat in categories %}<option value="{{ cat.id }}" {% if v.category_id == cat.id or post.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Therapeutic Class</label>
+        <input type="text" name="therapeutic_class" value="{{ v.therapeutic_class|default:post.therapeutic_class }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Drug Type</label>
+        <select name="drug_type">
+          {% for val, label in drug_types %}<option value="{{ val }}" {% if v.drug_type == val or post.drug_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Strength <span class="text-red-500">*</span></label>
+        <input type="text" name="strength" value="{{ v.strength|default:post.strength }}" placeholder="e.g. 500 mg" required>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Dosage Form</label>
+        <input type="text" name="dosage_form" value="{{ v.dosage_form|default:post.dosage_form }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Route of Administration</label>
+        <select name="route">
+          {% for val, label in routes %}<option value="{{ val }}" {% if v.route == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Manufacturer</label>
+        <input type="text" name="manufacturer" value="{{ v.manufacturer|default:post.manufacturer }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Country of Origin</label>
+        <input type="text" name="country_of_origin" value="{{ v.country_of_origin|default:post.country_of_origin }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier</label>
+        <select name="supplier">
+          <option value="">— None —</option>
+          {% for s in suppliers %}<option value="{{ s.id }}" {% if v.supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endwith %}
+    </div>
+  </div>
+
+  <!-- Packaging & Pricing -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-teal-50/50 dark:bg-teal-900/10">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Packaging</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% with v=med %}
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Unit of Measure</label>
+          <input type="text" name="unit_of_measure" value="{{ v.unit_of_measure|default:'Tablet' }}" placeholder="e.g. Tablet">
+        </div>
+        <div class="field-wrapper sm:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Pack Description</label>
+          <input type="text" name="pack_description" value="{{ v.pack_description }}" placeholder="e.g. 1 Box = 10 Strips × 10 Tablets">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Units per Pack</label>
+          <input type="number" name="units_per_pack" value="{{ v.units_per_pack|default:1 }}" min="1">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purchase Unit</label>
+          <input type="text" name="purchase_unit" value="{{ v.purchase_unit|default:'Box' }}" placeholder="e.g. Box">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Dispensing Unit</label>
+          <input type="text" name="dispensing_unit" value="{{ v.dispensing_unit|default:'Tablet' }}" placeholder="e.g. Tablet">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Conversion Factor</label>
+          <input type="number" name="conversion_factor" value="{{ v.conversion_factor|default:1 }}" min="1">
+          <p class="text-xs text-slate-400 mt-1">Dispensing units per purchase unit</p>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Pricing (ETB)</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% with v=med %}
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purchase Price</label>
+          <input type="number" name="purchase_price" value="{{ v.purchase_price|default:'0' }}" step="0.01" min="0">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Selling Price</label>
+          <input type="number" name="selling_price" value="{{ v.selling_price|default:'0' }}" step="0.01" min="0">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Wholesale Price</label>
+          <input type="number" name="wholesale_price" value="{{ v.wholesale_price }}" step="0.01" min="0" placeholder="Optional">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Insurance Price</label>
+          <input type="number" name="insurance_price" value="{{ v.insurance_price }}" step="0.01" min="0" placeholder="Optional">
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock Levels & Regulatory -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-900/10">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Stock Control Levels</h2>
+      </div>
+      <div class="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+        {% with v=med %}
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Min Stock</label><input type="number" name="minimum_stock" value="{{ v.minimum_stock|default:0 }}" min="0"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Max Stock</label><input type="number" name="maximum_stock" value="{{ v.maximum_stock|default:0 }}" min="0"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reorder Level</label><input type="number" name="reorder_level" value="{{ v.reorder_level|default:0 }}" min="0"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reorder Qty</label><input type="number" name="reorder_quantity" value="{{ v.reorder_quantity|default:0 }}" min="0"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Safety Stock</label><input type="number" name="safety_stock" value="{{ v.safety_stock|default:0 }}" min="0"></div>
+        {% endwith %}
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-violet-50/50 dark:bg-violet-900/10">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Regulatory & Storage</h2>
+      </div>
+      <div class="p-6 space-y-4">
+        {% with v=med %}
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Registration Number</label><input type="text" name="registration_number" value="{{ v.registration_number }}"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Regulatory Approval</label><input type="text" name="regulatory_approval" value="{{ v.regulatory_approval }}"></div>
+        <div class="flex gap-6">
+          <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" name="controlled_substance" {% if v.controlled_substance %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600">
+            Controlled Substance
+          </label>
+          <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" name="prescription_required" {% if v.prescription_required or action == 'Create' %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600">
+            Prescription Required
+          </label>
+        </div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Storage Location</label>
+          <select name="location"><option value="">— None —</option>{% for loc in locations %}<option value="{{ loc.id }}" {% if v.location_id == loc.id %}selected{% endif %}>{{ loc }}</option>{% endfor %}</select>
+        </div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Storage Condition</label>
+          <select name="storage_condition">{% for val, label in conditions %}<option value="{{ val }}" {% if v.storage_condition == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        </div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Notes</label><textarea name="notes" rows="2">{{ v.notes }}</textarea></div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex justify-end gap-3 pt-2">
+    <a href="{% if med %}{% url 'medication_detail' med.id %}{% else %}{% url 'medication_list' %}{% endif %}"
+       class="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">
+      Cancel
+    </a>
+    <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      {{ action }} Medication
+    </button>
+  </div>
+</form>
+
+{% endblock %}

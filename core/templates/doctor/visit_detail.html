@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+{% block title %}{{ visit.patient.full_name }} — Patient Chart{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Patient header -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-4">
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+        <span class="text-lg font-bold text-white">{{ visit.patient.first_name|first|upper }}{{ visit.patient.last_name|first|upper }}</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ visit.patient.full_name }}</h1>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+            {% if visit.visit_type == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+            {% elif visit.visit_type == 'Inpatient' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
+            {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+            {{ visit.visit_type }}
+          </span>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <span class="font-mono">{{ visit.patient.card_number }}</span>
+          <span>{{ visit.patient.sex }}{% if visit.patient.date_of_birth %} · DOB {{ visit.patient.date_of_birth|date:"M j, Y" }}{% if visit.patient.age_display %} · {{ visit.patient.age_display }}{% endif %}{% endif %}</span>
+          {% if visit.patient.city %}<span>{{ visit.patient.city }}{% if visit.patient.region %}, {{ visit.patient.region }}{% endif %}</span>{% endif %}
+          <span>{{ visit.department.name }}</span>
+          <span>Dr. {{ visit.doctor.full_name }}</span>
+          <span>{{ visit.created_at|date:"M j, Y H:i" }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="{% url 'patient_history' visit.patient.id %}"
+         class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        History
+      </a>
+      <a href="{% url 'doctor_patient_list' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Patients
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Latest vitals quick bar -->
+{% if latest_vitals %}
+<div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-600 px-5 py-3 mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+  <span class="text-slate-400 dark:text-slate-500 self-center font-medium">Latest Vitals:</span>
+  {% if latest_vitals.temperature %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Temp</span> {{ latest_vitals.temperature }}°C</span>{% endif %}
+  {% if latest_vitals.blood_pressure != '—' %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">BP</span> {{ latest_vitals.blood_pressure }} mmHg</span>{% endif %}
+  {% if latest_vitals.pulse %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Pulse</span> {{ latest_vitals.pulse }} bpm</span>{% endif %}
+  {% if latest_vitals.spo2 %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">SpO₂</span> {{ latest_vitals.spo2 }}%</span>{% endif %}
+  {% if latest_vitals.bmi %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">BMI</span> {{ latest_vitals.bmi }}</span>{% endif %}
+  <a href="{% url 'vital_sign_create' visit.id %}" class="text-blue-600 dark:text-blue-400 hover:underline ml-auto font-medium">+ Record Vitals</a>
+</div>
+{% endif %}
+
+<!-- Main layout: chart + sidebar -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+  <!-- Chart (3/4 width) -->
+  <div class="lg:col-span-3">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+
+      <!-- Tab bar -->
+      <div class="border-b border-slate-200 dark:border-slate-700 px-5 overflow-x-auto">
+        <nav id="chart-tabs" class="flex gap-0.5 -mb-px whitespace-nowrap" role="tablist">
+          {% for tab in tab_list %}
+          <button type="button" role="tab"
+                  data-tab="{{ tab.id }}"
+                  onclick="switchTab('{{ tab.id }}')"
+                  class="tab-btn px-4 py-3 text-xs font-semibold border-b-2 transition-colors
+                    {% if active_tab == tab.id %}border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400
+                    {% else %}border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300{% endif %}">
+            {{ tab.label }} <span class="ml-1 text-xs opacity-60">({{ tab.count }})</span>
+          </button>
+          {% endfor %}
+        </nav>
+      </div>
+
+      <!-- Tab content panes -->
+      <div class="p-5">
+
+        <!-- NOTES -->
+        <div id="tab-notes" class="tab-pane {% if active_tab != 'notes' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Clinical Notes</h3>
+            {% if perms.core.write_clinical_note %}
+            <a href="{% url 'clinical_note_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Note
+            </a>
+            {% endif %}
+          </div>
+          {% if clinical_notes %}
+          <div class="space-y-3">
+            {% for note in clinical_notes %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{{ note.note_type }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">Dr. {{ note.authored_by.get_full_name|default:note.authored_by.username }} · {{ note.created_at|date:"M j, Y H:i" }}</span>
+                </div>
+              </div>
+              <div class="px-4 py-3 space-y-2">
+                {% if note.chief_complaint %}
+                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Chief Complaint</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ note.chief_complaint }}</p></div>
+                {% endif %}
+                {% if note.content %}
+                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Note</p><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ note.content }}</p></div>
+                {% endif %}
+                {% if note.assessment %}
+                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Assessment</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ note.assessment }}</p></div>
+                {% endif %}
+                {% if note.plan %}
+                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Plan</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ note.plan }}</p></div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center">
+            <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p class="text-sm text-slate-400 dark:text-slate-500">No clinical notes yet</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- VITALS -->
+        <div id="tab-vitals" class="tab-pane {% if active_tab != 'vitals' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Vital Signs</h3>
+            {% if perms.core.record_vital_signs %}
+            <a href="{% url 'vital_sign_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Record Vitals
+            </a>
+            {% endif %}
+          </div>
+          {% if vital_signs %}
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Time</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Temp °C</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">BP mmHg</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Pulse</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">RR</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">SpO₂</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Weight</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Height</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">BMI</th>
+                  <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">By</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {% for vs in vital_signs %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                  <td class="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ vs.recorded_at|date:"M j H:i" }}</td>
+                  <td class="px-3 py-2">{% if vs.temperature %}<span class="font-medium text-slate-800 dark:text-slate-200">{{ vs.temperature }}</span>{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{{ vs.blood_pressure }}</td>
+                  <td class="px-3 py-2">{% if vs.pulse %}<span class="font-medium text-slate-800 dark:text-slate-200">{{ vs.pulse }}</span>{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2">{% if vs.respiratory_rate %}{{ vs.respiratory_rate }}{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2">{% if vs.spo2 %}{{ vs.spo2 }}%{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2">{% if vs.weight %}{{ vs.weight }} kg{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2">{% if vs.height %}{{ vs.height }} cm{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2">{% if vs.bmi %}{{ vs.bmi }}{% else %}<span class="text-slate-300 dark:text-slate-600">—</span>{% endif %}</td>
+                  <td class="px-3 py-2 text-xs text-slate-400">{{ vs.recorded_by.get_full_name|default:vs.recorded_by.username }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="py-12 text-center">
+            <p class="text-sm text-slate-400 dark:text-slate-500">No vital signs recorded</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- DIAGNOSIS -->
+        <div id="tab-diagnosis" class="tab-pane {% if active_tab != 'diagnosis' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Diagnoses</h3>
+            {% if perms.core.write_diagnosis %}
+            <a href="{% url 'diagnosis_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Diagnosis
+            </a>
+            {% endif %}
+          </div>
+          {% if diagnoses %}
+          <div class="space-y-2">
+            {% for dx in diagnoses %}
+            <div class="flex items-start gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              {% if dx.icd_code %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300 shrink-0 mt-0.5">{{ dx.icd_code }}</span>
+              {% endif %}
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-slate-800 dark:text-slate-200 text-sm">{{ dx.description }}</p>
+                {% if dx.notes %}<p class="text-xs text-slate-400 mt-0.5">{{ dx.notes }}</p>{% endif %}
+                <p class="text-xs text-slate-400 mt-1">{{ dx.created_at|date:"M j, Y" }} · Dr. {{ dx.authored_by.get_full_name|default:dx.authored_by.username }}</p>
+              </div>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0
+                {% if dx.status == 'Active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                {% elif dx.status == 'Chronic' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+                {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                {{ dx.status }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center">
+            <p class="text-sm text-slate-400 dark:text-slate-500">No diagnoses recorded</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- LAB -->
+        <div id="tab-lab" class="tab-pane {% if active_tab != 'lab' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Lab Orders</h3>
+            {% if perms.core.request_lab_test %}
+            <a href="{% url 'lab_order_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Lab Order
+            </a>
+            {% endif %}
+          </div>
+          {% if lab_orders %}
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Test</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Priority</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden md:table-cell">Result</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Ordered</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {% for order in lab_orders %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                  <td class="px-4 py-2.5">
+                    <p class="font-medium text-slate-800 dark:text-slate-200">{{ order.test_name }}</p>
+                    {% if order.test_category %}<p class="text-xs text-slate-400">{{ order.test_category }}</p>{% endif %}
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.priority == 'STAT' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% elif order.priority == 'Urgent' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+                      {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                      {{ order.priority }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.status == 'Completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% elif order.status == 'In Progress' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                      {% elif order.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                      {{ order.status }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hidden md:table-cell max-w-xs truncate">{{ order.result|default:"—" }}</td>
+                  <td class="px-4 py-2.5 text-xs text-slate-400">{{ order.ordered_at|date:"M j, Y" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No lab orders</p></div>
+          {% endif %}
+        </div>
+
+        <!-- IMAGING -->
+        <div id="tab-imaging" class="tab-pane {% if active_tab != 'imaging' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Imaging Orders</h3>
+            {% if perms.core.request_imaging %}
+            <a href="{% url 'imaging_order_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Imaging Order
+            </a>
+            {% endif %}
+          </div>
+          {% if imaging_orders %}
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Type</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Body Part</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Priority</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Ordered</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {% for order in imaging_orders %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                  <td class="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{{ order.imaging_type }}</td>
+                  <td class="px-4 py-2.5 text-slate-600 dark:text-slate-300">{{ order.body_part }}</td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.priority == 'STAT' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% elif order.priority == 'Urgent' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+                      {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                      {{ order.priority }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.status == 'Completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% elif order.status == 'In Progress' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                      {% elif order.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                      {{ order.status }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5 text-xs text-slate-400">{{ order.ordered_at|date:"M j, Y" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No imaging orders</p></div>
+          {% endif %}
+        </div>
+
+        <!-- MEDICATIONS -->
+        <div id="tab-medications" class="tab-pane {% if active_tab != 'medications' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Medication Orders</h3>
+            {% if perms.core.write_prescription %}
+            <a href="{% url 'medication_order_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Medication
+            </a>
+            {% endif %}
+          </div>
+          {% if medication_orders %}
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Drug</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Dose</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden sm:table-cell">Route</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden md:table-cell">Frequency</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                  <th class="text-right px-4 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {% for order in medication_orders %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if order.status == 'Discontinued' %}opacity-60{% endif %}">
+                  <td class="px-4 py-2.5">
+                    <p class="font-medium text-slate-800 dark:text-slate-200">{{ order.drug_name }}</p>
+                    {% if order.discontinued_reason %}<p class="text-xs text-red-500 mt-0.5">{{ order.discontinued_reason }}</p>{% endif %}
+                  </td>
+                  <td class="px-4 py-2.5 text-slate-600 dark:text-slate-300">{{ order.dosage }}</td>
+                  <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{{ order.get_route_display }}</td>
+                  <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hidden md:table-cell">{{ order.frequency }}{% if order.duration %} · {{ order.duration }}{% endif %}</td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.status == 'Active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% elif order.status == 'Completed' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                      {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                      {{ order.status }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5 text-right">
+                    {% if order.status == 'Active' and perms.core.write_prescription %}
+                    <button type="button" onclick="showDiscontinueModal({{ order.id }}, '{{ order.drug_name|escapejs }}')"
+                            class="text-xs text-red-500 dark:text-red-400 hover:underline font-medium">Discontinue</button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No medication orders</p></div>
+          {% endif %}
+        </div>
+
+        <!-- PRESCRIPTIONS (Electronic) -->
+        <div id="tab-prescriptions" class="tab-pane {% if active_tab != 'prescriptions' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Electronic Prescriptions</h3>
+            {% if perms.core.write_prescription %}
+            <a href="{% url 'prescription_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+              Write Prescription
+            </a>
+            {% endif %}
+          </div>
+          {% if prescriptions %}
+          <div class="space-y-3">
+            {% for rx in prescriptions %}
+            <a href="{% url 'prescription_detail' rx.id %}" class="block border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition bg-white dark:bg-slate-800/50">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-xs text-slate-500">{{ rx.prescription_number }}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                    {% if rx.status == 'Dispensed' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400
+                    {% elif rx.status == 'Sent to Pharmacy' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                    {% elif rx.status == 'Ready to Dispense' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400
+                    {% elif rx.status == 'Partially Dispensed' %}bg-cyan-100 text-cyan-700
+                    {% elif rx.status == 'Cancelled' %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400
+                    {% elif rx.status == 'Under Review' %}bg-amber-100 text-amber-700
+                    {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                    {{ rx.status }}
+                  </span>
+                </div>
+                <span class="text-xs text-slate-400 shrink-0">{{ rx.created_at|date:"d M Y, H:i" }}</span>
+              </div>
+              {% if rx.diagnosis %}<p class="text-xs text-slate-500 mb-2">{{ rx.diagnosis|truncatechars:80 }}</p>{% endif %}
+              <div class="flex flex-wrap gap-1.5">
+                {% for item in rx.items.all %}
+                <span class="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full">
+                  {{ item.drug_name|truncatechars:22 }}{% if item.status == 'Dispensed' %} ✓{% endif %}
+                </span>
+                {% endfor %}
+              </div>
+              <div class="flex items-center justify-between mt-2 text-xs text-slate-400">
+                <span>{{ rx.prescribed_by.get_full_name|default:rx.prescribed_by.username }}</span>
+                <span>{{ rx.items.count }} item{{ rx.items.count|pluralize }} →</span>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center">
+            <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+            <p class="text-sm text-slate-400">No prescriptions for this visit</p>
+            {% if perms.core.write_prescription %}
+            <a href="{% url 'prescription_create' visit.id %}" class="mt-3 inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              Write the first prescription →
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- PROCEDURES -->
+        <div id="tab-procedures" class="tab-pane {% if active_tab != 'procedures' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Procedure & Surgery Orders</h3>
+            <div class="flex gap-2">
+            {% if perms.core.write_clinical_note %}
+            <a href="{% url 'procedure_order_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Procedure
+            </a>
+            {% endif %}
+            {% if perms.core.order_surgery %}
+            <a href="{% url 'surgery_order_create_visit' visit.id %}"
+               class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Order Surgery
+            </a>
+            {% endif %}
+            </div>
+          </div>
+          {% if procedure_orders %}
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Procedure</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Type</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden sm:table-cell">Scheduled</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {% for order in procedure_orders %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                  <td class="px-4 py-2.5">
+                    <p class="font-medium text-slate-800 dark:text-slate-200">{{ order.procedure_name }}</p>
+                    {% if order.procedure_code %}<p class="text-xs text-slate-400 font-mono">{{ order.procedure_code }}</p>{% endif %}
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.procedure_type == 'Surgery' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% elif order.procedure_type == 'Physio' %}bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400
+                      {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+                      {{ order.procedure_type }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{{ order.scheduled_date|default:"—" }}</td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.status == 'Completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% elif order.status == 'In Progress' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                      {% elif order.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                      {% elif order.status == 'Postponed' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+                      {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                      {{ order.status }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No procedure orders</p></div>
+          {% endif %}
+        </div>
+
+      </div><!-- /p-5 -->
+    </div><!-- /chart card -->
+  </div><!-- /lg:col-span-3 -->
+
+  <!-- Sidebar -->
+  <div class="space-y-4">
+
+    <!-- Active diagnoses -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Active Diagnoses</h3>
+      </div>
+      <div class="p-3 space-y-1.5">
+        {% for dx in active_diagnoses %}
+        <div class="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+          <p class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ dx.description }}</p>
+          {% if dx.icd_code %}<p class="text-xs text-slate-400 font-mono mt-0.5">{{ dx.icd_code }}</p>{% endif %}
+        </div>
+        {% empty %}
+        <p class="text-xs text-slate-400 dark:text-slate-500 px-1 py-2">None recorded</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-white mb-3">Quick Orders</h3>
+      <div class="space-y-1.5">
+        {% if perms.core.write_clinical_note %}
+        <a href="{% url 'clinical_note_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">New Note</span>
+        </a>
+        {% endif %}
+        {% if perms.core.write_diagnosis %}
+        <a href="{% url 'diagnosis_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Add Diagnosis</span>
+        </a>
+        {% endif %}
+        {% if perms.core.request_lab_test %}
+        <a href="{% url 'lab_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Lab Order</span>
+        </a>
+        {% endif %}
+        {% if perms.core.request_imaging %}
+        <a href="{% url 'imaging_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-cyan-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Imaging Order</span>
+        </a>
+        {% endif %}
+        {% if perms.core.write_prescription %}
+        <a href="{% url 'medication_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-teal-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Medication</span>
+        </a>
+        {% endif %}
+        {% if perms.core.write_clinical_note %}
+        <a href="{% url 'procedure_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Procedure/Surgery</span>
+        </a>
+        {% endif %}
+        {% if perms.core.record_vital_signs %}
+        <a href="{% url 'vital_sign_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-pink-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Record Vitals</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+</div><!-- /grid -->
+
+<!-- Discontinue medication modal -->
+<div id="discontinue-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+  <div class="absolute inset-0 bg-black/40" onclick="hideDiscontinueModal()"></div>
+  <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 z-10">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Discontinue Medication</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Discontinuing: <span id="modal-drug-name" class="font-semibold text-slate-700 dark:text-slate-300"></span></p>
+    <form id="discontinue-form" method="post">
+      {% csrf_token %}
+      <div class="field-wrapper mb-4">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Reason (optional)</label>
+        <textarea name="reason" rows="3" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none" placeholder="Adverse reaction, treatment complete…"></textarea>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="hideDiscontinueModal()"
+                class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+        <button type="submit"
+                class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Discontinue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+var VISIT_ID = {{ visit.id }};
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.add('hidden'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    var active = b.getAttribute('data-tab') === tabId;
+    b.classList.toggle('border-blue-600', active);
+    b.classList.toggle('text-blue-600', active);
+    b.classList.toggle('dark:text-blue-400', active);
+    b.classList.toggle('dark:border-blue-400', active);
+    b.classList.toggle('border-transparent', !active);
+    b.classList.toggle('text-slate-500', !active);
+    b.classList.toggle('dark:text-slate-400', !active);
+  });
+  var pane = document.getElementById('tab-' + tabId);
+  if (pane) pane.classList.remove('hidden');
+  var url = new URL(window.location);
+  url.searchParams.set('tab', tabId);
+  window.history.replaceState({}, '', url);
+}
+
+function showDiscontinueModal(orderId, drugName) {
+  document.getElementById('modal-drug-name').textContent = drugName;
+  document.getElementById('discontinue-form').action = '/doctor/visit/' + VISIT_ID + '/medication/' + orderId + '/discontinue/';
+  document.getElementById('discontinue-modal').classList.remove('hidden');
+}
+
+function hideDiscontinueModal() {
+  document.getElementById('discontinue-modal').classList.add('hidden');
+}
+</script>
+
+{% endblock %}

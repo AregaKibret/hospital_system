@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Collect Payment — {{ sale.sale_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Collect Payment</h1>
+    <a href="{% url 'pharmacy_sale_detail' sale.id %}" class="btn-secondary text-sm">← Back</a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-4">
+    <div class="text-center mb-5">
+      <p class="text-sm text-slate-500">Outstanding Amount</p>
+      <p class="text-4xl font-bold text-amber-600 mt-1">ETB {{ remaining|floatformat:2 }}</p>
+      <p class="text-xs text-slate-400 mt-1">Sale: {{ sale.sale_number }} · {{ sale.customer_display }}</p>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div class="field-wrapper">
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" id="payMethod" onchange="toggleCash()" class="field-input">
+            {% for val, label in payment_choices %}
+            <option value="{{ val }}" {% if val == sale.payment_method %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div id="cashBox" class="field-wrapper">
+          <label class="field-label">Cash Received (ETB)</label>
+          <input type="number" name="cash_received" id="cashInput" step="0.01" min="0"
+            value="{{ remaining|floatformat:2 }}" oninput="calcChange()"
+            class="field-input text-lg font-bold">
+          <p id="changeInfo" class="text-sm font-semibold text-emerald-600 mt-1 hidden">Change: ETB <span id="changeAmt">0.00</span></p>
+        </div>
+
+        <div id="amtBox" class="field-wrapper hidden">
+          <label class="field-label">Amount Paid (ETB)</label>
+          <input type="number" name="amount_paid" step="0.01" min="0"
+            value="{{ remaining|floatformat:2 }}" class="field-input text-lg font-bold">
+        </div>
+      </div>
+
+      <button type="submit" class="w-full mt-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-base shadow-sm">
+        Confirm Payment
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+const remaining = {{ remaining|floatformat:2 }};
+function toggleCash() {
+  const pm = document.getElementById('payMethod').value;
+  const isCash = pm === 'Cash';
+  document.getElementById('cashBox').classList.toggle('hidden', !isCash);
+  document.getElementById('amtBox').classList.toggle('hidden', isCash);
+}
+function calcChange() {
+  const cash = parseFloat(document.getElementById('cashInput').value) || 0;
+  const chg = Math.max(cash - remaining, 0);
+  document.getElementById('changeAmt').textContent = chg.toFixed(2);
+  document.getElementById('changeInfo').classList.toggle('hidden', cash <= 0);
+}
+toggleCash(); calcChange();
+</script>
+{% endblock %}

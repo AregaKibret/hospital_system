@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Patients — Doctor Module{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Patient Visits</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">All visits — search by name or MRN</p>
+  </div>
+  <a href="{% url 'doctor_dashboard' %}"
+     class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Dashboard
+  </a>
+</div>
+
+<!-- Search / filter -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 flex flex-col sm:flex-row gap-3">
+  <div class="field-wrapper flex-1">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search by name or MRN…"
+           class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  <div class="field-wrapper">
+    <input type="date" name="date" value="{{ date_filter }}"
+           class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors">Search</button>
+  {% if query or date_filter %}
+  <a href="{% url 'doctor_patient_list' %}" class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  {% if page_obj %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+        <tr>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Queue</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">MRN</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Sex</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Visit Type</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Department</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Date</th>
+          <th class="text-right px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+        {% for visit in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-5 py-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold">
+              {% if visit.queue %}{{ visit.queue.queue_number }}{% else %}—{% endif %}
+            </span>
+          </td>
+          <td class="px-5 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{{ visit.patient.card_number }}</td>
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-900 dark:text-white">{{ visit.patient.full_name }}</p>
+            <p class="text-xs text-slate-400">{% if visit.patient.date_of_birth %}{{ visit.patient.date_of_birth|date:"j M Y" }}{% if visit.patient.age_display %} · {{ visit.patient.age_display }}{% endif %}{% else %}—{% endif %}</p>
+          </td>
+          <td class="px-5 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{{ visit.patient.sex }}</td>
+          <td class="px-5 py-3 hidden md:table-cell">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+              {% if visit.visit_type == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif visit.visit_type == 'Inpatient' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
+              {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+              {{ visit.visit_type }}
+            </span>
+          </td>
+          <td class="px-5 py-3 text-slate-500 dark:text-slate-400 text-xs hidden lg:table-cell">{{ visit.department.name }}</td>
+          <td class="px-5 py-3 text-slate-400 text-xs hidden lg:table-cell">{{ visit.created_at|date:"M j, Y" }}</td>
+          <td class="px-5 py-3 text-right">
+            <a href="{% url 'visit_detail' visit.id %}"
+               class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+              View Chart
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} visits)</p>
+    <div class="flex gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+         class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+         class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="py-16 text-center">
+    <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    <p class="text-slate-400 dark:text-slate-500">No visits found</p>
+    {% if query or date_filter %}<a href="{% url 'doctor_patient_list' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-block">Clear filters</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Employee — HMS{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'employee_list' %}"
+     class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ action }} Employee</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{% if employee %}Editing: {{ employee.full_name }}{% else %}Link an existing user to an employee profile{% endif %}</p>
+  </div>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="max-w-2xl">
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+      <!-- User selection (create only) -->
+      {% if action == 'Create' %}
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">User Account <span class="text-red-500">*</span></label>
+        <div class="field-wrapper">
+          <select name="user" required>
+            <option value="">— Select a user —</option>
+            {% for u in available_users %}
+            <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }} ({{ u.username }}) — {{ u.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Only users without an existing employee profile are shown.</p>
+      </div>
+      {% else %}
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">User Account</label>
+        <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl">
+          {{ employee.full_name }} — {{ employee.user.email }}
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- Department -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+        <div class="field-wrapper">
+          <select name="department">
+            <option value="">— No Department —</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}" {% if employee and employee.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Position -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Position / Job Title</label>
+        <div class="field-wrapper">
+          <input type="text" name="position" value="{{ employee.position|default:'' }}" placeholder="e.g. Head Nurse">
+        </div>
+      </div>
+
+      <!-- Employment Type -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Employment Type</label>
+        <div class="field-wrapper">
+          <select name="employment_type">
+            {% for val, label in employment_type_choices %}
+            <option value="{{ val }}" {% if employee and employee.employment_type == val %}selected{% elif not employee and val == 'Permanent' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Employment Status -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Employment Status</label>
+        <div class="field-wrapper">
+          <select name="employment_status">
+            {% for val, label in employment_status_choices %}
+            <option value="{{ val }}" {% if employee and employee.employment_status == val %}selected{% elif not employee and val == 'Active' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Hire Date -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Hire Date</label>
+        <div class="field-wrapper">
+          <input type="date" name="hire_date" value="{{ employee.hire_date|date:'Y-m-d'|default:'' }}">
+        </div>
+      </div>
+
+      <!-- Basic Salary -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Basic Salary (ETB)</label>
+        <div class="field-wrapper">
+          <input type="number" name="basic_salary" value="{{ employee.basic_salary|default:0 }}" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <!-- National ID -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">National ID</label>
+        <div class="field-wrapper">
+          <input type="text" name="national_id" value="{{ employee.national_id|default:'' }}" placeholder="ID number">
+        </div>
+      </div>
+
+      <!-- Emergency Contact -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Emergency Contact Name</label>
+        <div class="field-wrapper">
+          <input type="text" name="emergency_contact_name" value="{{ employee.emergency_contact_name|default:'' }}" placeholder="Full name">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Emergency Contact Phone</label>
+        <div class="field-wrapper">
+          <input type="tel" name="emergency_contact_phone" value="{{ employee.emergency_contact_phone|default:'' }}" placeholder="+251...">
+        </div>
+      </div>
+
+    </div>
+
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+        {{ action }} Employee
+      </button>
+      <a href="{% if employee %}{% url 'employee_detail' employee.id %}{% else %}{% url 'employee_list' %}{% endif %}"
+         class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Batch Tracker{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Batch Tracker</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ page_obj.paginator.count }} active batches</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'report_expiry' %}" class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">Expiry Report</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5">
+  <form method="get" class="flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-48">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search batch, medication…"
+        class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+    </div>
+    <div>
+      <select name="expiry" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Batches</option>
+        <option value="expired" {% if expiry_filter == 'expired' %}selected{% endif %}>Expired</option>
+        <option value="30" {% if expiry_filter == '30' %}selected{% endif %}>Expiring in 30 days</option>
+        <option value="60" {% if expiry_filter == '60' %}selected{% endif %}>Expiring in 60 days</option>
+        <option value="90" {% if expiry_filter == '90' %}selected{% endif %}>Expiring in 90 days</option>
+        <option value="valid" {% if expiry_filter == 'valid' %}selected{% endif %}>Valid (>90d)</option>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Filter</button>
+    {% if q or expiry_filter %}<a href="{% url 'batch_list' %}" class="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 transition-colors">Clear</a>{% endif %}
+  </form>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Medication</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Batch</th>
+          <th class="text-right px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Qty</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Mfg Date</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Expiry</th>
+          <th class="text-center px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Location</th>
+          {% if perms.core.manage_medication %}<th class="px-5 py-3.5"></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for b in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors {% if b.is_expired %}bg-red-50/30 dark:bg-red-900/10{% elif b.days_to_expiry <= 30 %}bg-orange-50/30 dark:bg-orange-900/10{% endif %}">
+          <td class="px-5 py-3.5">
+            <a href="{% url 'medication_detail' b.medication_id %}" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">{{ b.medication.name }}</a>
+            <p class="text-xs text-slate-400">{{ b.medication.strength }}</p>
+          </td>
+          <td class="px-5 py-3.5">
+            <p class="font-mono text-xs font-medium text-slate-700 dark:text-slate-300">{{ b.batch_number }}</p>
+            {% if b.lot_number %}<p class="text-xs text-slate-400">Lot: {{ b.lot_number }}</p>{% endif %}
+          </td>
+          <td class="px-5 py-3.5 text-right font-semibold text-slate-800 dark:text-slate-200">{{ b.quantity_available }}<span class="text-xs font-normal text-slate-400 ml-1">{{ b.medication.unit_of_measure }}</span></td>
+          <td class="px-5 py-3.5 text-slate-600 dark:text-slate-400">{{ b.manufacturing_date|date:"d M Y"|default:"—" }}</td>
+          <td class="px-5 py-3.5">
+            <p class="font-medium text-slate-700 dark:text-slate-300">{{ b.expiration_date|date:"d M Y" }}</p>
+            <p class="text-xs {% if b.days_to_expiry < 0 %}text-red-500{% elif b.days_to_expiry <= 30 %}text-orange-500{% else %}text-slate-400{% endif %}">
+              {% if b.days_to_expiry >= 0 %}{{ b.days_to_expiry }}d remaining{% else %}{{ b.days_to_expiry|slice:"1:" }}d ago{% endif %}
+            </p>
+          </td>
+          <td class="px-5 py-3.5 text-center">
+            <span class="text-xs px-2.5 py-0.5 rounded-full font-medium
+              {% if b.expiry_status == 'Expired' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif b.expiry_status == 'Near Expiry' %}bg-orange-100 text-orange-700
+              {% elif b.expiry_status == 'Expiring Soon' %}bg-amber-100 text-amber-700
+              {% elif b.expiry_status == 'Within 90 Days' %}bg-yellow-100 text-yellow-700
+              {% else %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% endif %}">
+              {{ b.expiry_status }}
+            </span>
+          </td>
+          <td class="px-5 py-3.5 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ b.location|default:"—" }}</td>
+          {% if perms.core.manage_medication %}
+          <td class="px-5 py-3.5 text-right">
+            <form method="post" action="{% url 'batch_dispose' b.id %}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="dispose_type" value="{% if b.is_expired %}expired_disposal{% else %}damage{% endif %}">
+              <button type="submit" onclick="return confirm('Dispose batch {{ b.batch_number }}?')" class="text-xs text-red-500 hover:underline">Dispose</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="py-16 text-center text-slate-400">No batches found matching the criteria.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if expiry_filter %}&expiry={{ expiry_filter }}{% endif %}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if expiry_filter %}&expiry={{ expiry_filter }}{% endif %}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

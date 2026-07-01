@@ -122,6 +122,10 @@
                         </td>
                         <td class="px-6 py-4 text-right whitespace-nowrap">
                             <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'user_detail' u.id %}"
+                                   class="text-xs px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-400 rounded-lg font-medium transition-colors">
+                                    View
+                                </a>
                                 <a href="{% url 'user_edit' u.id %}"
                                    class="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 text-blue-600 dark:text-blue-400 rounded-lg font-medium transition-colors">
                                     Edit

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Doctor Dashboard — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Doctor Dashboard</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {{ today|date:"l, F j, Y" }} &nbsp;·&nbsp; Dr. {{ request.user.get_full_name|default:request.user.username }}
+    </p>
+  </div>
+  <a href="{% url 'doctor_patient_list' %}"
+     class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    All Patients
+  </a>
+</div>
+
+<!-- Stats row -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ today_visits.count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Today's Visits</p>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-yellow-100 dark:bg-yellow-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ pending_labs }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Pending Labs</p>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <div class="w-11 h-11 bg-cyan-100 dark:bg-cyan-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ pending_imaging }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Pending Imaging</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Today's patients -->
+  <div class="lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Today's Patients</h2>
+        <a href="{% url 'doctor_patient_list' %}?date={{ today|date:'Y-m-d' }}"
+           class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</a>
+      </div>
+      <div class="overflow-x-auto">
+        {% if today_visits %}
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-100 dark:border-slate-700">
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Queue</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Type</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Department</th>
+              <th class="text-right px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {% for visit in today_visits %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+              <td class="px-5 py-3">
+                <span class="inline-flex items-center justify-center w-7 h-7 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold">
+                  {% if visit.queue %}{{ visit.queue.queue_number }}{% else %}—{% endif %}
+                </span>
+              </td>
+              <td class="px-5 py-3">
+                <p class="font-medium text-slate-900 dark:text-white text-sm">{{ visit.patient.full_name }}</p>
+                <p class="text-xs text-slate-400">{{ visit.patient.card_number }}</p>
+              </td>
+              <td class="px-5 py-3 hidden sm:table-cell">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if visit.visit_type == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                  {% elif visit.visit_type == 'Inpatient' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
+                  {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
+                  {{ visit.visit_type }}
+                </span>
+              </td>
+              <td class="px-5 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ visit.department.name }}</td>
+              <td class="px-5 py-3 text-right">
+                <a href="{% url 'visit_detail' visit.id %}"
+                   class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                  Chart
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="px-5 py-12 text-center">
+          <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <p class="text-sm text-slate-400 dark:text-slate-500">No visits recorded today</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="space-y-4">
+
+    <!-- Recent notes -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="font-semibold text-slate-900 dark:text-white text-sm">Recent Notes</h2>
+      </div>
+      <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for note in recent_notes %}
+        <a href="{% url 'visit_detail' note.visit.id %}?tab=notes"
+           class="block px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{{ note.visit.patient.full_name }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ note.get_note_type_display }} · {{ note.created_at|date:"M j" }}</p>
+            </div>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 shrink-0">
+              {{ note.note_type }}
+            </span>
+          </div>
+        </a>
+        {% empty %}
+        <p class="px-5 py-6 text-center text-sm text-slate-400 dark:text-slate-500">No notes written yet</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h2 class="font-semibold text-slate-900 dark:text-white text-sm mb-3">Quick Actions</h2>
+      <div class="space-y-2">
+        <a href="{% url 'doctor_patient_list' %}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+          <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Search Patients</span>
+        </a>
+        <a href="{% url 'patient_search' %}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+          <div class="w-8 h-8 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-green-600 dark:group-hover:text-green-400">Patient Records</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

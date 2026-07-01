@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Appointments — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Appointments</h1>
+    <p id="result-count" class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {{ page_obj.paginator.count }} appointment{{ page_obj.paginator.count|pluralize }} total
+    </p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'appointment_create' %}"
+       class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      New Appointment
+    </a>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<form id="filter-form" method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="flex flex-wrap gap-3 items-end">
+
+    <!-- Search (live) -->
+    <div class="flex-1 min-w-48">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+        Search
+        <span id="search-spinner" class="hidden ml-1 inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin align-middle"></span>
+      </label>
+      <div class="field-wrapper relative">
+        <input id="search-input" type="text" name="q" value="{{ search }}"
+               placeholder="Patient name, MRN, appt #…"
+               autocomplete="off"
+               class="pr-8">
+        {% if search %}
+        <button type="button" onclick="clearSearch()"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Date (auto-submit on change) -->
+    <div class="w-44">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
+      <div class="field-wrapper">
+        <input id="date-input" type="date" name="date" value="{{ date_filter }}">
+      </div>
+    </div>
+
+    <!-- Doctor (auto-submit on change) -->
+    <div class="w-52">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+      <div class="field-wrapper">
+        <select id="doctor-select" name="doctor_id">
+          <option value="">All Doctors</option>
+          {% for doc in doctors %}
+          <option value="{{ doc.id }}" {% if doctor_id == doc.id|stringformat:"s" %}selected{% endif %}>
+            Dr. {{ doc.full_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Hidden status field so tabs survive filter changes -->
+    <input type="hidden" name="status" value="{{ status_filter }}">
+
+    <!-- Manual submit fallback -->
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      Search
+    </button>
+    {% if search or date_filter or doctor_id %}
+    <a href="{% url 'appointment_list' %}{% if status_filter %}?status={{ status_filter }}{% endif %}"
+       class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
+      Clear
+    </a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Status Tabs + Table Card -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+
+  <!-- Status Tabs -->
+  <div class="border-b border-slate-100 dark:border-slate-700 px-5 overflow-x-auto">
+    <nav class="flex gap-0.5 -mb-px whitespace-nowrap">
+      {% for tab in status_tabs %}
+      <a href="?status={{ tab.value }}{% if search %}&q={{ search }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}{% if doctor_id %}&doctor_id={{ doctor_id }}{% endif %}"
+         class="inline-flex items-center gap-1.5 px-4 py-3 text-xs font-semibold border-b-2 transition-colors
+           {% if status_filter == tab.value %}border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400
+           {% else %}border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300{% endif %}">
+        {{ tab.label }}
+        <span class="tab-count-{{ tab.value|default:'all' }} ml-0.5 px-1.5 py-0.5 rounded-full text-xs
+          {% if status_filter == tab.value %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+          {% else %}bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+          {{ tab.count }}
+        </span>
+      </a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <!-- Table -->
+  <div id="table-body" class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Appt #</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Date &amp; Time</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Doctor / Dept</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Type</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+          <th class="text-right px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for appt in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+
+          <!-- Appt # -->
+          <td class="px-5 py-3 hidden sm:table-cell">
+            <span class="text-xs font-mono text-slate-400">{{ appt.appointment_number }}</span>
+          </td>
+
+          <!-- Date & Time -->
+          <td class="px-5 py-3 whitespace-nowrap">
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ appt.appointment_date|date:"M j, Y" }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.appointment_time|time:"H:i" }}</p>
+          </td>
+
+          <!-- Patient -->
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-900 dark:text-white text-sm">{{ appt.patient.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
+          </td>
+
+          <!-- Doctor / Dept -->
+          <td class="px-5 py-3 hidden md:table-cell">
+            <p class="text-sm text-slate-700 dark:text-slate-300">{{ appt.doctor.full_name }}</p>
+            <p class="text-xs text-slate-400">{{ appt.department.name }}</p>
+          </td>
+
+          <!-- Type -->
+          <td class="px-5 py-3 hidden lg:table-cell text-xs text-slate-500 dark:text-slate-400">
+            {{ appt.appointment_type }}
+          </td>
+
+          <!-- Status -->
+          <td class="px-5 py-3">
+            {% if appt.status == 'Scheduled' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Scheduled</span>
+            {% elif appt.status == 'Confirmed' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">Confirmed</span>
+            {% elif appt.status == 'Waiting' %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <span class="relative flex h-1.5 w-1.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+              </span>
+              Waiting
+            </span>
+            {% elif appt.status == 'In Progress' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">In Progress</span>
+            {% elif appt.status == 'Completed' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Completed</span>
+            {% elif appt.status == 'No Show' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">No Show</span>
+            {% elif appt.status == 'Cancelled' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Cancelled</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">{{ appt.status }}</span>
+            {% endif %}
+          </td>
+
+          <!-- Actions -->
+          <td class="px-5 py-3 text-right">
+            <a href="{% url 'appointment_detail' appt.id %}"
+               class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+              View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <!-- Empty State -->
+    <div class="px-5 py-16 text-center">
+      <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <p class="text-slate-500 dark:text-slate-400 font-medium">No appointments found</p>
+      {% if search or date_filter or doctor_id %}
+      <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Try adjusting your filters or
+        <a href="{% url 'appointment_list' %}" class="text-blue-600 dark:text-blue-400 hover:underline">clear all filters</a>.
+      </p>
+      {% else %}
+      <a href="{% url 'appointment_create' %}"
+         class="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create the first appointment
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4">
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} appointments
+    </p>
+    <div class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?status={{ status_filter }}&q={{ search }}&date={{ date_filter }}&doctor_id={{ doctor_id }}&page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Previous
+      </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?status={{ status_filter }}&q={{ search }}&date={{ date_filter }}&doctor_id={{ doctor_id }}&page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Next
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+  var form    = document.getElementById('filter-form');
+  var input   = document.getElementById('search-input');
+  var dateEl  = document.getElementById('date-input');
+  var doctorEl = document.getElementById('doctor-select');
+  var spinner = document.getElementById('search-spinner');
+  var timer   = null;
+
+  function submitNow() {
+    if (spinner) spinner.classList.remove('hidden');
+    // Reset to page 1 on new search
+    var pageInputs = form.querySelectorAll('input[name="page"]');
+    pageInputs.forEach(function(p){ p.remove(); });
+    form.submit();
+  }
+
+  // Debounced live search (400 ms) — partial/contains matching done server-side
+  if (input) {
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      if (spinner) spinner.classList.remove('hidden');
+      timer = setTimeout(submitNow, 400);
+    });
+  }
+
+  // Instant submit on date or doctor change
+  if (dateEl)   dateEl.addEventListener('change',   submitNow);
+  if (doctorEl) doctorEl.addEventListener('change', submitNow);
+
+  // Clear search button
+  window.clearSearch = function () {
+    if (input) { input.value = ''; }
+    submitNow();
+  };
+})();
+</script>
+
+{% endblock %}

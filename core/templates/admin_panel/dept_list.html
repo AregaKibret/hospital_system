@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Departments{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Departments</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ depts.count }} departments configured</p>
+    </div>
+    <a href="{% url 'dept_create' %}" class="btn-primary text-sm">+ Add Department</a>
+  </div>
+
+  <!-- Group by type -->
+  {% regroup depts by get_dept_type_display as dept_groups %}
+  {% for grp in dept_groups %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 rounded-t-2xl">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ grp.grouper }}</h2>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for dept in grp.list %}
+      <div class="flex items-center justify-between px-5 py-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+            <span class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ dept.name|first|upper }}</span>
+          </div>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm text-slate-800 dark:text-slate-100">{{ dept.name }}</p>
+            <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              {% if dept.head %}<span>Head: {{ dept.head }}</span>{% endif %}
+              {% if dept.location %}<span>{{ dept.location }}</span>{% endif %}
+              <span>{{ dept.staff_count }} staff</span>
+              {% if not dept.is_active %}<span class="text-red-500">Inactive</span>{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 shrink-0 ml-4">
+          <a href="{% url 'dept_edit' dept.id %}" class="btn-secondary text-xs py-1 px-3">Edit</a>
+          <form method="post" action="{% url 'dept_delete' dept.id %}" class="inline" onsubmit="return confirm('Delete department?')">
+            {% csrf_token %}
+            <button type="submit" class="text-xs px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 transition">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 p-12 text-center">
+    <p class="text-slate-400 dark:text-slate-500">No departments configured yet.</p>
+    <a href="{% url 'dept_create' %}" class="mt-4 inline-block btn-primary">Add First Department</a>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

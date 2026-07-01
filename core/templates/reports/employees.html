@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Employee Report — HMS{% endblock %}
+{% block content %}
+{% include "reports/_toolbar.html" with title="Employee Report" %}
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 no-print">
+  <div class="flex flex-wrap gap-3 items-end">
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Depts</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select></div>
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+      <select name="status" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Statuses</option>
+        {% for val, lbl in emp_statuses %}<option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+      </select></div>
+    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Type</label>
+      <select name="emp_type" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Types</option>
+        {% for val, lbl in emp_types %}<option value="{{ val }}" {% if type_f == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+      </select></div>
+    <div class="flex-1 min-w-36"><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Name, position…" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Apply</button>
+    <a href="{% url 'report_employees' %}" class="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 underline">Reset</a>
+  </div>
+</form>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ total }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Employees</p>
+  </div>
+  {% for s in status_summary %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-xl font-bold {% if s.employment_status == 'Active' %}text-emerald-600 dark:text-emerald-400{% elif s.employment_status == 'On Leave' %}text-amber-600 dark:text-amber-400{% else %}text-red-500{% endif %}">{{ s.count }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ s.employment_status }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Department breakdown -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+  <div class="lg:col-span-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">By Department</h3>
+    <div class="space-y-2">
+      {% for d in dept_summary %}
+      <div class="flex justify-between text-xs">
+        <span class="text-slate-600 dark:text-slate-400">{{ d.department__name|default:"Unassigned" }}</span>
+        <span class="font-semibold text-blue-600 dark:text-blue-400">{{ d.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">By Employment Type</h3>
+    <div class="flex flex-wrap gap-3">
+      {% for t in type_summary %}
+      <div class="px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-700 text-center min-w-24">
+        <p class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ t.count }}</p>
+        <p class="text-xs text-slate-500 mt-1">{{ t.employment_type }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Employee table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">#</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Name</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Department</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden sm:table-cell">Position</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Type</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Hire Date</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for emp in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+          <td class="px-4 py-3 text-xs text-slate-400">{{ forloop.counter }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ emp.full_name }}</p>
+            <p class="text-xs text-slate-400">{{ emp.user.username }}</p>
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ emp.department.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden sm:table-cell">{{ emp.position|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{{ emp.employment_type }}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if emp.employment_status == 'Active' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% elif emp.employment_status == 'On Leave' %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">{{ emp.employment_status }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{{ emp.hire_date|date:"d M Y"|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-16 text-center text-slate-400">No employees found.</div>
+    {% endif %}
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between no-print">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?{{ qp }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?{{ qp }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

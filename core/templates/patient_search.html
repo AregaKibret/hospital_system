@@ -59,6 +59,7 @@
             <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Card No.</th>
                 <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient Name</th>
+                <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Sex / Age</th>
                 <th class="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Mobile</th>
                 <th class="text-right px-6 py-3.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Action</th>
             </tr>
@@ -73,6 +74,10 @@
                 </td>
                 <td class="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">
                     {{ patient.first_name }} {{ patient.last_name }}
+                </td>
+                <td class="px-6 py-4 text-slate-600 dark:text-slate-400 hidden sm:table-cell">
+                    <span>{{ patient.sex }}</span>
+                    {% if patient.age_display %}<span class="text-slate-400 ml-1">· {{ patient.age_display }}</span>{% endif %}
                 </td>
                 <td class="px-6 py-4 text-slate-600 dark:text-slate-400">{{ patient.mobile }}</td>
                 <td class="px-6 py-4 text-right">

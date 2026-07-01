@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Surgeon Performance Report{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Surgeon Performance</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {% if date_from %}{{ date_from }} to {% endif %}{% if date_to %}{{ date_to }}{% else %}All time{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'surgery_reports' %}" class="btn-secondary text-sm">← Reports</a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-2 gap-3 mb-3">
+    <div class="field-wrapper"><label class="field-label text-xs">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm" /></div>
+    <div class="field-wrapper"><label class="field-label text-xs">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input text-sm" /></div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Apply</button>
+    <a href="{% url 'report_surgeon_performance' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Total</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Completed</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Cancelled</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">In Progress</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Pending</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Completion %</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for row in performance_data %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">Dr. {{ row.surgeon__get_full_name|default:row.surgeon__first_name }}</td>
+          <td class="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">{{ row.total }}</td>
+          <td class="px-4 py-3 text-center text-emerald-700 dark:text-emerald-300 font-semibold">{{ row.completed }}</td>
+          <td class="px-4 py-3 text-center text-red-600 dark:text-red-400 font-semibold">{{ row.cancelled }}</td>
+          <td class="px-4 py-3 text-center text-blue-600 dark:text-blue-400">{{ row.in_progress }}</td>
+          <td class="px-4 py-3 text-center text-slate-400">{{ row.pending }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if row.total > 0 %}
+            {% widthratio row.completed row.total 100 as pct %}
+            <div class="flex items-center justify-center gap-2">
+              <div class="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                <div class="bg-emerald-500 h-1.5 rounded-full" style="width:{{ pct }}%"></div>
+              </div>
+              <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{{ pct }}%</span>
+            </div>
+            {% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No data for selected period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

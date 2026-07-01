@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Operating Rooms{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Operating Rooms</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ rooms.count }} room{{ rooms.count|pluralize }}</p>
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.manage_or_schedule %}
+    <a href="{% url 'or_room_create' %}" class="btn-primary text-sm">+ Add Room</a>
+    {% endif %}
+    <a href="{% url 'or_dashboard' %}" class="btn-secondary text-sm">← OR Dashboard</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for room in rooms %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 flex flex-col">
+    <div class="flex items-start justify-between gap-2 mb-3">
+      <div>
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">{{ room.name }}</h2>
+        <p class="text-xs text-slate-400 mt-0.5">{{ room.get_room_type_display }}</p>
+      </div>
+      {% if room.is_active %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Active</span>
+      {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">Inactive</span>{% endif %}
+    </div>
+    {% if room.location %}
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      {{ room.location }}
+    </p>
+    {% endif %}
+    {% if room.capacity %}<p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Capacity: {{ room.capacity }}</p>{% endif %}
+    {% if room.equipment %}<p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ room.equipment }}</p>{% endif %}
+    {% if perms.core.manage_or_schedule %}
+    <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700">
+      <a href="{% url 'or_room_edit' room.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit Room</a>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="col-span-3 py-10 text-center text-slate-400">No operating rooms configured yet.</div>
+  {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Dispense Medication — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4">
+  <a href="{% url 'pharmacy_dashboard' %}" class="hover:text-blue-600 dark:hover:text-blue-400">Pharmacy</a>
+  <span>/</span>
+  <a href="{% url 'pharmacy_prescriptions' %}" class="hover:text-blue-600 dark:hover:text-blue-400">Prescriptions</a>
+  <span>/</span>
+  <span class="text-slate-700 dark:text-slate-200">Dispense</span>
+</div>
+
+<h1 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Dispense Medication</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Prescription Info Card -->
+  <div class="lg:col-span-1">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Prescription Details</h2>
+      </div>
+      <div class="px-5 py-4 space-y-3">
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Patient</p>
+          <p class="font-semibold text-slate-900 dark:text-white">{{ order.visit.patient.full_name }}</p>
+          <p class="text-xs font-mono text-slate-400">{{ order.visit.patient.card_number }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Drug</p>
+          <p class="font-medium text-slate-800 dark:text-slate-200">{{ order.drug_name }}</p>
+          <p class="text-xs text-slate-400">{{ order.dosage }} — {{ order.get_route_display }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Instructions</p>
+          <p class="text-sm text-slate-600 dark:text-slate-400">{{ order.frequency }}{% if order.duration %}, {{ order.duration }}{% endif %}</p>
+          {% if order.instructions %}
+          <p class="text-xs text-slate-400 mt-1">{{ order.instructions }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Ordered Qty</p>
+          <p class="text-lg font-bold text-slate-900 dark:text-white">{{ order.quantity }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Ordered By</p>
+          <p class="text-sm text-slate-600 dark:text-slate-400">{{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p>
+          <p class="text-xs text-slate-400">{{ order.ordered_at|date:"M j, Y H:i" }}</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Dispense Form -->
+  <div class="lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Dispense Details</h2>
+      </div>
+
+      <form method="post" class="px-5 py-5 space-y-5">
+        {% csrf_token %}
+
+        <!-- Stock Selection -->
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Stock Item</label>
+          <select name="pharmacy_stock" id="stock-select" onchange="updatePrice(this)">
+            <option value="">— Unlinked (manual entry) —</option>
+            {% for item in stock_items %}
+            <option value="{{ item.id }}"
+                    data-price="{{ item.selling_price }}"
+                    data-qty="{{ item.quantity_in_stock }}"
+                    data-unit="{{ item.unit }}"
+                    {% if order.drug_name|lower == item.drug_name|lower %}selected{% endif %}>
+              {{ item.drug_name }} {{ item.strength }}
+              — {{ item.quantity_in_stock }} {{ item.unit }} available
+              — ETB {{ item.selling_price|floatformat:2 }}
+            </option>
+            {% endfor %}
+          </select>
+          <p id="stock-available" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+          <!-- Quantity -->
+          <div class="field-wrapper">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantity to Dispense *</label>
+            <input type="number" name="quantity_dispensed" id="qty-input"
+                   value="{{ order.quantity }}" min="1" required
+                   oninput="calcTotal()" class="w-full">
+          </div>
+
+          <!-- Unit Price -->
+          <div class="field-wrapper">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Unit Price (ETB) *</label>
+            <input type="number" name="unit_price" id="price-input"
+                   value="0.00" step="0.01" min="0" required
+                   oninput="calcTotal()" class="w-full">
+          </div>
+
+        </div>
+
+        <!-- Total Amount (read-only display) -->
+        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 flex items-center justify-between">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Total Amount</span>
+          <span id="total-display" class="text-xl font-bold text-slate-900 dark:text-white">ETB 0.00</span>
+        </div>
+
+        <!-- Status -->
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Dispensing Status</label>
+          <select name="status">
+            {% for value, label in dispense_statuses %}
+            <option value="{{ value }}" {% if value == 'Dispensed' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Notes -->
+        <div class="field-wrapper">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes</label>
+          <textarea name="notes" rows="2" placeholder="Optional dispensing notes…" class="w-full"></textarea>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+          <button type="submit"
+                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+            Confirm Dispensing
+          </button>
+          <a href="{% url 'pharmacy_prescriptions' %}"
+             class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-sm transition-colors">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function updatePrice(select) {
+  var opt = select.options[select.selectedIndex];
+  var price = opt.dataset.price || '0';
+  var qty = opt.dataset.qty || '';
+  var unit = opt.dataset.unit || '';
+  document.getElementById('price-input').value = parseFloat(price).toFixed(2);
+  var avail = document.getElementById('stock-available');
+  if (qty) {
+    avail.textContent = 'Available in stock: ' + qty + ' ' + unit;
+  } else {
+    avail.textContent = '';
+  }
+  calcTotal();
+}
+
+function calcTotal() {
+  var qty = parseFloat(document.getElementById('qty-input').value) || 0;
+  var price = parseFloat(document.getElementById('price-input').value) || 0;
+  var total = qty * price;
+  document.getElementById('total-display').textContent = 'ETB ' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', function() {
+  var select = document.getElementById('stock-select');
+  if (select.value) updatePrice(select);
+  calcTotal();
+});
+</script>
+
+{% endblock %}

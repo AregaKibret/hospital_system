@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Financial Report — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex items-center gap-4 mb-6">
+  <a href="{% url 'reports_dashboard' %}"
+     class="p-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Financial Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ from_date|date:"M j, Y" }} — {{ to_date|date:"M j, Y" }}</p>
+  </div>
+</div>
+
+<!-- Date Range Filter -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm px-5 py-4 mb-6">
+  <form method="get" class="flex flex-wrap items-end gap-4">
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">From Date</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}">
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">To Date</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}">
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+      Apply Filter
+    </button>
+  </form>
+</div>
+
+<!-- Revenue Summary Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Total Invoiced</p>
+    <p class="text-xl font-bold text-slate-900 dark:text-white">ETB {{ total_invoiced|floatformat:2 }}</p>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-green-200 dark:border-green-800 shadow-sm p-5">
+    <p class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Collected</p>
+    <p class="text-xl font-bold text-green-600 dark:text-green-400">ETB {{ total_collected|floatformat:2 }}</p>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-red-200 dark:border-red-800 shadow-sm p-5">
+    <p class="text-xs font-semibold text-red-500 dark:text-red-400 uppercase tracking-wide mb-2">Outstanding</p>
+    <p class="text-xl font-bold text-red-600 dark:text-red-400">ETB {{ total_outstanding|floatformat:2 }}</p>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Collection Rate</p>
+    <p class="text-xl font-bold text-slate-900 dark:text-white">{{ collection_rate }}%</p>
+    <div class="bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full mt-2">
+      <div class="bg-green-500 h-1.5 rounded-full" style="width: {{ collection_rate }}%"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Payment Method Breakdown -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-6">
+  <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Payment Method Breakdown</h2>
+  </div>
+  {% if method_breakdown %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Method</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Amount (ETB)</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Transactions</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">%</th>
+          <th class="px-6 py-3 w-1/4"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for m in method_breakdown %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-6 py-3 font-medium text-slate-800 dark:text-slate-200">{{ m.payment_method }}</td>
+          <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ m.total|floatformat:2 }}</td>
+          <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400">{{ m.count }}</td>
+          <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400">{{ m.pct }}%</td>
+          <td class="px-6 py-3">
+            <div class="bg-slate-100 dark:bg-slate-700 h-2 rounded-full">
+              <div class="bg-blue-500 h-2 rounded-full" style="width: {{ m.pct }}%"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="px-6 py-10 text-center">
+    <p class="text-sm text-slate-400">No payments recorded in this period</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Daily Revenue Table -->
+{% if daily_revenue %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-6">
+  <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Daily Revenue</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Date</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Invoiced (ETB)</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Collected (ETB)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for row in daily_revenue %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-6 py-3 text-slate-700 dark:text-slate-300">{{ row.date|date:"M j, Y" }}</td>
+          <td class="px-6 py-3 text-right text-slate-600 dark:text-slate-400">
+            {% if row.invoiced %}{{ row.invoiced|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td class="px-6 py-3 text-right font-medium {% if row.collected %}text-green-600 dark:text-green-400{% else %}text-slate-400{% endif %}">
+            {% if row.collected %}{{ row.collected|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Top Services by Revenue -->
+{% if top_services %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Top Services by Revenue</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Service Type</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Revenue (ETB)</th>
+          <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Items</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for svc in top_services %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-6 py-3 font-medium text-slate-800 dark:text-slate-200">{{ svc.service_type }}</td>
+          <td class="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{{ svc.total|floatformat:2 }}</td>
+          <td class="px-6 py-3 text-right text-slate-500 dark:text-slate-400">{{ svc.count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

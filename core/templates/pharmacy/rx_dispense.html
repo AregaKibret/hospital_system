@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load hms_extras %}
+{% block title %}Dispense Rx {{ rx.prescription_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Send Prescription to Billing</h1>
+      <p class="text-sm text-slate-500">{{ rx.prescription_number }} &middot; {{ rx.patient.full_name }} &middot; {{ rx.patient.card_number }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'rx_detail' rx.id %}" class="btn-secondary text-sm">← Review</a>
+      <a href="{% url 'rx_print' rx.id %}" target="_blank" class="btn-secondary text-sm">Print</a>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <!-- Patient + Rx summary banner -->
+  <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-3 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+    <div><span class="text-xs text-slate-500 block">Patient</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.patient.full_name }}</span></div>
+    <div><span class="text-xs text-slate-500 block">MRN</span><span class="font-semibold font-mono text-slate-800 dark:text-slate-200">{{ rx.patient.card_number }}</span></div>
+    <div><span class="text-xs text-slate-500 block">Prescribed by</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.prescribed_by.get_full_name|default:rx.prescribed_by.username }}</span></div>
+    <div><span class="text-xs text-slate-500 block">Diagnosis</span><span class="font-semibold text-slate-800 dark:text-slate-200">{{ rx.diagnosis|default:"—"|truncatechars:30 }}</span></div>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+      {% for item in pending_items %}
+      {% with opts=stock_options|get_item:item.pk %}
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+
+        <!-- Item header -->
+        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ item.drug_name }}</p>
+              <p class="text-xs text-slate-500 mt-0.5">{{ item.display_sig }}</p>
+              {% if item.meal_instruction %}<p class="text-xs text-slate-400">{{ item.get_meal_instruction_display }}</p>{% endif %}
+              {% if item.special_instructions %}<p class="text-xs italic text-slate-400">{{ item.special_instructions }}</p>{% endif %}
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-sm font-bold text-slate-700 dark:text-slate-300">Prescribed: {{ item.quantity }}</p>
+              {% if item.quantity_dispensed > 0 %}
+              <p class="text-xs text-emerald-600">{{ item.quantity_dispensed }} already dispensed</p>
+              <p class="text-xs text-amber-600 font-semibold">Remaining: {{ item.remaining_quantity }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Dispense inputs -->
+        <div class="px-4 py-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+
+            <!-- Quantity to dispense -->
+            <div>
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Quantity to Dispense</label>
+              <input type="number" name="qty_{{ item.pk }}"
+                value="{{ item.remaining_quantity }}" min="1" max="{{ item.remaining_quantity }}"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+            </div>
+
+            <!-- Unit price -->
+            <div>
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Unit Price (ETB)</label>
+              <input type="number" name="price_{{ item.pk }}" step="0.01" min="0"
+                value="{{ item.medication.selling_price|default:'0' }}"
+                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-400">
+            </div>
+
+          </div>
+
+          <!-- Stock source selection -->
+          <div class="mb-4">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-2">Stock Source</label>
+
+            {% if opts.batches %}
+            <div class="space-y-2 mb-2">
+              <p class="text-xs text-slate-500 font-medium">Medication Inventory Batches:</p>
+              {% for b in opts.batches %}
+              <label class="flex items-center gap-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/20 transition">
+                <input type="radio" name="src_{{ item.pk }}" value="batch:{{ b.pk }}"
+                  {% if forloop.first %}checked{% endif %}
+                  class="text-indigo-600">
+                <div class="flex-1 text-xs">
+                  <span class="font-semibold text-slate-700 dark:text-slate-300 font-mono">{{ b.batch_number }}</span>
+                  <span class="text-slate-400 ml-2">Exp: {{ b.expiration_date|date:"d M Y" }}</span>
+                </div>
+                <span class="text-xs font-bold {% if b.quantity_available > 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+                  {{ b.quantity_available }} available
+                </span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if opts.pharmacy_stocks %}
+            <div class="space-y-2 mb-2">
+              <p class="text-xs text-slate-500 font-medium">Pharmacy Stock:</p>
+              {% for ps in opts.pharmacy_stocks %}
+              <label class="flex items-center gap-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer has-[:checked]:border-indigo-400 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/20 transition">
+                <input type="radio" name="src_{{ item.pk }}" value="ps:{{ ps.pk }}"
+                  {% if not opts.batches and forloop.first %}checked{% endif %}
+                  class="text-indigo-600">
+                <div class="flex-1 text-xs">
+                  <span class="font-semibold text-slate-700 dark:text-slate-300">{{ ps.drug_name }}</span>
+                  {% if ps.batch_number %}<span class="text-slate-400 ml-2">{{ ps.batch_number }}</span>{% endif %}
+                  {% if ps.expiry_date %}<span class="text-slate-400 ml-2">Exp: {{ ps.expiry_date|date:"M Y" }}</span>{% endif %}
+                </div>
+                <span class="text-xs font-bold text-emerald-600">{{ ps.quantity_in_stock }} {{ ps.unit }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if not opts.batches and not opts.pharmacy_stocks %}
+            <div class="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs text-red-600 dark:text-red-400">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>No stock found. Enter batch manually below or skip this item (leave qty blank).</span>
+            </div>
+            <input type="hidden" name="src_{{ item.pk }}" value="">
+            {% endif %}
+          </div>
+
+          <!-- Manual batch # override -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-500 block mb-1">Manual Batch # (optional override)</label>
+              <input type="text" name="batch_{{ item.pk }}" placeholder="e.g. BT-2024-001"
+                class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:ring-1 focus:ring-indigo-400">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 block mb-1">Notes</label>
+              <input type="text" name="notes_{{ item.pk }}" placeholder="Optional dispensing note"
+                class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:ring-1 focus:ring-indigo-400">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-10 text-center">
+        <p class="text-slate-400 text-sm">All items in this prescription have been dispensed.</p>
+        <a href="{% url 'rx_detail' rx.id %}" class="mt-3 inline-block btn-secondary text-sm">View Details</a>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if pending_items %}
+    <div class="mt-4 flex items-start gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300">
+      <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span>Charges will be added to the patient's billing invoice. <strong>Inventory is not deducted yet.</strong> After the cashier confirms payment, return here to confirm dispensing.</span>
+    </div>
+    <div class="flex items-center justify-between gap-3 mt-4">
+      <a href="{% url 'rx_detail' rx.id %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Send to Billing
+      </button>
+    </div>
+    {% endif %}
+  </form>
+
+</div>
+{% endblock %}

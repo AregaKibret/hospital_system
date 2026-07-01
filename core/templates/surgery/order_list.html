@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Surgery Orders{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Surgery Orders</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ page_obj.paginator.count }} order{{ page_obj.paginator.count|pluralize }}</p>
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.order_surgery %}
+    <a href="{% url 'surgery_order_create' %}" class="btn-primary text-sm">+ New Order</a>
+    {% endif %}
+    <a href="{% url 'surgery_dashboard' %}" class="btn-secondary text-sm">← Dashboard</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search patient, order #, procedure…" class="field-input text-sm lg:col-span-2" />
+    <select name="status" class="field-input text-sm">
+      <option value="">All Statuses</option>
+      {% for val, label in statuses %}<option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="priority" class="field-input text-sm">
+      <option value="">All Priorities</option>
+      {% for val, label in priorities %}<option value="{{ val }}" {% if priority_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="dept" class="field-input text-sm">
+      <option value="">All Departments</option>
+      {% for dept in departments %}<option value="{{ dept.pk }}" {% if dept_f == dept.pk|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="flex flex-wrap gap-2 items-center">
+    <input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm" />
+    <span class="text-slate-400 text-xs">to</span>
+    <input type="date" name="date_to" value="{{ date_to }}" class="field-input text-sm" />
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+    <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<!-- Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Order #</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Procedure</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Priority</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Surgeon</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Planned</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Ordered</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for order in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition {% if order.priority == 'emergency' %}border-l-2 border-red-500{% elif order.priority == 'urgent' %}border-l-2 border-amber-500{% endif %}">
+          <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ order.order_number }}</td>
+          <td class="px-4 py-3">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</p>
+            <p class="text-xs text-slate-400 font-mono">{{ order.patient.card_number }}</p>
+          </td>
+          <td class="px-4 py-3 text-slate-700 dark:text-slate-300 max-w-xs">
+            <p class="truncate">{{ order.planned_procedure }}</p>
+            {% if order.procedure_master %}<p class="text-xs text-slate-400">{{ order.procedure_master.code }}</p>{% endif %}
+          </td>
+          <td class="px-4 py-3">{% include "surgery/_priority_badge.html" with priority=order.priority %}</td>
+          <td class="px-4 py-3">{% include "surgery/_status_badge.html" with status=order.status %}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ order.surgeon.get_full_name|default:order.surgeon.username }}</td>
+          <td class="px-4 py-3 text-xs text-slate-400 hidden lg:table-cell">{{ order.planned_date|date:"d M Y"|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ order.ordered_at|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'surgery_order_detail' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400 whitespace-nowrap">View →</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">No surgery orders match your filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+    {% if page_obj.has_previous %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn-secondary text-xs">← Prev</a>{% endif %}
+    <span class="text-xs text-slate-400 self-center">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn-secondary text-xs">Next →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Financial Audit Report{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Financial Audit Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Invoice changes, payments, refunds, credit transactions</p>
+  </div>
+  <a href="{% url 'audit_dashboard' %}" class="btn-secondary text-sm">&larr; Audit Dashboard</a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <select name="action" class="field-input text-sm">
+      <option value="">All Actions</option>
+      {% for val, label in fin_actions %}
+      <option value="{{ val }}" {% if filters.action == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="user_id" class="field-input text-sm">
+      <option value="">All Users</option>
+      {% for u in users %}
+      <option value="{{ u.id }}" {% if filters.user_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from }}" class="field-input text-sm" />
+    <input type="date" name="date_to"   value="{{ date_to }}"   class="field-input text-sm" />
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary text-sm">Filter</button>
+    <a href="{% url 'report_financial_audit' %}" class="btn-secondary text-sm">Reset</a>
+  </div>
+</form>
+
+<!-- Action breakdown -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+  {% for stat in action_stats %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ stat.count }}</p>
+    <div class="mt-1">{% include "audit/_action_badge.html" with action=stat.action %}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Log table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Timestamp</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">User</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Action</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Module</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Object</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase hidden lg:table-cell">Description</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Sev.</th>
+          <th class="px-4 py-2.5"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for log in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition
+          {% if log.severity == 'critical' %}bg-red-50/30 dark:bg-red-900/5{% elif log.severity == 'warning' %}bg-amber-50/30{% endif %}">
+          <td class="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{{ log.timestamp|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100">{{ log.user_name }}</td>
+          <td class="px-4 py-2.5">{% include "audit/_action_badge.html" with action=log.action %}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-500 capitalize">{{ log.module }}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-600 dark:text-slate-400">{{ log.object_repr|truncatechars:40 }}</td>
+          <td class="px-4 py-2.5 text-xs text-slate-400 hidden lg:table-cell">{{ log.description|truncatechars:60 }}</td>
+          <td class="px-4 py-2.5">{% include "audit/_severity_badge.html" with severity=log.severity %}</td>
+          <td class="px-4 py-2.5 text-right">
+            <a href="{% url 'audit_log_detail' log.id %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No financial audit entries match your filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
+    {% if page_obj.has_previous %}
+    <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn-secondary text-xs">Prev</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <a href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn-secondary text-xs">Next</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

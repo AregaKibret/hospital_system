@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Invoices — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+    {% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Invoices</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">All billing records</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'billing_dashboard' %}"
+       class="inline-flex items-center gap-2 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      Dashboard
+    </a>
+    {% if perms.core.create_invoice %}
+    <a href="{% url 'invoice_create' %}"
+       class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      New Invoice
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+
+  <!-- Status Tabs -->
+  <div class="border-b border-slate-100 dark:border-slate-700 px-5 overflow-x-auto">
+    <nav class="flex gap-0.5 -mb-px whitespace-nowrap">
+      <a href="?status=all{% if search %}&q={{ search }}{% endif %}"
+         class="inline-flex items-center px-4 py-3 text-xs font-semibold border-b-2 transition-colors
+           {% if status_filter == 'all' %}border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400
+           {% else %}border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300{% endif %}">
+        All
+      </a>
+      {% for value, label in status_choices %}
+      <a href="?status={{ value }}{% if search %}&q={{ search }}{% endif %}"
+         class="inline-flex items-center px-4 py-3 text-xs font-semibold border-b-2 transition-colors
+           {% if status_filter == value %}border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400
+           {% else %}border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300{% endif %}">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <!-- Search -->
+  <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+    <form method="get" class="flex items-center gap-3">
+      <input type="hidden" name="status" value="{{ status_filter }}">
+      <div class="field-wrapper flex-1">
+        <input type="text" name="q" value="{{ search }}"
+               placeholder="Search patient name, MRN, invoice number…">
+      </div>
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        Search
+      </button>
+      {% if search %}
+      <a href="?status={{ status_filter }}"
+         class="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 underline">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Invoice #</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Date</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Total</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Paid</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Balance</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</th>
+          <th class="text-right px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for inv in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+          <td class="px-5 py-3 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            {{ inv.invoice_number }}
+          </td>
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-900 dark:text-white">{{ inv.patient.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ inv.patient.card_number }}</p>
+          </td>
+          <td class="px-5 py-3 text-xs text-slate-500 dark:text-slate-400 hidden md:table-cell whitespace-nowrap">
+            {{ inv.created_at|date:"d M Y H:i" }}
+          </td>
+          <td class="px-5 py-3 text-sm text-slate-700 dark:text-slate-300 hidden md:table-cell whitespace-nowrap">
+            ETB {{ inv.total_amount|floatformat:2 }}
+          </td>
+          <td class="px-5 py-3 text-sm text-green-600 dark:text-green-400 hidden lg:table-cell whitespace-nowrap">
+            ETB {{ inv.paid_amount|floatformat:2 }}
+          </td>
+          <td class="px-5 py-3 hidden lg:table-cell whitespace-nowrap">
+            <span class="font-semibold {% if inv.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">
+              ETB {{ inv.balance|floatformat:2 }}
+            </span>
+          </td>
+          <td class="px-5 py-3">
+            {% include "billing/_status_badge.html" with status=inv.status %}
+          </td>
+          <td class="px-5 py-3 text-right">
+            <a href="{% url 'invoice_detail' inv.id %}"
+               class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+              View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="px-5 py-16 text-center">
+      <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <p class="text-slate-500 dark:text-slate-400 font-medium">No invoices found</p>
+      {% if search %}
+      <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">No results matched "{{ search }}"</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4">
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} invoices
+    </p>
+    <div class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?status={{ status_filter }}&q={{ search }}&page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Previous
+      </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?status={{ status_filter }}&q={{ search }}&page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Next
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

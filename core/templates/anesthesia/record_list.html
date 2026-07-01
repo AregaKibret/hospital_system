@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Anesthesia Records — HMS{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Anesthesia Records</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ total_count }} record{{ total_count|pluralize }} in period</p>
+  </div>
+  <a href="{% url 'anesthesia_dashboard' %}"
+     class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
+    Dashboard
+  </a>
+</div>
+
+<!-- Date Range Filter -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-6 px-5 py-4">
+  <form method="get" class="flex flex-wrap items-end gap-4">
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">From Date</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}">
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">To Date</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}">
+    </div>
+    <button type="submit"
+            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+      Filter
+    </button>
+  </form>
+</div>
+
+<!-- Records Table -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700">
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Date</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Type</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">ASA</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Duration</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Complications</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden lg:table-cell">Anesthesiologist</th>
+          <th class="text-right px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for record in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+
+          <!-- Patient -->
+          <td class="px-5 py-3">
+            <p class="font-medium text-slate-900 dark:text-white text-sm">{{ record.visit.patient.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ record.visit.patient.card_number }}</p>
+          </td>
+
+          <!-- Date -->
+          <td class="px-5 py-3 text-xs text-slate-500 dark:text-slate-400 hidden sm:table-cell">
+            {{ record.created_at|date:"M j, Y" }}
+          </td>
+
+          <!-- Anesthesia Type Badge -->
+          <td class="px-5 py-3 hidden sm:table-cell">
+            {% if record.anesthesia_type == 'General' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">General</span>
+            {% elif record.anesthesia_type == 'Regional' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Regional</span>
+            {% elif record.anesthesia_type == 'Spinal' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">Spinal</span>
+            {% elif record.anesthesia_type == 'Epidural' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">Epidural</span>
+            {% elif record.anesthesia_type == 'Local' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Local</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">{{ record.anesthesia_type }}</span>
+            {% endif %}
+          </td>
+
+          <!-- ASA Badge -->
+          <td class="px-5 py-3 hidden md:table-cell">
+            {% if record.asa_classification %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              {{ record.asa_classification }}
+            </span>
+            {% else %}
+            <span class="text-slate-400">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Duration -->
+          <td class="px-5 py-3 text-xs text-slate-500 dark:text-slate-400 hidden md:table-cell">
+            {% if record.duration_minutes %}{{ record.duration_minutes }} min{% else %}—{% endif %}
+          </td>
+
+          <!-- Complications Indicator -->
+          <td class="px-5 py-3 hidden lg:table-cell">
+            {% if record.complications %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Yes</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">None</span>
+            {% endif %}
+          </td>
+
+          <!-- Anesthesiologist -->
+          <td class="px-5 py-3 text-xs text-slate-500 dark:text-slate-400 hidden lg:table-cell">
+            {{ record.anesthesiologist.get_full_name|default:record.anesthesiologist.username }}
+          </td>
+
+          <!-- Actions -->
+          <td class="px-5 py-3 text-right">
+            <a href="{% url 'anesthesia_record_detail' record.id %}"
+               class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+              View
+            </a>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4">
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+    </p>
+    <div class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?from_date={{ from_date_str }}&to_date={{ to_date_str }}&page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Previous
+      </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?from_date={{ from_date_str }}&to_date={{ to_date_str }}&page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Next
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="px-5 py-16 text-center">
+    <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+    </svg>
+    <p class="text-slate-500 dark:text-slate-400 font-medium">No anesthesia records found for this period</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

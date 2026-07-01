@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Department Worklist{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Department Worklist</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ today|date:"l, d F Y" }}{% if dept %} · {{ dept.name }}{% endif %}</p>
+  </div>
+  <div class="flex gap-2">
+    <form method="get" class="flex gap-2">
+      <select name="dept" class="field-input text-sm" onchange="this.form.submit()">
+        <option value="">All Departments</option>
+        {% for d in departments %}<option value="{{ d.pk }}" {% if dept_id == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </form>
+    <a href="{% url 'patient_flow_dashboard' %}" class="btn-secondary text-sm">← Flow Dashboard</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+  {% include "surgery/_kpi.html" with label="Awaiting Payment" value=awaiting_payment.count color="amber" %}
+  {% include "surgery/_kpi.html" with label="Waiting Doctor" value=waiting_doctor.count color="blue" %}
+  {% include "surgery/_kpi.html" with label="Pending Lab" value=pending_lab.count color="yellow" %}
+  {% include "surgery/_kpi.html" with label="Pending Imaging" value=pending_imaging.count color="cyan" %}
+  {% include "surgery/_kpi.html" with label="Pending Medications" value=pending_meds.count color="teal" %}
+  {% include "surgery/_kpi.html" with label="Pending Surgery" value=pending_surgery.count color="orange" %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+  <!-- Awaiting Payment -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-amber-100 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-amber-800 dark:text-amber-300">💳 Awaiting Payment ({{ awaiting_payment.count }})</h2>
+    </div>
+    {% if awaiting_payment %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for visit in awaiting_payment %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</p>
+          <p class="text-xs text-slate-400">{{ visit.department.name }} · {{ visit.created_at|timesince }} ago</p>
+        </div>
+        <div class="flex gap-2">
+          <a href="{% url 'patient_journey_detail' visit.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Journey</a>
+          <a href="{% url 'billing_dashboard' %}" class="text-xs text-amber-600 hover:underline dark:text-amber-400">Billing →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No patients awaiting payment</p>{% endif %}
+  </div>
+
+  <!-- Waiting Doctor -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-blue-800 dark:text-blue-300">⏳ Waiting for Doctor ({{ waiting_doctor.count }})</h2>
+    </div>
+    {% if waiting_doctor %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for visit in waiting_doctor %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</p>
+          <p class="text-xs text-slate-400">Dr. {{ visit.doctor.get_full_name }} · {{ visit.created_at|timesince }} ago</p>
+        </div>
+        <a href="{% url 'patient_journey_detail' visit.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Journey →</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No patients waiting for doctor</p>{% endif %}
+  </div>
+
+  <!-- Pending Lab -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-yellow-200 dark:border-yellow-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-yellow-100 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">🔬 Pending Lab Orders ({{ pending_lab.count }})</h2>
+    </div>
+    {% if pending_lab %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for o in pending_lab %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.test_name }}</p>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} · {{ o.ordered_at|timesince }} ago</p>
+        </div>
+        <a href="{% url 'lab_order_detail' o.pk %}" class="text-xs text-yellow-600 hover:underline dark:text-yellow-400">Process →</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No pending lab orders</p>{% endif %}
+  </div>
+
+  <!-- Pending Imaging -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-cyan-200 dark:border-cyan-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-cyan-100 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-cyan-800 dark:text-cyan-300">🩻 Pending Imaging ({{ pending_imaging.count }})</h2>
+    </div>
+    {% if pending_imaging %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for o in pending_imaging %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.imaging_type }}</p>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} · {{ o.ordered_at|timesince }} ago</p>
+        </div>
+        <a href="{% url 'imaging_order_detail' o.pk %}" class="text-xs text-cyan-600 hover:underline dark:text-cyan-400">Process →</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No pending imaging orders</p>{% endif %}
+  </div>
+
+  <!-- Pending Medications -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-teal-200 dark:border-teal-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-teal-100 dark:border-teal-800 bg-teal-50 dark:bg-teal-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-teal-800 dark:text-teal-300">💊 Pending Medications ({{ pending_meds.count }})</h2>
+    </div>
+    {% if pending_meds %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for o in pending_meds %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.medication_name }}</p>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} · {{ o.dose }}{% if o.frequency %} · {{ o.frequency }}{% endif %}</p>
+        </div>
+        <a href="{% url 'pharmacy_prescriptions' %}" class="text-xs text-teal-600 hover:underline dark:text-teal-400">Dispense →</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No pending medication orders</p>{% endif %}
+  </div>
+
+  <!-- Pending Surgery -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-orange-200 dark:border-orange-800 shadow-sm">
+    <div class="px-4 py-3 border-b border-orange-100 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 rounded-t-xl">
+      <h2 class="text-sm font-semibold text-orange-800 dark:text-orange-300">🔪 Pending Surgery ({{ pending_surgery.count }})</h2>
+    </div>
+    {% if pending_surgery %}
+    <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+      {% for o in pending_surgery %}
+      <div class="px-4 py-2.5 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.planned_procedure|truncatechars:40 }}</p>
+          <p class="text-xs text-slate-400">{{ o.patient.full_name }} · {{ o.order_number }}</p>
+        </div>
+        <a href="{% url 'surgery_order_detail' o.pk %}" class="text-xs text-orange-600 hover:underline dark:text-orange-400">View →</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="px-4 py-6 text-sm text-slate-400 text-center">No pending surgery orders</p>{% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
