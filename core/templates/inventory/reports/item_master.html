@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Inventory Item Master List{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  {% include "reports/_toolbar.html" with title="Inventory Item Master List" qp=qp %}
+
+  <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
+    <select name="category" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+      <option value="{{ cat.id }}" {% if category_f == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="item_group" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All Groups</option>
+      {% for g in item_groups %}
+      <option value="{{ g.id }}" {% if item_group_f == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="item_type" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All Types</option>
+      {% for val, label in item_types %}
+      <option value="{{ val }}" {% if item_type_f == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="active" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All Statuses</option>
+      <option value="1" {% if active_f == '1' %}selected{% endif %}>Active only</option>
+      <option value="0" {% if active_f == '0' %}selected{% endif %}>Inactive only</option>
+    </select>
+    <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Master List</h3>
+      <span class="text-sm font-bold text-slate-900 dark:text-white">{{ total_count }} item{{ total_count|pluralize }}</span>
+    </div>
+    {% if page_obj.object_list %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">Item Code</th>
+          <th class="text-left px-4 py-3">Name</th>
+          <th class="text-left px-4 py-3 hidden md:table-cell">Generic Name</th>
+          <th class="text-left px-4 py-3 hidden lg:table-cell">Category</th>
+          <th class="text-left px-4 py-3 hidden lg:table-cell">Item Group</th>
+          <th class="text-left px-4 py-3 hidden xl:table-cell">Type</th>
+          <th class="text-left px-4 py-3 hidden xl:table-cell">Units</th>
+          <th class="text-right px-4 py-3">Cost</th>
+          <th class="text-right px-4 py-3">Selling</th>
+          <th class="text-right px-4 py-3 hidden md:table-cell">Stock</th>
+          <th class="text-center px-4 py-3">Active</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for it in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+          <td class="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">
+            <a href="{% url 'inventory_item_edit' it.pk %}">{{ it.item_code|default:it.sku|default:"—" }}</a>
+          </td>
+          <td class="px-4 py-3 text-slate-800 dark:text-slate-200">{{ it.name }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden md:table-cell">{{ it.generic_name|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden lg:table-cell">{{ it.category.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden lg:table-cell">{{ it.item_group.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden xl:table-cell">{{ it.item_type }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden xl:table-cell">{{ it.unit }}{% if it.dispensing_unit %} / {{ it.dispensing_unit }}{% endif %}</td>
+          <td class="px-4 py-3 text-right text-slate-700 dark:text-slate-300">ETB {{ it.unit_cost|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">ETB {{ it.selling_price|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right text-slate-700 dark:text-slate-300 hidden md:table-cell">{{ it.quantity_in_stock }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if it.is_active %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Yes</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">No</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No items found.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="mt-4 flex justify-between items-center no-print">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?{{ qp }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?{{ qp }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

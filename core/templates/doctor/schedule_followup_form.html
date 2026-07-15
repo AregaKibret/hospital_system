@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Schedule Follow-Up — {{ patient.full_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'visit_detail' visit.id %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Schedule Follow-Up Appointment</h1>
+    </div>
+
+    {% if errors %}
+    <div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+        <ul class="list-disc list-inside space-y-1">
+            {% for err in errors %}
+            <li class="text-sm text-red-600 dark:text-red-400">{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Auto-populated patient / visit info -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Patient &amp; Visit (auto-filled)</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div><p class="text-xs text-slate-400 mb-0.5">Patient Name</p><p class="font-semibold text-slate-800 dark:text-slate-100">{{ patient.full_name }}</p></div>
+                <div><p class="text-xs text-slate-400 mb-0.5">MRN / Card Number</p><p class="font-mono text-slate-700 dark:text-slate-300">{{ patient.card_number }}</p></div>
+                <div><p class="text-xs text-slate-400 mb-0.5">Phone Number</p><p class="text-slate-700 dark:text-slate-300">{{ patient.mobile|default:"—" }}</p></div>
+                <div><p class="text-xs text-slate-400 mb-0.5">Current Department</p><p class="text-slate-700 dark:text-slate-300">{{ visit.department.name }}</p></div>
+                <div><p class="text-xs text-slate-400 mb-0.5">Current Doctor</p><p class="text-slate-700 dark:text-slate-300">Dr. {{ visit.doctor.full_name }}</p></div>
+                <div><p class="text-xs text-slate-400 mb-0.5">Visit Number</p><p class="font-mono text-slate-700 dark:text-slate-300">#{{ visit.pk }}</p></div>
+            </div>
+        </div>
+
+        <!-- Follow-up scheduling -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Follow-Up Details</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Follow-up Date <span class="text-red-500">*</span></label>
+                    <input type="date" name="appointment_date" required min="{{ today|date:'Y-m-d' }}"
+                           value="{{ post.appointment_date }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Follow-up Time <span class="text-slate-400 font-normal">(optional — defaults to 6:00 PM)</span></label>
+                    <input type="time" name="appointment_time" value="{{ post.appointment_time|default:'18:00' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Appointment Type</label>
+                    <select name="appointment_type" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        {% for value, label in appointment_types %}
+                        <option value="{{ value }}" {% if post.appointment_type == value or not post and value == 'Follow-up Consultation' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrapper">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+                    <select name="priority" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                        <option value="Normal" {% if post.priority == 'Normal' or not post %}selected{% endif %}>Routine</option>
+                        <option value="Urgent" {% if post.priority == 'Urgent' %}selected{% endif %}>Urgent</option>
+                    </select>
+                </div>
+                <div class="field-wrapper sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason for Follow-up <span class="text-slate-400 font-normal">(optional)</span></label>
+                    <textarea name="reason_for_visit" rows="2" placeholder="e.g. Review lab results, wound check…"
+                              class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{{ post.reason_for_visit }}</textarea>
+                </div>
+                <div class="field-wrapper sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes / Instructions <span class="text-slate-400 font-normal">(optional)</span></label>
+                    <textarea name="notes" rows="2" placeholder="Special instructions for the patient…"
+                              class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{{ post.notes }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'visit_detail' visit.id %}" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+            <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Schedule Follow-Up</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Lab Test Groups — HMS{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Lab Test Groups</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Optional secondary classification of tests, within or across categories</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'lab_service_list' %}" class="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">← Services</a>
+      <a href="{% url 'lab_test_group_create' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">+ Add Group</a>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if groups %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">Name</th>
+          <th class="text-left px-4 py-3">Category</th>
+          <th class="text-right px-4 py-3">Tests</th>
+          <th class="text-center px-4 py-3">Status</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for g in groups %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ g.name }}</td>
+          <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ g.category.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ g.test_count }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if g.is_active %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'lab_test_group_edit' g.pk %}" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+      <p class="text-sm">No test groups yet. <a href="{% url 'lab_test_group_create' %}" class="text-blue-600 hover:underline">Add one</a>.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

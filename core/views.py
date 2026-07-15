@@ -15,7 +15,7 @@ from .forms import (
     UserUpdateForm,
     VisitForm,
 )
-from .models import AuditLog, Invoice, InvoiceItem, Patient, Queue, UserProfile, Visit
+from .models import Appointment, AuditLog, Invoice, InvoiceItem, Patient, Queue, UserProfile, Visit
 from .permissions import DASHBOARD_MODULES
 
 User = get_user_model()
@@ -61,10 +61,33 @@ def register_patient(request):
                 request=request,
             )
             messages.success(request, 'Patient registered successfully.')
-            return redirect('dashboard')
+            return redirect('patient_next_action', patient_id=patient.pk)
     else:
         form = PatientForm()
     return render(request, 'register_patient.html', {'form': form})
+
+
+@hms_permission_required('core.add_patient')
+def patient_next_action(request, patient_id):
+    """Shown right after a patient is registered — lets the receptionist
+    jump straight into Create Visit / Create Appointment without re-entering
+    any patient details. If the registration came from a walk-in
+    appointment (?appointment_id=...), that appointment is already linked
+    to the patient (see register_patient_for_appointment) — offer to view
+    it instead of creating a second, duplicate appointment."""
+    patient = get_object_or_404(Patient, pk=patient_id)
+
+    linked_appointment = None
+    appointment_id = request.GET.get('appointment_id')
+    if appointment_id:
+        linked_appointment = Appointment.objects.filter(
+            pk=appointment_id, patient=patient,
+        ).select_related('doctor', 'department').first()
+
+    return render(request, 'patient_next_action.html', {
+        'patient': patient,
+        'linked_appointment': linked_appointment,
+    })
 
 
 @hms_permission_required('core.view_patient')
@@ -96,84 +119,150 @@ CONSULTATION_FEE = 300  # ETB — standard OPD consultation charge
 @hms_permission_required('core.add_visit')
 def create_visit(request, patient_id):
     from decimal import Decimal
+    from django.db import transaction
     from django.utils import timezone
 
+    from .card_utils import attach_card_fee_to_invoice, card_status_for, issue_or_renew_card
+
     patient = get_object_or_404(Patient, id=patient_id)
+    # Carried over from the "what next?" screen when this patient was just
+    # registered off a walk-in appointment — link that same appointment to
+    # the visit instead of leaving it orphaned.
+    appointment_id = request.GET.get('appointment_id') or request.POST.get('appointment_id')
 
     if request.method == 'POST':
         form = VisitForm(request.POST, patient=patient)
         if form.is_valid():
-            visit = form.save(commit=False)
-            visit.patient = patient
-            visit.save()
-
-            log_action(
-                request.user, AuditLog.Action.CREATE, AuditLog.Module.VISIT,
-                object_type='Visit', object_id=visit.pk,
-                object_repr=f'{patient.full_name} — {visit.get_visit_type_display()}',
-                description=f'Visit created for {patient.full_name} ({visit.get_visit_type_display()})',
-                extra_data={
-                    'patient': patient.full_name,
-                    'visit_type': visit.visit_type,
-                    'department': str(visit.department) if visit.department else None,
-                },
-                request=request,
+            card_type = form.cleaned_data['card_type']
+            consultation_type = form.cleaned_data['consultation_type']
+            waive_card_fee = (
+                bool(request.POST.get('waive_card_fee'))
+                and request.user.has_perm('core.override_card_expiry')
             )
 
-            # Assign queue number
-            last_queue = Queue.objects.order_by('-queue_number').first()
-            Queue.objects.create(
-                visit=visit,
-                queue_number=(last_queue.queue_number + 1) if last_queue else 1,
-            )
+            with transaction.atomic():
+                visit = form.save(commit=False)
+                visit.patient = patient
+                visit.save()
 
-            visit_type = visit.visit_type
+                log_action(
+                    request.user, AuditLog.Action.CREATE, AuditLog.Module.VISIT,
+                    object_type='Visit', object_id=visit.pk,
+                    object_repr=f'{patient.full_name} — {visit.get_visit_type_display()}',
+                    description=f'Visit created for {patient.full_name} ({visit.get_visit_type_display()})',
+                    extra_data={
+                        'patient': patient.full_name,
+                        'visit_type': visit.visit_type,
+                        'department': str(visit.department) if visit.department else None,
+                    },
+                    request=request,
+                )
+
+                if appointment_id:
+                    appt = Appointment.objects.filter(
+                        pk=appointment_id, patient=patient, visit__isnull=True,
+                    ).first()
+                    if appt:
+                        appt.visit = visit
+                        appt.save(update_fields=['visit', 'updated_at'])
+                        log_action(
+                            request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+                            object_type='Appointment', object_id=appt.pk,
+                            object_repr=appt.appointment_number,
+                            description=f'Appointment {appt.appointment_number} linked to new visit for {patient.full_name}',
+                            request=request,
+                        )
+
+                # Card validity — issue/renew automatically if the patient
+                # has no currently-valid card of the selected type. This is
+                # how "no visit without a valid card" is enforced: the two
+                # happen together in the same transaction, and the renewal
+                # fee (if any) rides along on the same invoice.
+                patient_card, card_issued, card_fee = issue_or_renew_card(
+                    patient, card_type, request.user, waive_fee=waive_card_fee, request=request,
+                )
+                visit.card_type = card_type
+                visit.consultation_type = consultation_type
+                visit.patient_card = patient_card
+                visit.save(update_fields=['card_type', 'consultation_type', 'patient_card'])
+
+                # Assign queue number
+                last_queue = Queue.objects.order_by('-queue_number').first()
+                Queue.objects.create(
+                    visit=visit,
+                    queue_number=(last_queue.queue_number + 1) if last_queue else 1,
+                )
+
+                visit_type = visit.visit_type
+                invoice = None
+                consultation_fee = None
+
+                if visit_type == Visit.VisitType.NEW_VISIT:
+                    # Auto-create a Draft invoice with the consultation fee
+                    consultation_fee = (
+                        consultation_type.fee if consultation_type
+                        else Decimal(str(CONSULTATION_FEE))
+                    )
+                    invoice = Invoice.objects.create(
+                        patient=patient,
+                        visit=visit,
+                        created_by=request.user,
+                        status='Draft',
+                        total_amount=consultation_fee,
+                        due_date=timezone.localdate(),
+                    )
+                    InvoiceItem.objects.create(
+                        invoice=invoice,
+                        description=consultation_type.name if consultation_type else 'Consultation Fee',
+                        service_type=InvoiceItem.ServiceType.CONSULTATION,
+                        quantity=Decimal('1'),
+                        unit_price=consultation_fee,
+                    )
+
+                if card_issued and card_fee > 0:
+                    if invoice is None:
+                        invoice = Invoice.objects.create(
+                            patient=patient, visit=visit, created_by=request.user,
+                            status='Draft', total_amount=Decimal('0.00'),
+                            due_date=timezone.localdate(),
+                        )
+                    attach_card_fee_to_invoice(invoice, patient_card, card_fee, request.user, request=request)
+                    invoice.total_amount = invoice.total_amount + card_fee
+                    invoice.save(update_fields=['total_amount'])
 
             if visit_type == Visit.VisitType.NEW_VISIT:
-                # Auto-create a Draft invoice with the standard consultation fee
-                fee = Decimal(str(CONSULTATION_FEE))
-                invoice = Invoice.objects.create(
-                    patient=patient,
-                    visit=visit,
-                    created_by=request.user,
-                    status='Draft',
-                    total_amount=fee,
-                    due_date=timezone.localdate(),
-                )
-                InvoiceItem.objects.create(
-                    invoice=invoice,
-                    description='Consultation Fee',
-                    service_type=InvoiceItem.ServiceType.CONSULTATION,
-                    quantity=Decimal('1'),
-                    unit_price=fee,
-                    total=fee,
-                )
                 from .patient_flow import advance_to_waiting_payment
                 advance_to_waiting_payment(visit, performed_by=request.user)
+                fee_msg = f'Consultation invoice (ETB {consultation_fee:,.2f})'
+                if card_issued and card_fee > 0:
+                    fee_msg += f' + card fee (ETB {card_fee:,.2f})'
                 messages.success(
                     request,
-                    f'Visit created. Consultation invoice (ETB {CONSULTATION_FEE:,}) '
-                    f'generated automatically — pending cashier approval.',
+                    f'Visit created. {fee_msg} generated automatically — pending cashier approval.',
                 )
                 return redirect('dashboard')
 
             elif visit_type == Visit.VisitType.REVISIT:
                 from .patient_flow import advance_to_waiting_payment
                 advance_to_waiting_payment(visit, performed_by=request.user)
-                messages.success(
-                    request,
-                    'Revisit recorded. No consultation fee charged. '
-                    'Queue number assigned.',
-                )
+                msg = 'Revisit recorded. No consultation fee charged.'
+                if card_issued and card_fee > 0:
+                    msg += f' Card renewal fee (ETB {card_fee:,.2f}) sent to Billing.'
+                messages.success(request, msg)
                 return redirect('dashboard')
 
             else:  # Repayment
                 from .patient_flow import advance_to_waiting_payment
                 advance_to_waiting_payment(visit, performed_by=request.user)
+                repay_msg = (
+                    'Repayment visit created. Please process the outstanding '
+                    'invoice through Billing.'
+                )
+                if card_issued and card_fee > 0:
+                    repay_msg += f' Card renewal fee (ETB {card_fee:,.2f}) also sent to Billing.'
                 messages.success(
                     request,
-                    'Repayment visit created. Please process the outstanding '
-                    'invoice through Billing.',
+                    repay_msg,
                 )
                 return redirect('billing_dashboard')
     else:
@@ -188,6 +277,7 @@ def create_visit(request, patient_id):
         'form': form,
         'previous_visits': previous_visits,
         'consultation_fee': CONSULTATION_FEE,
+        'appointment_id': appointment_id,
     })
 
 

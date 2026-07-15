@@ -10,30 +10,72 @@ from django.views.decorators.http import require_POST
 
 from .audit import log_action
 from .decorators import hms_permission_required
-from .models import AuditLog, CashSession, Invoice, InvoiceItem, Patient, Payment, Visit
+from .models import (
+    AuditLog, CashSession, Invoice, InvoiceItem, InvoiceItemRefund,
+    Patient, Payment, PaymentAllocation, ServiceChargeSettings, Visit,
+)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def invoice_status_from_items(invoice):
+    """Derive the invoice's overall status from its items' individual
+    payment_status — items are the single source of truth (see signals.py).
+
+    Fully Paid   → every non-cancelled/non-refunded item is Paid or Credit Approved.
+    Partial Paid → at least one item is paid/credit/partial, but not all.
+    Pending      → no item has any payment progress yet.
+    """
+    ItemPS = InvoiceItem.PaymentStatus
+    statuses = list(invoice.items.values_list('payment_status', flat=True))
+    if not statuses:
+        return invoice.status
+
+    relevant = [s for s in statuses if s not in (ItemPS.CANCELLED, ItemPS.REFUNDED)]
+    if not relevant:
+        return Invoice.Status.CANCELLED
+
+    cleared = {ItemPS.PAID, ItemPS.CREDIT}
+    if all(s in cleared for s in relevant):
+        return Invoice.Status.PAID
+    if any(s in cleared or s == ItemPS.PARTIAL for s in relevant):
+        return Invoice.Status.PARTIAL
+    if invoice.payment_type == Invoice.PaymentType.CREDIT and invoice.status == Invoice.Status.CREDIT_PENDING:
+        return Invoice.Status.CREDIT_PENDING
+    return Invoice.Status.ISSUED
+
+
 def _recalc_invoice(invoice):
     """Refresh paid_amount and set correct status. Call inside atomic block."""
-    invoice.paid_amount = (
-        invoice.payments.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
-    )
-    balance = invoice.total_amount - invoice.paid_amount - invoice.discount
-    if invoice.status == Invoice.Status.CANCELLED:
-        pass
-    elif balance < 0:
-        invoice.status = Invoice.Status.OVERPAID
-    elif balance == 0:
-        invoice.status = Invoice.Status.PAID
-    elif invoice.paid_amount > 0:
-        invoice.status = Invoice.Status.PARTIAL
-    elif invoice.payment_type == Invoice.PaymentType.CREDIT:
-        invoice.status = Invoice.Status.CREDIT_PENDING
-    else:
-        invoice.status = Invoice.Status.ISSUED
+    total_payments = invoice.payments.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    total_refunds = InvoiceItemRefund.objects.filter(
+        invoice_item__invoice=invoice,
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    invoice.paid_amount = total_payments - total_refunds
+    if invoice.status != Invoice.Status.CANCELLED:
+        invoice.status = invoice_status_from_items(invoice)
     invoice.save()
+
+
+def _cascade_status_to_items(invoice, item_status, *, only_unsettled=True, user=None, reason=''):
+    """Push a whole-invoice status change (Waive, whole-invoice credit
+    approval, Cancel) down to every item so department gating — which reads
+    item.payment_status, not invoice.status — stays consistent."""
+    qs = invoice.items.all()
+    if only_unsettled:
+        qs = qs.exclude(payment_status__in=[InvoiceItem.PaymentStatus.PAID, InvoiceItem.PaymentStatus.CANCELLED,
+                                             InvoiceItem.PaymentStatus.REFUNDED])
+    for item in qs:
+        item.payment_status = item_status
+        if item_status == InvoiceItem.PaymentStatus.CREDIT and user:
+            item.credit_approved_by = user
+            item.credit_approved_at = timezone.now()
+            item.credit_reason = reason
+        if item_status == InvoiceItem.PaymentStatus.CANCELLED and user:
+            item.cancelled_by = user
+            item.cancelled_at = timezone.now()
+            item.cancel_reason = reason
+        item.save()
 
 
 # ── Billing Dashboard ─────────────────────────────────────────────────────────
@@ -211,7 +253,11 @@ def invoice_detail(request, invoice_id):
         pk=invoice_id,
     )
     items = invoice.items.order_by('pk')
-    payments = invoice.payments.select_related('received_by').order_by('payment_date', 'created_at')
+    payments = (
+        invoice.payments.select_related('received_by')
+        .prefetch_related('allocations__invoice_item')
+        .order_by('payment_date', 'created_at')
+    )
 
     return render(request, 'billing/invoice_detail.html', {
         'invoice': invoice,
@@ -269,6 +315,9 @@ def invoice_delete_item(request, item_id):
     if invoice.status in [Invoice.Status.CANCELLED, Invoice.Status.PAID, Invoice.Status.WAIVED]:
         messages.error(request, 'Cannot remove items from a cancelled, paid, or waived invoice.')
         return redirect('invoice_detail', invoice_id=invoice.pk)
+    if not item.is_payable:
+        messages.error(request, 'Cannot remove an item that has already been paid, credited, cancelled, or refunded — use a refund instead.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
 
     with transaction.atomic():
         item.delete()
@@ -277,6 +326,151 @@ def invoice_delete_item(request, item_id):
         )
         invoice.save()
     messages.success(request, 'Item removed.')
+    return redirect('invoice_detail', invoice_id=invoice.pk)
+
+
+# ── Item-Level Credit Approval ─────────────────────────────────────────────────
+
+@hms_permission_required('core.approve_credit_invoice')
+@require_POST
+def invoice_item_credit_approve(request, item_id):
+    """Approve credit for a single billable item, independent of the rest
+    of the invoice — e.g. the CBC test is credit-approved while the X-ray
+    is still pending cash payment."""
+    item = get_object_or_404(InvoiceItem.objects.select_related('invoice'), pk=item_id)
+    invoice = item.invoice
+    reason = request.POST.get('reason', '').strip()
+
+    if not item.is_payable:
+        messages.error(request, f'"{item.description}" is already settled and cannot be credit-approved.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+    if not reason:
+        messages.error(request, 'A credit reason is required.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+
+    reference = f'CR-{item.pk}-{int(timezone.now().timestamp())}'
+    with transaction.atomic():
+        item.payment_status = InvoiceItem.PaymentStatus.CREDIT
+        item.credit_approved_by = request.user
+        item.credit_approved_at = timezone.now()
+        item.credit_reason = reason
+        item.save()
+        if invoice.payment_type != Invoice.PaymentType.CREDIT:
+            invoice.payment_type = Invoice.PaymentType.CREDIT
+        _recalc_invoice(invoice)
+
+    log_action(
+        request.user, AuditLog.Action.APPROVE, AuditLog.Module.BILLING,
+        object_type='InvoiceItem', object_id=item.pk, object_repr=item.description,
+        description=f'Credit approved for "{item.description}" (ETB {item.total}) on invoice {invoice.invoice_number}. Reason: {reason}. Ref: {reference}',
+        extra_data={
+            'invoice': invoice.invoice_number, 'patient': invoice.patient.full_name,
+            'amount': str(item.total), 'reference': reference,
+        },
+        request=request,
+    )
+    messages.success(request, f'Credit approved for "{item.description}".')
+    return redirect('invoice_detail', invoice_id=invoice.pk)
+
+
+# ── Item-Level Cancel ──────────────────────────────────────────────────────────
+
+@hms_permission_required('core.manage_billing')
+@require_POST
+def invoice_item_cancel(request, item_id):
+    """Cancel a single not-yet-paid billable item. The item stays on the
+    invoice for the audit trail but is excluded from the balance owed and
+    will never unlock its owning department order."""
+    item = get_object_or_404(InvoiceItem.objects.select_related('invoice'), pk=item_id)
+    invoice = item.invoice
+    reason = request.POST.get('reason', '').strip()
+
+    if item.payment_status == InvoiceItem.PaymentStatus.PAID:
+        messages.error(request, f'"{item.description}" has already been paid — refund it instead of cancelling.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+    if item.payment_status in (InvoiceItem.PaymentStatus.CANCELLED, InvoiceItem.PaymentStatus.REFUNDED):
+        messages.warning(request, f'"{item.description}" is already {item.payment_status.lower()}.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+    if not reason:
+        messages.error(request, 'A cancellation reason is required.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+
+    reference = f'CNL-{item.pk}-{int(timezone.now().timestamp())}'
+    with transaction.atomic():
+        item.payment_status = InvoiceItem.PaymentStatus.CANCELLED
+        item.cancelled_by = request.user
+        item.cancelled_at = timezone.now()
+        item.cancel_reason = reason
+        item.save()
+        _recalc_invoice(invoice)
+
+    log_action(
+        request.user, AuditLog.Action.CANCEL, AuditLog.Module.BILLING,
+        object_type='InvoiceItem', object_id=item.pk, object_repr=item.description,
+        description=f'Cancelled item "{item.description}" (ETB {item.total}) on invoice {invoice.invoice_number}. Reason: {reason}. Ref: {reference}',
+        extra_data={
+            'invoice': invoice.invoice_number, 'patient': invoice.patient.full_name,
+            'amount': str(item.total), 'reference': reference,
+        },
+        request=request,
+    )
+    messages.success(request, f'"{item.description}" cancelled.')
+    return redirect('invoice_detail', invoice_id=invoice.pk)
+
+
+# ── Item-Level Refund ──────────────────────────────────────────────────────────
+
+@hms_permission_required('core.manage_billing')
+@require_POST
+def invoice_item_refund(request, item_id):
+    """Refund all or part of what has been paid on a single item."""
+    item = get_object_or_404(InvoiceItem.objects.select_related('invoice'), pk=item_id)
+    invoice = item.invoice
+    reason = request.POST.get('reason', '').strip()
+
+    if item.paid_amount <= 0:
+        messages.error(request, f'"{item.description}" has no payment recorded to refund.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+    if not reason:
+        messages.error(request, 'A refund reason is required.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+
+    try:
+        amount = Decimal(request.POST.get('amount', str(item.paid_amount)))
+    except Exception:
+        messages.error(request, 'Invalid refund amount.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+
+    if amount <= 0 or amount > item.paid_amount:
+        messages.error(request, f'Refund amount must be between 0 and ETB {item.paid_amount:,.2f}.')
+        return redirect('invoice_detail', invoice_id=invoice.pk)
+
+    with transaction.atomic():
+        refund = InvoiceItemRefund.objects.create(
+            invoice_item=item, amount=amount, reason=reason,
+            reference_number=f'RFD-{item.pk}-{int(timezone.now().timestamp())}',
+            refunded_by=request.user,
+        )
+        item.paid_amount = item.paid_amount - amount
+        if item.paid_amount <= 0:
+            item.paid_amount = Decimal('0.00')
+            item.payment_status = InvoiceItem.PaymentStatus.REFUNDED
+        else:
+            item.payment_status = InvoiceItem.PaymentStatus.PARTIAL
+        item.save()
+        _recalc_invoice(invoice)
+
+    log_action(
+        request.user, AuditLog.Action.REFUND, AuditLog.Module.BILLING,
+        object_type='InvoiceItem', object_id=item.pk, object_repr=item.description,
+        description=f'Refunded ETB {amount:,.2f} for "{item.description}" on invoice {invoice.invoice_number}. Reason: {reason}',
+        extra_data={
+            'invoice': invoice.invoice_number, 'patient': invoice.patient.full_name,
+            'amount': str(amount), 'reference': refund.reference_number,
+        },
+        request=request,
+    )
+    messages.success(request, f'Refunded ETB {amount:,.2f} for "{item.description}".')
     return redirect('invoice_detail', invoice_id=invoice.pk)
 
 
@@ -299,7 +493,18 @@ def invoice_update_status(request, invoice_id):
 
     old_status = invoice.status
     invoice.status = new_status
-    invoice.save()
+
+    with transaction.atomic():
+        invoice.save()
+        # A whole-invoice Waive/Cancel must cascade to every still-unsettled
+        # item — department gating reads item.payment_status, not invoice.status.
+        if new_status == Invoice.Status.WAIVED:
+            _cascade_status_to_items(invoice, InvoiceItem.PaymentStatus.CREDIT, user=request.user,
+                                      reason='Invoice waived.')
+        elif new_status == Invoice.Status.CANCELLED:
+            _cascade_status_to_items(invoice, InvoiceItem.PaymentStatus.CANCELLED, user=request.user,
+                                      reason='Invoice cancelled.')
+
     action_map = {
         Invoice.Status.ISSUED:    AuditLog.Action.ISSUE,
         Invoice.Status.CANCELLED: AuditLog.Action.CANCEL,
@@ -311,7 +516,10 @@ def invoice_update_status(request, invoice_id):
         object_type='Invoice', object_id=invoice.pk, object_repr=invoice.invoice_number,
         description=f'Invoice {invoice.invoice_number} status changed: {old_status} → {new_status}',
         changes={'status': {'old': old_status, 'new': new_status}},
-        extra_data={'patient': invoice.patient.full_name, 'total': str(invoice.total_amount)},
+        extra_data={
+            'patient': invoice.patient.full_name, 'total': str(invoice.total_amount),
+            'reference': invoice.invoice_number,
+        },
         request=request,
     )
     messages.success(request, f'Status updated to "{new_status}".')
@@ -333,11 +541,49 @@ def payment_create(request, invoice_id):
     if request.method == 'POST':
         data = request.POST
         try:
+            item_ids = data.getlist('item_ids')
+            if not item_ids:
+                raise ValueError('Select at least one item to pay for.')
+
+            selected_items = list(
+                invoice.items.filter(pk__in=item_ids).order_by('pk')
+            )
+            if len(selected_items) != len(set(item_ids)):
+                raise ValueError('One or more selected items could not be found on this invoice.')
+            not_payable = [i for i in selected_items if not i.is_payable]
+            if not_payable:
+                names = ', '.join(i.description for i in not_payable)
+                raise ValueError(f'These items are already settled and cannot be paid again: {names}.')
+
+            selected_balance = sum(i.balance for i in selected_items)
+
+            # ── Service charge (server-authoritative — never trust the client) ──
+            sc_settings = ServiceChargeSettings.get_solo()
+            sc_item_ids = set()
+            if sc_settings.enabled:
+                if sc_settings.allow_cashier_override:
+                    sc_item_ids = {int(pk) for pk in data.getlist('service_charge_item_ids') if pk.isdigit()}
+                else:
+                    sc_item_ids = {
+                        i.pk for i in selected_items
+                        if sc_settings.default_checked_for(i.service_type)
+                    }
+            sc_rate = sc_settings.percentage / Decimal('100') if sc_settings.enabled else Decimal('0')
+            sc_items = [i for i in selected_items if i.pk in sc_item_ids]
+            service_charge_amount = (
+                (sum(i.balance for i in sc_items) * sc_rate).quantize(Decimal('0.01'))
+                if sc_items else Decimal('0.00')
+            )
+
             amount = Decimal(data.get('amount', '0'))
             if amount <= 0:
                 raise ValueError('Payment amount must be greater than zero.')
-            if amount > invoice.balance:
-                raise ValueError(f'Amount (ETB {amount:,.2f}) exceeds the balance due (ETB {invoice.balance:,.2f}).')
+            grand_total = selected_balance + service_charge_amount
+            if amount > grand_total:
+                raise ValueError(
+                    f'Amount (ETB {amount:,.2f}) exceeds the total of selected items plus '
+                    f'service charge (ETB {grand_total:,.2f}).'
+                )
 
             method = data.get('payment_method', Payment.Method.CASH)
             cash_received = None
@@ -375,13 +621,68 @@ def payment_create(request, invoice_id):
                     payment_date=data.get('payment_date') or timezone.localdate(),
                     notes=data.get('notes', '').strip(),
                 )
+
+                # Allocate the payment across selected items, in order, until
+                # the amount runs out — each item is settled fully before
+                # moving to the next, and any item not fully covered is left
+                # Partially Paid rather than guessed at proportionally.
+                remaining = amount
+                paid_items_desc = []
+                for item in selected_items:
+                    if remaining <= 0:
+                        break
+                    item_balance = item.balance
+                    if item_balance <= 0:
+                        continue
+                    pay_now = min(remaining, item_balance)
+                    item.paid_amount = item.paid_amount + pay_now
+                    item.payment_status = (
+                        InvoiceItem.PaymentStatus.PAID if item.paid_amount >= item.total
+                        else InvoiceItem.PaymentStatus.PARTIAL
+                    )
+                    item.save()
+                    PaymentAllocation.objects.create(payment=payment, invoice_item=item, amount=pay_now)
+                    paid_items_desc.append(f'{item.description} (ETB {pay_now:,.2f})')
+                    remaining -= pay_now
+
+                # Whatever is left after fully settling the selected items
+                # (up to the service charge owed) becomes a dedicated,
+                # separately-tracked "Service Charge" invoice item — same
+                # partial-payment machinery as any other item.
+                sc_item = None
+                sc_paid_now = Decimal('0.00')
+                if service_charge_amount > 0 and remaining > 0:
+                    sc_paid_now = min(remaining, service_charge_amount)
+                    sc_names = ', '.join(i.description for i in sc_items)
+                    sc_item = InvoiceItem.objects.create(
+                        invoice=invoice,
+                        description=f'{sc_settings.charge_name} ({sc_settings.percentage}%) — {sc_names}',
+                        service_type=InvoiceItem.ServiceType.SERVICE_CHARGE,
+                        quantity=1,
+                        unit_price=service_charge_amount,
+                        paid_amount=sc_paid_now,
+                        payment_status=(
+                            InvoiceItem.PaymentStatus.PAID if sc_paid_now >= service_charge_amount
+                            else InvoiceItem.PaymentStatus.PARTIAL
+                        ),
+                    )
+                    invoice.total_amount = invoice.total_amount + service_charge_amount
+                    invoice.save(update_fields=['total_amount'])
+                    PaymentAllocation.objects.create(payment=payment, invoice_item=sc_item, amount=sc_paid_now)
+                    remaining -= sc_paid_now
+
                 _recalc_invoice(invoice)
 
             log_action(
                 request.user, AuditLog.Action.PAYMENT, AuditLog.Module.PAYMENT,
                 object_type='Payment', object_id=payment.pk,
                 object_repr=f'{invoice.invoice_number} / {payment.receipt_number}',
-                description=f'Payment ETB {amount:,.2f} ({method}) for invoice {invoice.invoice_number} — patient {invoice.patient.full_name}',
+                description=(
+                    f'Payment ETB {amount:,.2f} ({method}) for invoice {invoice.invoice_number} '
+                    f'— patient {invoice.patient.full_name} — items: {"; ".join(paid_items_desc)}'
+                    + (f' — service charge ETB {sc_paid_now:,.2f} of ETB {service_charge_amount:,.2f}'
+                       f' ({sc_settings.percentage}%) applied to: {sc_names}' if sc_item else '')
+                ),
                 extra_data={
                     'invoice': invoice.invoice_number,
                     'patient': invoice.patient.full_name,
@@ -390,6 +691,11 @@ def payment_create(request, invoice_id):
                     'receipt': payment.receipt_number,
                     'cash_received': str(cash_received) if cash_received else None,
                     'change_given': str(change_given) if change_given else None,
+                    'items_paid': paid_items_desc,
+                    'service_charge_percentage': str(sc_settings.percentage) if sc_item else None,
+                    'service_charge_amount': str(service_charge_amount) if sc_item else None,
+                    'service_charge_collected': str(sc_paid_now) if sc_item else None,
+                    'service_charge_items': [i.description for i in sc_items] if sc_item else [],
                 },
                 request=request,
             )
@@ -402,6 +708,21 @@ def payment_create(request, invoice_id):
                     advance_to_payment_completed(invoice.visit, performed_by=request.user, invoice=invoice)
                 except Exception:
                     pass
+                # Notify pharmacy: mark linked prescriptions as PAID
+                try:
+                    from .models import Prescription as Rx
+                    Rx.objects.filter(
+                        invoice=invoice,
+                        billing_status=Rx.BillingStatus.PENDING_PAYMENT,
+                    ).update(billing_status=Rx.BillingStatus.PAID)
+                except Exception:
+                    pass
+
+            try:
+                from .notifications import notify_payment_completed
+                notify_payment_completed(invoice, sender_user=request.user)
+            except Exception:
+                pass
 
             # Support ?return_to=split to go back to split view after payment
             if request.GET.get('return_to') == 'split':
@@ -413,8 +734,11 @@ def payment_create(request, invoice_id):
             messages.error(request, f'Error processing payment: {exc}')
 
     return_to = request.GET.get('return_to', '')
-    items = invoice.items.order_by('pk')
-    prior_payments = invoice.payments.select_related('received_by').order_by('created_at')
+    items = list(invoice.items.order_by('pk'))
+    sc_settings = ServiceChargeSettings.get_solo()
+    for item in items:
+        item.sc_default_checked = sc_settings.default_checked_for(item.service_type)
+    prior_payments = invoice.payments.select_related('received_by').prefetch_related('allocations__invoice_item').order_by('created_at')
     return render(request, 'billing/payment_form.html', {
         'invoice': invoice,
         'items': items,
@@ -422,6 +746,7 @@ def payment_create(request, invoice_id):
         'payment_methods': Payment.Method.choices,
         'today': timezone.localdate(),
         'return_to': return_to,
+        'sc_settings': sc_settings,
     })
 
 
@@ -432,14 +757,19 @@ def invoice_receipt(request, invoice_id, payment_id):
     invoice = get_object_or_404(
         Invoice.objects.select_related('patient', 'visit', 'created_by'), pk=invoice_id
     )
-    payment = get_object_or_404(invoice.payments.select_related('received_by'), pk=payment_id)
+    payment = get_object_or_404(
+        invoice.payments.select_related('received_by').prefetch_related('allocations__invoice_item'),
+        pk=payment_id,
+    )
     items = invoice.items.order_by('pk')
     all_payments = invoice.payments.select_related('received_by').order_by('created_at')
+    payment_allocations = payment.allocations.all()
     return render(request, 'billing/receipt.html', {
         'invoice': invoice,
         'payment': payment,
         'items': items,
         'all_payments': all_payments,
+        'payment_allocations': payment_allocations,
         'now': timezone.now(),
     })
 
@@ -528,14 +858,26 @@ def credit_approve(request, invoice_id):
         messages.error(request, 'Only Credit Pending invoices can be approved.')
         return redirect('invoice_detail', invoice_id=invoice.pk)
 
-    invoice.credit_approved_by = request.user
-    invoice.credit_approved_at = timezone.now()
-    invoice.save()
+    with transaction.atomic():
+        invoice.credit_approved_by = request.user
+        invoice.credit_approved_at = timezone.now()
+        invoice.save()
+        # Approving credit for the whole invoice clears whatever is still
+        # unpaid — items already settled by cash stay Paid.
+        _cascade_status_to_items(
+            invoice, InvoiceItem.PaymentStatus.CREDIT, user=request.user,
+            reason=invoice.credit_reason or 'Whole-invoice credit approved.',
+        )
+        _recalc_invoice(invoice)
+
     log_action(
         request.user, AuditLog.Action.APPROVE, AuditLog.Module.BILLING,
         object_type='Invoice', object_id=invoice.pk, object_repr=invoice.invoice_number,
         description=f'Credit invoice {invoice.invoice_number} approved — {invoice.patient.full_name}',
-        extra_data={'patient': invoice.patient.full_name, 'total': str(invoice.total_amount)},
+        extra_data={
+            'patient': invoice.patient.full_name, 'total': str(invoice.total_amount),
+            'reference': invoice.invoice_number,
+        },
         request=request,
     )
     messages.success(request, f'Credit invoice {invoice.invoice_number} approved.')
@@ -957,4 +1299,64 @@ def invoice_panel_unpaid(request):
         'can_pay': request.user.has_perm('core.process_payment'),
         'can_edit': request.user.has_perm('core.create_invoice'),
         'can_manage': request.user.has_perm('core.manage_billing'),
+    })
+
+
+# ── Service Charge Settings (Administrator) ─────────────────────────────────
+
+@hms_permission_required('core.system_configuration')
+def service_charge_settings_edit(request):
+    sc_settings = ServiceChargeSettings.get_solo()
+    service_types = InvoiceItem.ServiceType.choices
+
+    if request.method == 'POST':
+        old = {
+            'enabled': sc_settings.enabled,
+            'percentage': str(sc_settings.percentage),
+            'charge_name': sc_settings.charge_name,
+            'allow_cashier_override': sc_settings.allow_cashier_override,
+            'default_disabled_service_types': list(sc_settings.default_disabled_service_types),
+        }
+        try:
+            percentage = Decimal(request.POST.get('percentage', '4.00'))
+            if percentage < 0 or percentage > 100:
+                raise ValueError('Percentage must be between 0 and 100.')
+            charge_name = request.POST.get('charge_name', '').strip() or 'Service Charge'
+            disabled_types = request.POST.getlist('disabled_service_types')
+            valid_types = {v for v, _ in service_types}
+            disabled_types = [t for t in disabled_types if t in valid_types]
+
+            sc_settings.enabled = bool(request.POST.get('enabled'))
+            sc_settings.percentage = percentage
+            sc_settings.charge_name = charge_name
+            sc_settings.allow_cashier_override = bool(request.POST.get('allow_cashier_override'))
+            sc_settings.default_disabled_service_types = disabled_types
+            sc_settings.updated_by = request.user
+            sc_settings.save()
+
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.BILLING,
+                object_type='ServiceChargeSettings', object_id=sc_settings.pk,
+                object_repr='Service Charge Settings',
+                description='Service Charge Settings updated',
+                changes={
+                    'enabled': {'old': old['enabled'], 'new': sc_settings.enabled},
+                    'percentage': {'old': old['percentage'], 'new': str(sc_settings.percentage)},
+                    'charge_name': {'old': old['charge_name'], 'new': sc_settings.charge_name},
+                    'allow_cashier_override': {'old': old['allow_cashier_override'], 'new': sc_settings.allow_cashier_override},
+                    'default_disabled_service_types': {
+                        'old': old['default_disabled_service_types'],
+                        'new': sc_settings.default_disabled_service_types,
+                    },
+                },
+                request=request,
+            )
+            messages.success(request, 'Service Charge Settings updated successfully.')
+            return redirect('service_charge_settings_edit')
+        except (ValueError, ArithmeticError) as exc:
+            messages.error(request, f'Error updating settings: {exc}')
+
+    return render(request, 'billing/service_charge_settings.html', {
+        'sc_settings': sc_settings,
+        'service_types': service_types,
     })

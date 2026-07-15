@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Laboratory Test Master List{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Laboratory Test Master List</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ total }} test{{ total|pluralize }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="?category={{ category_f }}&active={{ active_f }}&export=csv" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">CSV</a>
+      <a href="?category={{ category_f }}&active={{ active_f }}&export=excel" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">Excel</a>
+      <button onclick="window.print()" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium rounded-lg transition no-print">Print</button>
+    </div>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 no-print">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
+        <select name="category" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <option value="">All Categories</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}" {% if category_f == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Status</label>
+        <select name="active" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <option value="">All</option>
+          <option value="1" {% if active_f == '1' %}selected{% endif %}>Active Only</option>
+          <option value="0" {% if active_f == '0' %}selected{% endif %}>Inactive Only</option>
+        </select>
+      </div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Filter</button>
+    </div>
+  </form>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="overflow-x-auto">
+      {% if services %}
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <tr>
+            <th class="text-left px-4 py-3">Code</th>
+            <th class="text-left px-4 py-3">Name</th>
+            <th class="text-left px-4 py-3">Category</th>
+            <th class="text-left px-4 py-3">Panel</th>
+            <th class="text-left px-4 py-3">Specimen</th>
+            <th class="text-left px-4 py-3">Unit</th>
+            <th class="text-left px-4 py-3">Reference Range</th>
+            <th class="text-right px-4 py-3">TAT (h)</th>
+            <th class="text-right px-4 py-3">Price</th>
+            <th class="text-center px-4 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+          {% for s in services %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+            <td class="px-4 py-2.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ s.code }}</td>
+            <td class="px-4 py-2.5"><a href="{% url 'lab_service_detail' s.pk %}" class="font-medium text-gray-900 dark:text-white hover:text-blue-600">{{ s.name }}</a></td>
+            <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400">{{ s.category.name|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-400">{{ s.panel.name|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ s.get_sample_type_display }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ s.unit_of_measurement|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ s.reference_range|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">{{ s.turnaround_hours }}</td>
+            <td class="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{{ s.standard_price }}</td>
+            <td class="px-4 py-2.5 text-center">
+              {% if s.is_active %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>
+              {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Inactive</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="text-center py-16 text-gray-400 dark:text-gray-500"><p class="text-sm">No tests found.</p></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Record Consumable Usage — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'visit_detail' visit.id %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    </a>
+    <div>
+      <h1 class="text-xl font-bold text-gray-900 dark:text-white">Record Consumable Usage</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">{{ visit.patient.full_name }} &middot; {{ visit.patient.card_number }}</p>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not store %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300">
+    No active ward store is configured yet — ask an administrator to set one up before recording consumable usage.
+  </div>
+  {% else %}
+  <form method="post" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="store" value="{{ store.id }}">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ward Store</label>
+      <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ store.name }}</p>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Consumable <span class="text-red-500">*</span></label>
+      <select name="inventory_item" required class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        <option value="">Select item</option>
+        {% for c in consumables %}<option value="{{ c.id }}">{{ c.name }}{% if c.is_billable %} (billable — ETB {{ c.selling_price }}){% endif %}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Quantity <span class="text-red-500">*</span></label>
+      <input type="number" name="quantity" min="1" required class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reason / Notes</label>
+      <input type="text" name="reason" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <p class="text-xs text-gray-400">Billable items are automatically added to the patient's invoice at the catalog selling price.</p>
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold rounded-lg transition">Record Usage</button>
+      <a href="{% url 'visit_detail' visit.id %}" class="px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

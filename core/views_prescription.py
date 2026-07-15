@@ -2,6 +2,7 @@
 Electronic Prescription Workflow
 Doctor → Pharmacy → Inventory → Billing → Patient
 """
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -15,10 +16,11 @@ from django.views.decorators.http import require_POST
 
 from .audit import log_action
 from .decorators import hms_permission_required
+from .inventory_bridge import record_pharmacy_stock_transaction
 from .models import (
     AuditLog, Dispensing, Invoice, InvoiceItem, MAREntry, Medication,
     MedicationBatch, Patient, PharmacyStock, Prescription, PrescriptionItem,
-    RxDispenseRecord, Visit,
+    RxDispenseRecord, StockTransaction, Visit,
 )
 
 
@@ -248,6 +250,13 @@ def prescription_send(request, rx_id):
         description=f'Prescription {rx.prescription_number} sent to pharmacy for {rx.patient.full_name}',
         request=request,
     )
+
+    try:
+        from .notifications import notify_new_prescription
+        notify_new_prescription(rx, sender_user=request.user)
+    except Exception:
+        pass
+
     messages.success(request, f'Prescription {rx.prescription_number} sent to pharmacy.')
     return redirect('prescription_detail', rx_id=rx_id)
 
@@ -625,7 +634,7 @@ def rx_dispense(request, rx_id):
                                 f"{item.drug_name} ({item.dose}, {item.get_frequency_display()}) "
                                 f"— Rx {rx.prescription_number}"
                             )
-                            InvoiceItem.objects.create(
+                            inv_item = InvoiceItem.objects.create(
                                 invoice=invoice,
                                 description=item_desc[:255],
                                 service_type='Medication',
@@ -633,14 +642,25 @@ def rx_dispense(request, rx_id):
                                 unit_price=unit_price,
                                 total=unit_price * qty,
                             )
+                            # Link prescription item → invoice item
+                            item.invoice_item = inv_item
+                            item.unit_price = unit_price
+                            item.save(update_fields=['invoice_item', 'unit_price'])
                             invoice.total_amount = (
                                 invoice.items.aggregate(t=Sum('total'))['t'] or Decimal('0')
                             )
                             invoice.save(update_fields=['total_amount', 'updated_at'])
 
-                    # Prescription stays Ready — charges billed, awaiting payment
-                    rx.status = Prescription.Status.READY
-                    rx.save(update_fields=['status', 'updated_at'])
+                    # Move prescription to "Waiting for Payment"
+                    billed_total = Decimal('0')
+                    for row in dispense_rows:
+                        billed_total += row['unit_price'] * row['qty']
+                    rx.status = Prescription.Status.WAITING_PAYMENT
+                    rx.billing_status = Prescription.BillingStatus.PENDING_PAYMENT
+                    rx.billing_amount = billed_total
+                    if invoice:
+                        rx.invoice = invoice
+                    rx.save(update_fields=['status', 'billing_status', 'billing_amount', 'invoice', 'updated_at'])
 
                 log_action(
                     request.user, AuditLog.Action.CREATE, AuditLog.Module.BILLING,
@@ -678,37 +698,45 @@ def rx_print(request, rx_id):
 @hms_permission_required('core.dispense_medication')
 @require_POST
 def rx_confirm_dispense(request, rx_id):
-    """Physically release medications and deduct inventory after payment is confirmed."""
+    """Physically release medications and deduct inventory after payment is
+    confirmed — checked per medication line item, not the whole prescription.
+    A whole-prescription credit approval (rx_credit_approve) still unlocks
+    everything; otherwise each item only dispenses once ITS OWN invoice item
+    is Paid or Credit Approved."""
     rx = _get_rx(rx_id)
 
-    # Find the visit invoice and verify payment
-    invoice = None
-    if rx.visit_id:
-        invoice = Invoice.objects.filter(
-            visit=rx.visit,
-            status__in=['Paid', 'Overpaid', 'Waived', 'Partial', 'Credit Pending'],
-        ).first()
-
-    if not invoice:
-        messages.error(
-            request,
-            'Cannot confirm dispensing: no paid invoice found for this visit. '
-            'Please ensure the patient has paid at the billing counter.'
-        )
-        return redirect('rx_detail', rx_id=rx_id)
+    credit_approved_whole_rx = rx.billing_status == Prescription.BillingStatus.CREDIT_APPROVED
 
     pending_records = RxDispenseRecord.objects.filter(
         prescription_item__prescription=rx,
         stock_confirmed=False,
-    ).select_related('medication_batch', 'pharmacy_stock', 'prescription_item')
+    ).select_related('medication_batch', 'pharmacy_stock', 'prescription_item__invoice_item')
 
     if not pending_records.exists():
         messages.info(request, 'No pending dispense records found — medications may already be dispensed.')
         return redirect('rx_detail', rx_id=rx_id)
 
+    unpaid_drug_names = []
+    processed_any = False
+
     try:
         with transaction.atomic():
-            for rec in pending_records.select_for_update():
+            # of=('self',) scopes the row lock to RxDispenseRecord's own
+            # table only — medication_batch/pharmacy_stock are nullable FKs,
+            # and select_related() joins them as LEFT OUTER JOINs; Postgres
+            # rejects "FOR UPDATE" on the nullable side of an outer join, so
+            # locking the whole joined row set (the default) fails outright
+            # whenever a record uses pharmacy_stock instead of
+            # medication_batch (or vice versa).
+            for rec in pending_records.select_for_update(of=('self',)):
+                item = rec.prescription_item
+                item_cleared = credit_approved_whole_rx or (
+                    item.invoice_item_id and item.invoice_item.payment_cleared
+                )
+                if not item_cleared:
+                    unpaid_drug_names.append(item.drug_name)
+                    continue
+
                 qty = rec.quantity_dispensed
                 if rec.medication_batch_id:
                     b = rec.medication_batch
@@ -719,6 +747,20 @@ def rx_confirm_dispense(request, rx_id):
                         )
                     b.quantity_available -= qty
                     b.save(update_fields=['quantity_available'])
+                    StockTransaction.objects.create(
+                        medication=b.medication,
+                        batch=b,
+                        transaction_type=StockTransaction.TxType.DISPENSE,
+                        quantity_out=qty,
+                        balance_after=b.medication.current_stock,
+                        unit_cost=b.purchase_price,
+                        total_value=b.purchase_price * qty,
+                        reference_number=f'DISP-RX-{rx.pk}',
+                        notes=f'Dispensed for {rx.patient.full_name} (Rx {rx.prescription_number}).',
+                        patient=rx.patient,
+                        performed_by=request.user,
+                        transaction_date=timezone.now(),
+                    )
 
                 elif rec.pharmacy_stock_id:
                     s = rec.pharmacy_stock
@@ -729,18 +771,26 @@ def rx_confirm_dispense(request, rx_id):
                         )
                     s.quantity_in_stock -= qty
                     s.save(update_fields=['quantity_in_stock'])
+                    record_pharmacy_stock_transaction(
+                        s, StockTransaction.TxType.DISPENSE, request.user,
+                        qty_out=qty,
+                        reference=f'DISP-RX-{rx.pk}',
+                        notes=f'Dispensed for {rx.patient.full_name} (Rx {rx.prescription_number}).',
+                        patient=rx.patient,
+                    )
 
                 rec.stock_confirmed = True
                 rec.confirmed_by = request.user
                 rec.confirmed_at = timezone.now()
                 rec.save(update_fields=['stock_confirmed', 'confirmed_by', 'confirmed_at'])
 
-                item = rec.prescription_item
                 if item.quantity_dispensed >= item.quantity:
                     item.status = PrescriptionItem.Status.DISPENSED
+                    generate_mar_entries(item, timezone.now())
                 else:
                     item.status = PrescriptionItem.Status.PARTIAL
                 item.save(update_fields=['status'])
+                processed_any = True
 
             # Update prescription overall status
             all_items = list(rx.items.all())
@@ -753,6 +803,14 @@ def rx_confirm_dispense(request, rx_id):
                 rx.status = Prescription.Status.PARTIAL
             rx.save(update_fields=['status', 'updated_at'])
 
+        if not processed_any:
+            messages.error(
+                request,
+                'Cannot dispense: payment not confirmed for any pending item. '
+                'The patient must pay at the billing counter, or a credit approval must be granted.'
+            )
+            return redirect('rx_detail', rx_id=rx_id)
+
         log_action(
             request.user, AuditLog.Action.DISPENSE, AuditLog.Module.PHARMACY,
             object_type='Prescription', object_id=rx.pk,
@@ -760,13 +818,20 @@ def rx_confirm_dispense(request, rx_id):
             description=(
                 f'Medications dispensed for Rx {rx.prescription_number} '
                 f'— {rx.patient.full_name} (payment confirmed, inventory deducted)'
+                + (f'. Skipped (unpaid): {", ".join(unpaid_drug_names)}' if unpaid_drug_names else '')
             ),
             request=request,
         )
-        messages.success(
-            request,
-            f'Medications dispensed for {rx.prescription_number}. Inventory updated.'
-        )
+        if unpaid_drug_names:
+            messages.warning(
+                request,
+                f'Dispensed paid items. Still waiting on payment for: {", ".join(unpaid_drug_names)}.'
+            )
+        else:
+            messages.success(
+                request,
+                f'Medications dispensed for {rx.prescription_number}. Inventory updated.'
+            )
     except Exception as exc:
         messages.error(request, f'Error confirming dispense: {exc}')
 
@@ -774,6 +839,50 @@ def rx_confirm_dispense(request, rx_id):
 
 
 # ── MAR (Medication Administration Record) ────────────────────────────────────
+
+# Scheduled dose times (24h) per frequency — a reasonable, evenly-spaced
+# default nursing schedule. STAT and PRN are handled separately below (STAT
+# is a single immediate dose; PRN has no fixed schedule — a nurse records it
+# as-needed rather than against a pre-generated slot).
+FREQUENCY_SCHEDULE = {
+    PrescriptionItem.Frequency.ONCE_DAILY:  [8],
+    PrescriptionItem.Frequency.TWICE_DAILY: [8, 20],
+    PrescriptionItem.Frequency.THREE_DAILY: [8, 14, 20],
+    PrescriptionItem.Frequency.FOUR_DAILY:  [6, 12, 18, 22],
+    PrescriptionItem.Frequency.EVERY_8H:    [6, 14, 22],
+    PrescriptionItem.Frequency.EVERY_12H:   [8, 20],
+    PrescriptionItem.Frequency.AT_BEDTIME:  [21],
+}
+
+
+def generate_mar_entries(item, dispensed_at):
+    """Create the scheduled MAREntry rows for a just-dispensed
+    PrescriptionItem, based on its frequency and duration — this is what
+    populates the nurse's Medication Administration Record; nothing else in
+    the codebase creates these rows. Only future/current dose times (at or
+    after the moment of dispensing) are scheduled, so a medication dispensed
+    mid-afternoon doesn't get a "Scheduled" entry for a time earlier that day.
+    """
+    if item.frequency == PrescriptionItem.Frequency.PRN:
+        return []
+    if item.frequency == PrescriptionItem.Frequency.STAT:
+        return [MAREntry.objects.create(
+            prescription_item=item, visit=item.prescription.visit, scheduled_time=dispensed_at,
+        )]
+
+    hours = FREQUENCY_SCHEDULE.get(item.frequency, [8, 20])
+    duration = item.duration_days or 1
+    candidates = [
+        (dispensed_at + timedelta(days=day_offset)).replace(hour=h, minute=0, second=0, microsecond=0)
+        for day_offset in range(duration)
+        for h in hours
+    ]
+    scheduled_times = sorted(dt for dt in candidates if dt >= dispensed_at)
+    return MAREntry.objects.bulk_create([
+        MAREntry(prescription_item=item, visit=item.prescription.visit, scheduled_time=dt)
+        for dt in scheduled_times
+    ])
+
 
 @hms_permission_required('core.record_vital_signs')
 def mar_list(request, visit_id):
@@ -816,3 +925,226 @@ def mar_update(request, entry_id):
         messages.error(request, 'Invalid status.')
 
     return redirect('mar_list', visit_id=entry.visit_id)
+
+
+# ── Credit Approval ───────────────────────────────────────────────────────────
+
+@hms_permission_required('core.manage_billing')
+@require_POST
+def rx_credit_approve(request, rx_id):
+    """Grant credit dispensing approval so pharmacy can dispense without upfront payment."""
+    rx = get_object_or_404(Prescription, pk=rx_id)
+    reason = request.POST.get('reason', '').strip()
+
+    if rx.billing_status == Prescription.BillingStatus.CREDIT_APPROVED:
+        messages.info(request, 'Credit already approved for this prescription.')
+        return redirect('rx_detail', rx_id=rx_id)
+
+    if rx.billing_status not in (
+        Prescription.BillingStatus.PENDING_PAYMENT,
+        Prescription.BillingStatus.NOT_BILLED,
+    ):
+        messages.error(request, f'Cannot approve credit: billing status is {rx.billing_status}.')
+        return redirect('rx_detail', rx_id=rx_id)
+
+    rx.billing_status = Prescription.BillingStatus.CREDIT_APPROVED
+    rx.credit_approved_by = request.user
+    rx.credit_approved_at = timezone.now()
+    rx.credit_reason = reason
+    rx.save(update_fields=['billing_status', 'credit_approved_by', 'credit_approved_at', 'credit_reason', 'updated_at'])
+
+    log_action(
+        request.user, AuditLog.Action.APPROVE, AuditLog.Module.BILLING,
+        object_type='Prescription', object_id=rx.pk,
+        object_repr=rx.prescription_number,
+        description=f'Credit dispensing approved for Rx {rx.prescription_number} — {rx.patient.full_name}. Reason: {reason or "Not specified"}',
+        request=request,
+    )
+    messages.success(request, f'Credit approved. Pharmacy can now dispense {rx.prescription_number}.')
+    return redirect('rx_detail', rx_id=rx_id)
+
+
+@hms_permission_required('core.manage_billing')
+@require_POST
+def rx_credit_revoke(request, rx_id):
+    """Revoke credit approval — patient must pay before dispensing."""
+    rx = get_object_or_404(Prescription, pk=rx_id)
+    if rx.billing_status == Prescription.BillingStatus.CREDIT_APPROVED:
+        rx.billing_status = Prescription.BillingStatus.PENDING_PAYMENT
+        rx.save(update_fields=['billing_status', 'updated_at'])
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.BILLING,
+            object_type='Prescription', object_id=rx.pk,
+            object_repr=rx.prescription_number,
+            description=f'Credit approval revoked for Rx {rx.prescription_number}',
+            request=request,
+        )
+        messages.warning(request, 'Credit approval revoked. Payment required before dispensing.')
+    return redirect('rx_detail', rx_id=rx_id)
+
+
+# ── Pharmacy Billing Reports ──────────────────────────────────────────────────
+
+import csv
+from django.db.models import Count
+from django.http import HttpResponse
+
+
+@hms_permission_required('core.view_billing_reports')
+def report_medication_revenue(request):
+    """Medication revenue by drug name within a date range."""
+    import datetime
+    today = timezone.localdate()
+    date_from_str = request.GET.get('date_from', str(today.replace(day=1)))
+    date_to_str   = request.GET.get('date_to',   str(today))
+    try:
+        date_from = datetime.date.fromisoformat(date_from_str)
+        date_to   = datetime.date.fromisoformat(date_to_str)
+    except (ValueError, TypeError):
+        date_from, date_to = today.replace(day=1), today
+
+    from .models import RxDispenseRecord
+    rows = (
+        RxDispenseRecord.objects
+        .filter(dispensed_at__date__gte=date_from, dispensed_at__date__lte=date_to, stock_confirmed=True)
+        .values('prescription_item__drug_name')
+        .annotate(
+            qty_dispensed=Sum('quantity_dispensed'),
+            revenue=Sum('total_amount'),
+            dispense_count=Count('id'),
+        )
+        .order_by('-revenue')
+    )
+
+    if request.GET.get('export') == 'csv':
+        resp = HttpResponse(content_type='text/csv')
+        resp['Content-Disposition'] = f'attachment; filename="med_revenue_{date_from}_to_{date_to}.csv"'
+        w = csv.writer(resp)
+        w.writerow(['Drug Name', 'Qty Dispensed', 'Dispense Count', 'Revenue (ETB)'])
+        for r in rows:
+            w.writerow([r['prescription_item__drug_name'], r['qty_dispensed'], r['dispense_count'], r['revenue'] or 0])
+        return resp
+
+    grand_revenue = sum(r['revenue'] or 0 for r in rows)
+    grand_qty = sum(r['qty_dispensed'] or 0 for r in rows)
+    return render(request, 'pharmacy/reports/revenue.html', {
+        'rows': list(rows), 'date_from': date_from, 'date_to': date_to,
+        'date_from_str': date_from_str, 'date_to_str': date_to_str,
+        'grand_revenue': grand_revenue, 'grand_qty': grand_qty,
+    })
+
+
+@hms_permission_required('core.view_billing_reports')
+def report_medication_payments(request):
+    """Prescriptions grouped by billing/payment status."""
+    import datetime
+    today = timezone.localdate()
+    date_from_str = request.GET.get('date_from', str(today.replace(day=1)))
+    date_to_str   = request.GET.get('date_to',   str(today))
+    status_f      = request.GET.get('billing_status', '')
+    try:
+        date_from = datetime.date.fromisoformat(date_from_str)
+        date_to   = datetime.date.fromisoformat(date_to_str)
+    except (ValueError, TypeError):
+        date_from, date_to = today.replace(day=1), today
+
+    qs = (
+        Prescription.objects
+        .filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+        .exclude(billing_status=Prescription.BillingStatus.NOT_BILLED)
+        .select_related('patient', 'prescribed_by', 'invoice')
+        .order_by('-created_at')
+    )
+    if status_f:
+        qs = qs.filter(billing_status=status_f)
+
+    totals = {
+        'paid': qs.filter(billing_status=Prescription.BillingStatus.PAID).aggregate(t=Sum('billing_amount'))['t'] or 0,
+        'pending': qs.filter(billing_status=Prescription.BillingStatus.PENDING_PAYMENT).aggregate(t=Sum('billing_amount'))['t'] or 0,
+        'credit': qs.filter(billing_status=Prescription.BillingStatus.CREDIT_APPROVED).aggregate(t=Sum('billing_amount'))['t'] or 0,
+    }
+
+    return render(request, 'pharmacy/reports/payments.html', {
+        'prescriptions': qs,
+        'date_from': date_from, 'date_to': date_to,
+        'date_from_str': date_from_str, 'date_to_str': date_to_str,
+        'status_f': status_f,
+        'billing_status_choices': Prescription.BillingStatus.choices,
+        'totals': totals,
+    })
+
+
+@hms_permission_required('core.view_billing_reports')
+def report_patient_medication(request):
+    """Per-patient medication billing summary."""
+    import datetime
+    today = timezone.localdate()
+    date_from_str = request.GET.get('date_from', str(today.replace(day=1)))
+    date_to_str   = request.GET.get('date_to',   str(today))
+    search_q      = request.GET.get('q', '').strip()
+    try:
+        date_from = datetime.date.fromisoformat(date_from_str)
+        date_to   = datetime.date.fromisoformat(date_to_str)
+    except (ValueError, TypeError):
+        date_from, date_to = today.replace(day=1), today
+
+    from .models import RxDispenseRecord
+    qs = (
+        RxDispenseRecord.objects
+        .filter(dispensed_at__date__gte=date_from, dispensed_at__date__lte=date_to)
+        .select_related(
+            'prescription_item__prescription__patient',
+            'prescription_item__prescription',
+            'dispensed_by',
+        )
+        .order_by('prescription_item__prescription__patient', '-dispensed_at')
+    )
+    if search_q:
+        qs = qs.filter(
+            Q(prescription_item__prescription__patient__first_name__icontains=search_q) |
+            Q(prescription_item__prescription__patient__last_name__icontains=search_q) |
+            Q(prescription_item__prescription__prescription_number__icontains=search_q)
+        )
+
+    if request.GET.get('export') == 'csv':
+        resp = HttpResponse(content_type='text/csv')
+        resp['Content-Disposition'] = f'attachment; filename="patient_medication_{date_from}_to_{date_to}.csv"'
+        w = csv.writer(resp)
+        w.writerow(['Patient', 'Prescription', 'Drug', 'Qty', 'Unit Price', 'Total (ETB)', 'Date'])
+        for rec in qs:
+            pt = rec.prescription_item.prescription.patient.full_name
+            rx_num = rec.prescription_item.prescription.prescription_number
+            w.writerow([pt, rx_num, rec.prescription_item.drug_name, rec.quantity_dispensed,
+                        rec.unit_price, rec.total_amount, rec.dispensed_at.strftime('%d %b %Y')])
+        return resp
+
+    return render(request, 'pharmacy/reports/patient_medication.html', {
+        'records': qs,
+        'date_from': date_from, 'date_to': date_to,
+        'date_from_str': date_from_str, 'date_to_str': date_to_str,
+        'search_q': search_q,
+        'grand_total': sum(r.total_amount for r in qs),
+    })
+
+
+@hms_permission_required('core.view_billing_reports')
+def report_pharmacy_outstanding(request):
+    """Prescriptions with unpaid / credit billing amounts."""
+    outstanding = (
+        Prescription.objects
+        .filter(
+            billing_status__in=[
+                Prescription.BillingStatus.PENDING_PAYMENT,
+                Prescription.BillingStatus.PARTIALLY_PAID,
+                Prescription.BillingStatus.CREDIT_APPROVED,
+            ]
+        )
+        .select_related('patient', 'prescribed_by', 'invoice', 'credit_approved_by')
+        .order_by('-created_at')
+    )
+    total_outstanding = outstanding.aggregate(t=Sum('billing_amount'))['t'] or 0
+    return render(request, 'pharmacy/reports/outstanding.html', {
+        'prescriptions': outstanding,
+        'total_outstanding': total_outstanding,
+    })
+

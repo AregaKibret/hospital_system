@@ -10,23 +10,68 @@
 <form method="post" class="max-w-xl">{% csrf_token %}
 
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
-    <div class="field-wrapper">
-      <label class="field-label">Room Name <span class="text-red-500">*</span></label>
-      <input type="text" name="name" value="{{ room.name|default:'' }}" required class="field-input" placeholder="e.g. OR-1, Cardiac OR" />
-    </div>
-    <div class="field-wrapper">
-      <label class="field-label">Room Type</label>
-      <select name="room_type" class="field-input">
-        {% for val, label in room_types %}<option value="{{ val }}" {% if room and room.room_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field-wrapper">
-      <label class="field-label">Location / Floor</label>
-      <input type="text" name="location" value="{{ room.location|default:'' }}" class="field-input" placeholder="e.g. 2nd Floor, Block C" />
-    </div>
-    <div class="field-wrapper">
-      <label class="field-label">Capacity (concurrent patients)</label>
-      <input type="number" name="capacity" value="{{ room.capacity|default:1 }}" min="1" class="field-input" />
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Room Name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" value="{{ room.name|default:'' }}" required class="field-input" placeholder="e.g. OR-1, Cardiac OR" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">OR Code</label>
+        <input type="text" name="code" value="{{ room.code|default:'' }}" class="field-input" placeholder="e.g. OR-001" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Specialty</label>
+        <select name="room_type" class="field-input">
+          {% for val, label in room_types %}<option value="{{ val }}" {% if room and room.room_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Availability Status</label>
+        <select name="availability_status" class="field-input">
+          {% for val, label in availability_choices %}<option value="{{ val }}" {% if room and room.availability_status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Department</label>
+        <select name="department" class="field-input">
+          <option value="">— None —</option>
+          {% for d in departments %}<option value="{{ d.pk }}" {% if room and room.department_id == d.pk %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Building</label>
+        <select name="building" class="field-input">
+          <option value="">— None —</option>
+          {% for b in buildings %}<option value="{{ b.pk }}" {% if room and room.building_id == b.pk %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Floor</label>
+        <select name="floor" class="field-input">
+          <option value="">— None —</option>
+          {% for f in floors %}<option value="{{ f.pk }}" {% if room and room.floor_id == f.pk %}selected{% endif %}>{{ f.building.name }} — {{ f.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Location (free text)</label>
+        <input type="text" name="location" value="{{ room.location|default:'' }}" class="field-input" placeholder="e.g. Block C" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Capacity (concurrent patients)</label>
+        <input type="number" name="capacity" value="{{ room.capacity|default:1 }}" min="1" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Max Surgeries / Day</label>
+        <input type="number" name="max_surgeries_per_day" value="{{ room.max_surgeries_per_day|default_if_none:'' }}" min="0" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Daily Open Time</label>
+        <input type="time" name="daily_open_time" value="{{ room.daily_open_time|time:'H:i'|default:'' }}" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Daily Close Time</label>
+        <input type="time" name="daily_close_time" value="{{ room.daily_close_time|time:'H:i'|default:'' }}" class="field-input" />
+      </div>
     </div>
     <div class="field-wrapper">
       <label class="field-label">Equipment Available</label>
@@ -36,12 +81,6 @@
       <label class="field-label">Notes</label>
       <textarea name="notes" rows="2" class="field-input">{{ room.notes|default:'' }}</textarea>
     </div>
-    {% if room %}
-    <div class="flex items-center gap-2">
-      <input type="checkbox" name="is_active" id="isActive" {% if room.is_active %}checked{% endif %} class="w-4 h-4 rounded" />
-      <label for="isActive" class="text-sm text-slate-700 dark:text-slate-300">Active</label>
-    </div>
-    {% endif %}
   </div>
 
   <div class="flex gap-3 mt-5">

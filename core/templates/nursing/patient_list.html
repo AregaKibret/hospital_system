@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Nursing Patient List — HMS{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Nursing Patient List</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+        {% if mode == 'inpatient' %}{{ admissions.count }} admission{{ admissions.count|pluralize }}{% else %}{{ visits|length }} recent visit{{ visits|length|pluralize }}{% endif %}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="?mode=inpatient" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if mode == 'inpatient' %}bg-pink-600 text-white border-pink-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200{% endif %}">Inpatient</a>
+      <a href="?mode=outpatient" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if mode == 'outpatient' %}bg-pink-600 text-white border-pink-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200{% endif %}">Outpatient</a>
+    </div>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    {% if mode == 'inpatient' %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Ward</label>
+      <select name="ward" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Wards</option>
+        {% for w in wards %}<option value="{{ w.id }}" {% if filters.ward == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+      <select name="priority" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All</option>
+        {% for val, label in priority_choices %}<option value="{{ val }}" {% if filters.priority == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+      <select name="status" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">Active (Admitted)</option>
+        {% for val, label in status_choices %}<option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if filters.department == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+      <select name="doctor" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All</option>
+        {% for doc in doctors %}<option value="{{ doc.id }}" {% if filters.doctor == doc.id|stringformat:"s" %}selected{% endif %}>{{ doc.first_name }} {{ doc.last_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Date</label>
+      <input type="date" name="date" value="{{ filters.date }}" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+    </div>
+    <div class="field-wrapper flex-1 min-w-40">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Name / MRN</label>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search…" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+    </div>
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      {% if mode == 'inpatient' %}
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+          <tr>
+            <th class="px-4 py-3 text-left">Patient</th>
+            <th class="px-4 py-3 text-left">Ward / Room / Bed</th>
+            <th class="px-4 py-3 text-left">Department</th>
+            <th class="px-4 py-3 text-left">Doctor</th>
+            <th class="px-4 py-3 text-center">Priority</th>
+            <th class="px-4 py-3 text-center">Status</th>
+            <th class="px-4 py-3 text-left">Assigned Nurse</th>
+            <th class="px-4 py-3 text-left">Admitted</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for adm in admissions %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+            <td class="px-4 py-3">
+              <a href="{% url 'visit_detail' adm.visit_id %}" class="font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ adm.patient.full_name }}</a>
+              <p class="text-xs text-slate-400 font-mono">{{ adm.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ adm.bed.room.ward.name }} / {{ adm.bed.room.room_number }} / {{ adm.bed.bed_number }}</td>
+            <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{{ adm.visit.department.name|default:"—" }}</td>
+            <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{% if adm.visit.doctor %}{{ adm.visit.doctor.first_name }} {{ adm.visit.doctor.last_name }}{% else %}—{% endif %}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {% if adm.priority == 'critical' %}bg-red-100 text-red-700{% elif adm.priority == 'high' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ adm.get_priority_display }}</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {% if adm.status == 'admitted' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ adm.get_status_display }}</span>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-500">{% if adm.assigned_nurse %}{{ adm.assigned_nurse.get_full_name|default:adm.assigned_nurse.username }}{% else %}Unassigned{% endif %}</td>
+            <td class="px-4 py-3 text-xs text-slate-400">{{ adm.admitted_at|date:"d M Y H:i" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="px-4 py-12 text-center text-slate-400">No admissions match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+          <tr>
+            <th class="px-4 py-3 text-left">Patient</th>
+            <th class="px-4 py-3 text-left">Department</th>
+            <th class="px-4 py-3 text-left">Doctor</th>
+            <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for v in visits %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+            <td class="px-4 py-3">
+              <a href="{% url 'visit_detail' v.id %}" class="font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ v.patient.full_name }}</a>
+              <p class="text-xs text-slate-400 font-mono">{{ v.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{{ v.department.name|default:"—" }}</td>
+            <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{% if v.doctor %}{{ v.doctor.first_name }} {{ v.doctor.last_name }}{% else %}—{% endif %}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ v.status }}</td>
+            <td class="px-4 py-3 text-xs text-slate-400">{{ v.created_at|date:"d M Y H:i" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-4 py-12 text-center text-slate-400">No visits match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

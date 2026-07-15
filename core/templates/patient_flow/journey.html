@@ -9,7 +9,7 @@
       <span class="text-xs text-slate-400">Visit #{{ visit.pk }}</span>
     </div>
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ visit.patient.full_name }}</h1>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">MRN: {{ visit.patient.mrn }} · {{ visit.visit_type }} · {{ visit.created_at|date:"d M Y, H:i" }}</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">MRN: {{ visit.patient.card_number }} · {{ visit.visit_type }} · {{ visit.created_at|date:"d M Y, H:i" }}</p>
   </div>
   <div class="flex flex-wrap gap-2">
     {% if perms.core.write_clinical_note %}<a href="{% url 'visit_detail' visit.pk %}" class="btn-secondary text-sm">Open Chart</a>{% endif %}

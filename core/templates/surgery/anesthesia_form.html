@@ -1,44 +1,169 @@
 {% extends "base.html" %}
-{% block title %}Anesthesia Record — {{ order.order_number }}{% endblock %}
+{% block title %}Pre-Operative Anesthetic Assessment — {{ order.order_number }}{% endblock %}
 {% block content %}
 
-<div class="flex items-center gap-3 mb-6">
+<div class="flex items-center gap-3 mb-6 flex-wrap">
   <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
-  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if record %}Edit{% else %}Create{% endif %} Anesthesia Record — {{ order.order_number }}</h1>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Pre-Operative Anesthetic Assessment — {{ order.order_number }}</h1>
+  {% if record %}
+  <a href="{% url 'surgery_anesthesia_history' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View Version History</a>
+  {% endif %}
 </div>
 
-<div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 mb-5 text-sm">
-  <span class="font-medium text-slate-800 dark:text-slate-100">{{ order.patient.full_name }}</span>
-  <span class="text-slate-400 mx-2">·</span>
-  <span class="text-slate-600 dark:text-slate-300">{{ order.planned_procedure }}</span>
-  <span class="text-slate-400 mx-2">·</span>
-  <span class="text-slate-500">Requested: {{ order.anesthesia_type }}</span>
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for m in messages %}
+  <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+    {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800
+    {% elif m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">{{ m }}</div>
+  {% endfor %}
 </div>
+{% endif %}
+
+<!-- Auto-filled header -->
+<div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 mb-5 text-sm grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div><span class="text-xs text-blue-500 block">Patient</span><span class="font-semibold text-slate-800 dark:text-slate-100">{{ header.patient.full_name }}</span></div>
+  <div><span class="text-xs text-blue-500 block">MRN</span><span class="text-slate-700 dark:text-slate-200">{{ header.patient.card_number }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Age / Sex</span><span class="text-slate-700 dark:text-slate-200">{{ header.age }} / {{ header.patient.sex }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Department</span><span class="text-slate-700 dark:text-slate-200">{{ header.department.name|default:"—" }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Ward / Room</span><span class="text-slate-700 dark:text-slate-200">{{ header.ward_room|default:"—" }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Surgeon</span><span class="text-slate-700 dark:text-slate-200">{{ header.surgeon.get_full_name }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Planned Procedure</span><span class="text-slate-700 dark:text-slate-200">{{ header.planned_procedure }}</span></div>
+  <div><span class="text-xs text-blue-500 block">Scheduled Date</span><span class="text-slate-700 dark:text-slate-200">{{ header.scheduled_date|date:"d M Y"|default:"Not scheduled" }}</span></div>
+</div>
+
+{% if record and record.is_finalized %}
+<div class="mb-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+  <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">This assessment (v{{ record.version }}) is finalized and signed by {{ record.signature_name }} on {{ record.finalized_at|date:"d M Y H:i" }}.</p>
+  <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Editing below will create Version {{ record.version|add:1 }} — the signed original is preserved permanently. A reason is required.</p>
+</div>
+{% endif %}
 
 <form method="post">{% csrf_token %}
 
+  {% if record and record.is_finalized %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-amber-300 dark:border-amber-700 shadow-sm p-5 mb-5">
+    <label class="field-label">Reason for Revision <span class="text-red-500">*</span></label>
+    <textarea name="revision_reason" rows="2" required class="field-input" placeholder="Explain what changed and why…"></textarea>
+  </div>
+  {% endif %}
+
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
-    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Pre-anesthesia Assessment</h2>
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Medical History</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Present Illness History</label><textarea name="present_illness_history" rows="2" class="field-input">{{ record.present_illness_history }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Past Medical History</label><textarea name="past_medical_history" rows="2" class="field-input">{{ record.past_medical_history }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Previous Surgeries</label><textarea name="previous_surgeries_history" rows="2" class="field-input">{{ record.previous_surgeries_history }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Previous Anesthesia History</label><textarea name="previous_anesthesia_history" rows="2" class="field-input">{{ record.previous_anesthesia_history }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Previous Anesthesia Complications</label><textarea name="previous_anesthesia_complications" rows="2" class="field-input">{{ record.previous_anesthesia_complications }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Drug &amp; Food Allergies</label><input type="text" name="known_allergies" value="{{ record.known_allergies }}" class="field-input" placeholder="NKDA or list allergies…" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Current Medications</label><textarea name="current_medications" rows="2" class="field-input">{{ record.current_medications }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Chronic Diseases</label><textarea name="chronic_diseases" rows="2" class="field-input">{{ record.chronic_diseases }}</textarea></div>
+      <div class="field-wrapper">
+        <label class="field-label">Smoking History</label>
+        <select name="smoking_status" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in smoking_choices %}<option value="{{ val }}" {% if record.smoking_status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Pack-Years</label><input type="number" name="smoking_pack_years" value="{{ record.smoking_pack_years|default_if_none:'' }}" min="0" class="field-input" /></div>
+      <div class="field-wrapper">
+        <label class="field-label">Alcohol History</label>
+        <select name="alcohol_use" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in alcohol_choices %}<option value="{{ val }}" {% if record.alcohol_use == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Alcohol Details</label><input type="text" name="alcohol_details" value="{{ record.alcohol_details }}" class="field-input" /></div>
+      <div class="field-wrapper">
+        <label class="field-label">Pregnancy Status</label>
+        <select name="pregnancy_status" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in pregnancy_choices %}<option value="{{ val }}" {% if record.pregnancy_status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Physical Examination</h2>
+      {% if header.latest_vitals %}<span class="text-xs text-slate-400">Latest vitals recorded {{ header.latest_vitals.recorded_at|date:"d M Y H:i" }} — auto-filled below, editable</span>{% endif %}
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper"><label class="field-label">BP Systolic</label><input type="number" name="pe_bp_systolic" value="{{ record.pe_bp_systolic|default_if_none:header.vitals.bp_systolic|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">BP Diastolic</label><input type="number" name="pe_bp_diastolic" value="{{ record.pe_bp_diastolic|default_if_none:header.vitals.bp_diastolic|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Heart Rate</label><input type="number" name="pe_pulse" value="{{ record.pe_pulse|default_if_none:header.vitals.pulse|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Respiratory Rate</label><input type="number" name="pe_respiratory_rate" value="{{ record.pe_respiratory_rate|default_if_none:header.vitals.respiratory_rate|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Temperature (°C)</label><input type="number" step="0.1" name="pe_temperature" value="{{ record.pe_temperature|default_if_none:header.vitals.temperature|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">SpO₂ (%)</label><input type="number" step="0.1" name="pe_spo2" value="{{ record.pe_spo2|default_if_none:header.vitals.spo2|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Weight (kg)</label><input type="number" step="0.1" name="pe_weight_kg" value="{{ record.pe_weight_kg|default_if_none:header.vitals.weight|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Height (cm)</label><input type="number" step="0.1" name="pe_height_cm" value="{{ record.pe_height_cm|default_if_none:header.vitals.height|default_if_none:'' }}" class="field-input" /></div>
+    </div>
+    {% if record.pre_op_bmi %}<p class="text-xs text-slate-400 mt-2">BMI: <span class="font-semibold text-slate-600 dark:text-slate-300">{{ record.pre_op_bmi }}</span></p>{% endif %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">General Appearance</label><textarea name="general_appearance" rows="2" class="field-input">{{ record.general_appearance }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Cardiovascular Exam</label><textarea name="cvs_exam" rows="2" class="field-input">{{ record.cvs_exam }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Respiratory Exam</label><textarea name="respiratory_exam" rows="2" class="field-input">{{ record.respiratory_exam }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Neurological Exam</label><textarea name="neuro_exam" rows="2" class="field-input">{{ record.neuro_exam }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Airway Assessment</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Mallampati Classification</label>
+        <select name="mallampati_class" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in mallampati_choices %}<option value="{{ val }}" {% if record.mallampati_class == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Mouth Opening</label><input type="text" name="mouth_opening" value="{{ record.mouth_opening }}" class="field-input" placeholder="e.g. &gt;3 finger-breadths" /></div>
+      <div class="field-wrapper">
+        <label class="field-label">Neck Mobility</label>
+        <select name="neck_mobility" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in neck_mobility_choices %}<option value="{{ val }}" {% if record.neck_mobility == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Thyromental Distance (cm)</label><input type="number" step="0.1" name="thyromental_distance_cm" value="{{ record.thyromental_distance_cm|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Dentition</label><input type="text" name="dentition_notes" value="{{ record.dentition_notes }}" class="field-input" placeholder="e.g. Dentures, loose teeth, caps…" /></div>
+      <div class="field-wrapper flex items-center gap-2 pt-6">
+        <input type="checkbox" name="difficult_airway_anticipated" id="difficult_airway_anticipated" {% if record.difficult_airway_anticipated %}checked{% endif %} class="rounded border-slate-300">
+        <label for="difficult_airway_anticipated" class="field-label mb-0">Difficult Airway Anticipated</label>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Difficult Airway Notes</label><input type="text" name="difficult_airway_notes" value="{{ record.difficult_airway_notes }}" class="field-input" /></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">ASA Physical Status Classification</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="field-wrapper">
         <label class="field-label">ASA Classification</label>
         <select name="asa_classification" class="field-input">
           <option value="">— Select —</option>
-          {% for val, label in asa_choices %}<option value="{{ val }}" {% if record and record.asa_classification == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% for val, label in asa_choices %}<option value="{{ val }}" {% if record.asa_classification == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
-      <div class="field-wrapper">
-        <label class="field-label">Known Allergies</label>
-        <input type="text" name="known_allergies" value="{% if record %}{{ record.known_allergies }}{% endif %}" class="field-input" placeholder="NKDA or list allergies…" />
-      </div>
-      <div class="field-wrapper sm:col-span-2">
-        <label class="field-label">Pre-assessment Notes</label>
-        <textarea name="pre_assessment_notes" rows="3" class="field-input">{% if record %}{{ record.pre_assessment_notes }}{% endif %}</textarea>
-      </div>
-      <div class="field-wrapper sm:col-span-2">
-        <label class="field-label">Pre-medication</label>
-        <textarea name="pre_medication" rows="2" class="field-input">{% if record %}{{ record.pre_medication }}{% endif %}</textarea>
-      </div>
+      <div class="field-wrapper"><label class="field-label">Pre-assessment Notes</label><input type="text" name="pre_assessment_notes" value="{{ record.pre_assessment_notes }}" class="field-input" /></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Laboratory &amp; Investigation Review</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="field-wrapper"><label class="field-label">CBC</label><textarea name="lab_review_cbc" rows="2" class="field-input">{{ record.lab_review_cbc }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Blood Group</label><input type="text" name="lab_review_blood_group" value="{{ record.lab_review_blood_group }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Coagulation Profile</label><textarea name="lab_review_coagulation" rows="2" class="field-input">{{ record.lab_review_coagulation }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Blood Sugar</label><input type="text" name="lab_review_blood_sugar" value="{{ record.lab_review_blood_sugar }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Renal Function Tests</label><textarea name="lab_review_rft" rows="2" class="field-input">{{ record.lab_review_rft }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Liver Function Tests</label><textarea name="lab_review_lft" rows="2" class="field-input">{{ record.lab_review_lft }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">ECG</label><textarea name="lab_review_ecg" rows="2" class="field-input">{{ record.lab_review_ecg }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Chest X-ray</label><textarea name="lab_review_cxr" rows="2" class="field-input">{{ record.lab_review_cxr }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Other Investigations</label><textarea name="lab_review_other" rows="2" class="field-input">{{ record.lab_review_other }}</textarea></div>
     </div>
   </div>
 
@@ -46,60 +171,68 @@
     <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Anesthesia Plan</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="field-wrapper">
-        <label class="field-label">Anesthesia Technique</label>
-        <input type="text" name="anesthesia_technique" value="{% if record %}{{ record.anesthesia_technique }}{% endif %}" class="field-input" placeholder="e.g. Endotracheal general anesthesia" />
+        <label class="field-label">Planned Anesthesia Type</label>
+        <select name="anesthesia_type_planned" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in anesthesia_type_choices %}<option value="{{ val }}" {% if record.anesthesia_type_planned == val or record.anesthesia_type_planned == '' and header.anesthesia_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
       </div>
-      <div class="field-wrapper">
-        <label class="field-label">Airway Management</label>
-        <input type="text" name="airway_management" value="{% if record %}{{ record.airway_management }}{% endif %}" class="field-input" placeholder="e.g. LMA, ETT size 7.5…" />
-      </div>
-      <div class="field-wrapper">
-        <label class="field-label">Induction Agent</label>
-        <input type="text" name="induction_agent" value="{% if record %}{{ record.induction_agent }}{% endif %}" class="field-input" placeholder="e.g. Propofol 2mg/kg IV" />
-      </div>
-      <div class="field-wrapper">
-        <label class="field-label">Maintenance Agent</label>
-        <input type="text" name="maintenance_agent" value="{% if record %}{{ record.maintenance_agent }}{% endif %}" class="field-input" placeholder="e.g. Sevoflurane 2%, Fentanyl infusion" />
-      </div>
+      <div class="field-wrapper"><label class="field-label">Anesthesia Technique</label><input type="text" name="anesthesia_technique" value="{{ record.anesthesia_technique }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Planned Airway Management</label><input type="text" name="airway_management" value="{{ record.airway_management }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Monitoring Plan</label><textarea name="monitoring_plan" rows="2" class="field-input">{{ record.monitoring_plan }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Blood Products Required</label><input type="text" name="blood_products_required" value="{{ record.blood_products_required }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">NPO / Fasting Status</label><input type="text" name="npo_fasting_status" value="{{ record.npo_fasting_status }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Special Equipment Required</label><textarea name="special_equipment_needed" rows="2" class="field-input">{{ record.special_equipment_needed }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Risk Assessment</label><textarea name="risk_assessment" rows="2" class="field-input">{{ record.risk_assessment }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Pre-medication Orders</label><textarea name="pre_medication" rows="2" class="field-input">{{ record.pre_medication }}</textarea></div>
     </div>
   </div>
 
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
-    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Intraoperative Notes</h2>
-    <div class="grid grid-cols-1 gap-4">
-      <div class="field-wrapper">
-        <label class="field-label">Monitoring Notes</label>
-        <textarea name="monitoring_notes" rows="3" class="field-input" placeholder="Vital signs, SpO2, EtCO2, hemodynamics…">{% if record %}{{ record.monitoring_notes }}{% endif %}</textarea>
-      </div>
-      <div class="field-wrapper">
-        <label class="field-label">Intraoperative Complications</label>
-        <textarea name="intraop_complications" rows="2" class="field-input">{% if record %}{{ record.intraop_complications }}{% endif %}</textarea>
-      </div>
-    </div>
-  </div>
-
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
-    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Post-anesthesia Recovery</h2>
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Assessment Summary</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Final Anesthetic Assessment</label><textarea name="final_assessment" rows="2" class="field-input">{{ record.final_assessment }}</textarea></div>
       <div class="field-wrapper">
-        <label class="field-label">PACU Duration (minutes)</label>
-        <input type="number" name="pacu_duration_minutes" value="{% if record %}{{ record.pacu_duration_minutes }}{% endif %}" min="0" class="field-input" />
+        <label class="field-label">Fitness for Surgery</label>
+        <select name="fitness_for_surgery" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in fitness_choices %}<option value="{{ val }}" {% if record.fitness_for_surgery == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
       </div>
-      <div class="field-wrapper">
-        <label class="field-label">PACU Complications</label>
-        <input type="text" name="pacu_complications" value="{% if record %}{{ record.pacu_complications }}{% endif %}" class="field-input" />
-      </div>
-      <div class="field-wrapper sm:col-span-2">
-        <label class="field-label">Post-anesthesia Notes</label>
-        <textarea name="post_anesthesia_notes" rows="3" class="field-input">{% if record %}{{ record.post_anesthesia_notes }}{% endif %}</textarea>
-      </div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Recommendations</label><textarea name="recommendations" rows="2" class="field-input">{{ record.recommendations }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Comments</label><textarea name="assessment_comments" rows="2" class="field-input">{{ record.assessment_comments }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Intraoperative &amp; Post-anesthesia (recorded during/after surgery)</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper"><label class="field-label">Induction Agent</label><input type="text" name="induction_agent" value="{{ record.induction_agent }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Maintenance Agent</label><input type="text" name="maintenance_agent" value="{{ record.maintenance_agent }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Monitoring Notes</label><textarea name="monitoring_notes" rows="2" class="field-input">{{ record.monitoring_notes }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Intraoperative Complications</label><textarea name="intraop_complications" rows="2" class="field-input">{{ record.intraop_complications }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">PACU Duration (minutes)</label><input type="number" name="pacu_duration_minutes" value="{{ record.pacu_duration_minutes|default_if_none:'' }}" min="0" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">PACU Complications</label><input type="text" name="pacu_complications" value="{{ record.pacu_complications }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Post-anesthesia Notes</label><textarea name="post_anesthesia_notes" rows="2" class="field-input">{{ record.post_anesthesia_notes }}</textarea></div>
     </div>
   </div>
 
   <div class="flex gap-3">
-    <button type="submit" class="btn-primary">Save Anesthesia Record</button>
+    <button type="submit" class="btn-primary">Save as Draft</button>
     <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
   </div>
 
 </form>
+
+{% if record and not record.is_finalized %}
+<form method="post" action="{% url 'surgery_anesthesia_finalize' order.pk %}" class="mt-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+  {% csrf_token %}
+  <label class="flex items-start gap-2 text-sm text-purple-800 dark:text-purple-300 mb-3">
+    <input type="checkbox" name="certify" required class="mt-0.5 rounded border-purple-300">
+    I certify this record is accurate and complete.
+  </label>
+  <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">Finalize &amp; Sign</button>
+</form>
+{% endif %}
+
 {% endblock %}

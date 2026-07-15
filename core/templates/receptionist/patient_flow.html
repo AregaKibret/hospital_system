@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load hms_extras %}
 {% block title %}Patient Flow — HMS{% endblock %}
 
 {% block content %}
@@ -137,12 +138,12 @@
              class="block bg-white dark:bg-slate-800 rounded-xl border border-amber-200 dark:border-amber-900/50 p-4 hover:shadow-md hover:border-amber-300 dark:hover:border-amber-700 transition-all group">
             <div class="flex items-start justify-between gap-2 mb-2">
               <p class="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                {{ appt.patient.full_name }}
+                {{ appt.display_patient_name }}
               </p>
               <span class="text-xs font-mono text-slate-400 shrink-0">{{ appt.appointment_time|time:"H:i" }}</span>
             </div>
-            <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Dr. {{ appt.doctor.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.display_identifier }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}Not assigned{% endif %}</p>
           </a>
           {% endfor %}
         {% else %}
@@ -172,12 +173,12 @@
              class="block bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-900/50 p-4 hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all group">
             <div class="flex items-start justify-between gap-2 mb-2">
               <p class="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                {{ appt.patient.full_name }}
+                {{ appt.display_patient_name }}
               </p>
               <span class="text-xs font-mono text-slate-400 shrink-0">{{ appt.appointment_time|time:"H:i" }}</span>
             </div>
-            <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Dr. {{ appt.doctor.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.display_identifier }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}Not assigned{% endif %}</p>
           </a>
           {% endfor %}
         {% else %}
@@ -207,12 +208,12 @@
              class="block bg-white dark:bg-slate-800 rounded-xl border border-green-200 dark:border-green-900/50 p-4 hover:shadow-md hover:border-green-300 dark:hover:border-green-700 transition-all group opacity-80 hover:opacity-100">
             <div class="flex items-start justify-between gap-2 mb-2">
               <p class="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-                {{ appt.patient.full_name }}
+                {{ appt.display_patient_name }}
               </p>
               <span class="text-xs font-mono text-slate-400 shrink-0">{{ appt.appointment_time|time:"H:i" }}</span>
             </div>
-            <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Dr. {{ appt.doctor.full_name }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.display_identifier }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}Not assigned{% endif %}</p>
           </a>
           {% endfor %}
           {% if completed_group.appointments|length > 10 %}

@@ -15,6 +15,9 @@ ROLE_NAMES = [
     # Reception
     'Receptionist',
 
+    # Medical Records
+    'Medical Records Officer',
+
     # Medical / Clinical
     'Doctor',
     'Ward Doctor',
@@ -27,11 +30,11 @@ ROLE_NAMES = [
     'OR Nurse',
     'Emergency Nurse',
     'Triage Staff',
+    'Ward Supervisor',
 
     # Laboratory
     'Laboratory Staff',
     'Lab Supervisor',
-    'Lab Receptionist',
     'Lab Manager',
 
     # Radiology
@@ -128,6 +131,8 @@ _PATIENT_FLOW_MANAGE = _PATIENT_FLOW_READ | {
 
 _SURGERY_READ = {
     'core.read_surgery',
+    'core.read_postop_note',
+    'core.read_periop_document_history',
 }
 
 _SURGERY_DOCTOR = _SURGERY_READ | {
@@ -140,9 +145,34 @@ _SURGERY_FULL = _SURGERY_DOCTOR | {
     'core.approve_surgery_order',
     'core.manage_or_schedule',
     'core.write_surgery_anesthesia',
+    'core.write_postop_note',
     'core.manage_surgery_consumables',
     'core.generate_surgery_billing',
     'core.manage_procedure_master',
+}
+
+_FACILITY_CLINICAL = {
+    'core.view_facility',
+    'core.assign_bed',
+}
+
+_FACILITY_ADMIN = _FACILITY_CLINICAL | {
+    'core.manage_facilities',
+    'core.view_facility_reports',
+}
+
+_ADMISSION_REQUESTER = {'core.request_admission'}
+
+_ADMISSION_ADMIN = {
+    'core.request_admission', 'core.review_admission_request',
+    'core.view_admission_dashboard', 'core.view_admission_reports', 'core.manage_deposit_rules',
+}
+
+_ATTACHMENT_BASE = {'core.upload_attachment', 'core.view_attachments'}
+_ATTACHMENT_CLINICAL = _ATTACHMENT_BASE | {'core.view_confidential_attachments', 'core.replace_attachment'}
+_ATTACHMENT_ADMIN = _ATTACHMENT_CLINICAL | {
+    'core.delete_attachment', 'core.restore_attachment',
+    'core.manage_attachment_categories', 'core.view_attachment_reports',
 }
 
 
@@ -160,8 +190,19 @@ ROLE_PERMISSIONS = {
         'core.read_department_reports',
         'core.read_employee', 'core.read_billing',
         *_SURGERY_FULL,
+        *_FACILITY_ADMIN,
+        *_ADMISSION_ADMIN,
+        *_ATTACHMENT_ADMIN,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        'core.manage_card_types', 'core.override_card_expiry', 'core.view_card_reports',
+        'core.manage_specializations', 'core.manage_doctors', 'core.view_specialization_reports',
+        'core.read_inventory', 'core.manage_inventory', 'core.perform_stock_count',
+        'core.approve_stock_count', 'core.manage_inventory_periods',
+        'core.view_store_reports', 'core.export_store_reports',
+        'core.manage_employee_signatures', 'core.delete_employee_signature',
+        'core.manage_lab_services', 'core.view_lab_reports',
+        'core.ward_supervisor_approve', 'core.view_nursing_dashboard',
     },
     'Medical Director': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
@@ -171,8 +212,13 @@ ROLE_PERMISSIONS = {
         'core.read_appointment', 'core.manage_appointments',
         'core.read_audit_log',
         *_SURGERY_FULL,
+        *_FACILITY_ADMIN,
+        *_ADMISSION_ADMIN,
+        *_ATTACHMENT_CLINICAL, 'core.view_attachment_reports',
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        'core.manage_card_types', 'core.override_card_expiry', 'core.view_card_reports',
+        'core.manage_specializations', 'core.manage_doctors', 'core.view_specialization_reports',
     },
 
     # ── Reception ───────────────────────────────────────────────────────────
@@ -185,6 +231,17 @@ ROLE_PERMISSIONS = {
         'core.view_appointment_reports', 'core.export_appointment_reports',
         'core.read_billing',
         *_PATIENT_FLOW_READ,
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+        'core.view_admission_dashboard',
+        *_ATTACHMENT_BASE,
+    },
+
+    # ── Medical Records ─────────────────────────────────────────────────────
+    'Medical Records Officer': {
+        'core.view_patient', 'core.view_visit',
+        *_ATTACHMENT_CLINICAL,
+        'core.view_attachment_reports',
     },
 
     # ── Medical / Clinical Doctors ──────────────────────────────────────────
@@ -194,13 +251,19 @@ ROLE_PERMISSIONS = {
         'core.view_appointment_reports',
         *_SURGERY_DOCTOR,
         'core.read_surgery', 'core.order_surgery',
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER, 'core.view_admission_dashboard',
+        *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
     },
     'Ward Doctor': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
-        'core.read_appointment',
+        'core.read_appointment', 'core.manage_appointments',
         *_SURGERY_DOCTOR,
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER, 'core.view_admission_dashboard',
+        *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
     },
@@ -208,7 +271,11 @@ ROLE_PERMISSIONS = {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
         'core.perform_triage',
         'core.view_dept_inventory', 'core.view_dept_reports',
+        'core.read_appointment', 'core.manage_appointments',
         *_SURGERY_DOCTOR,
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER, 'core.view_admission_dashboard',
+        *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
     },
@@ -219,7 +286,10 @@ ROLE_PERMISSIONS = {
         *_SURGERY_FULL,
         'core.read_surgery', 'core.order_surgery',
         'core.approve_surgery_order', 'core.manage_or_schedule',
-        'core.view_appointment_reports',
+        'core.read_appointment', 'core.manage_appointments', 'core.view_appointment_reports',
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER, 'core.view_admission_dashboard',
+        *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
     },
@@ -230,11 +300,21 @@ ROLE_PERMISSIONS = {
         'core.perform_triage',
         *_DEPT_PHARM_USER,
         *_PATIENT_FLOW_READ,
+        'core.read_surgery', 'core.read_postop_note', 'core.add_periop_nursing_note',
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+        *_ATTACHMENT_BASE,
+        'core.view_nursing_dashboard',
     },
     'Ward Nurse': {
         *_NURSE_BASE,
         *_DEPT_PHARM_USER,
         *_PATIENT_FLOW_READ,
+        'core.read_surgery', 'core.read_postop_note', 'core.add_periop_nursing_note',
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+        *_ATTACHMENT_BASE,
+        'core.view_nursing_dashboard',
     },
     'OR Nurse': {
         *_NURSE_BASE,
@@ -243,11 +323,19 @@ ROLE_PERMISSIONS = {
         *_SURGERY_READ,
         'core.manage_or_schedule',
         'core.manage_surgery_consumables',
+        'core.add_periop_nursing_note',
+        *_FACILITY_CLINICAL,
+        *_ATTACHMENT_BASE,
+        'core.view_nursing_dashboard',
     },
     'Emergency Nurse': {
         *_NURSE_BASE,
         'core.perform_triage',
         *_DEPT_PHARM_USER,
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+        *_ATTACHMENT_BASE,
+        'core.view_nursing_dashboard',
     },
     'Triage Staff': {
         'core.view_patient',
@@ -256,6 +344,18 @@ ROLE_PERMISSIONS = {
         'core.write_nursing_note', 'core.read_nursing_note',
         'core.view_visit',
         'core.record_vital_signs', 'core.read_vital_signs',
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+    },
+    'Ward Supervisor': {
+        *_NURSE_BASE,
+        *_DEPT_PHARM_MANAGER,
+        'core.ward_supervisor_approve',
+        *_PATIENT_FLOW_READ,
+        *_FACILITY_CLINICAL,
+        *_ADMISSION_REQUESTER,
+        *_ATTACHMENT_BASE,
+        'core.view_nursing_dashboard',
     },
 
     # ── Laboratory ──────────────────────────────────────────────────────────
@@ -264,32 +364,28 @@ ROLE_PERMISSIONS = {
         'core.read_lab_request', 'core.process_lab_test',
         'core.write_lab_result', 'core.read_lab_result',
         'core.collect_lab_sample',
+        *_ATTACHMENT_BASE,
     },
     'Lab Supervisor': {
         'core.view_patient',
         'core.read_lab_request', 'core.process_lab_test',
         'core.write_lab_result', 'core.read_lab_result',
         'core.collect_lab_sample', 'core.release_lab_result',
-        'core.manage_lab_services',
+        'core.manage_lab_services', 'core.view_lab_reports',
         'core.read_clinical_reports',
         'core.manage_departments',
-    },
-    'Lab Receptionist': {
-        'core.view_patient',
-        'core.read_lab_request',
-        'core.lab_reception',
-        'core.collect_lab_sample',
+        *_ATTACHMENT_BASE,
     },
     'Lab Manager': {
         'core.view_patient',
         'core.read_lab_request', 'core.process_lab_test',
         'core.write_lab_result', 'core.read_lab_result',
         'core.collect_lab_sample', 'core.release_lab_result',
-        'core.manage_lab_services',
-        'core.lab_reception',
+        'core.manage_lab_services', 'core.view_lab_reports',
         'core.read_clinical_reports',
         'core.read_financial_report',
         'core.manage_departments',
+        *_ATTACHMENT_BASE,
     },
 
     # ── Radiology ───────────────────────────────────────────────────────────
@@ -298,23 +394,27 @@ ROLE_PERMISSIONS = {
         'core.read_imaging_request',
         'core.process_imaging',
         'core.write_imaging_report', 'core.read_imaging_report',
+        'core.manage_imaging_services',
+        *_ATTACHMENT_BASE,
     },
     'Radiology Technician': {
         'core.view_patient',
         'core.read_imaging_request',
         'core.process_imaging',
         'core.read_imaging_report',
+        *_ATTACHMENT_BASE,
     },
 
     # ── Anesthesia / OR ─────────────────────────────────────────────────────
     'Anesthesia Team': {
         'core.view_patient', 'core.view_visit',
         'core.read_clinical_note', 'core.read_prescription',
-        'core.read_vital_signs',
+        'core.record_vital_signs', 'core.read_vital_signs',
         'core.write_anesthesia_record', 'core.read_anesthesia_record',
         'core.view_dept_inventory', 'core.view_dept_reports',
         *_SURGERY_READ,
         'core.write_surgery_anesthesia',
+        *_ATTACHMENT_BASE,
     },
 
     # ── Pharmacy ────────────────────────────────────────────────────────────
@@ -328,7 +428,9 @@ ROLE_PERMISSIONS = {
         'core.process_pharmacy_sale', 'core.approve_pharmacy_discount',
         'core.approve_credit_sale', 'core.manage_pharmacy_returns',
         'core.read_pharmacy_reports',
+        'core.perform_stock_count', 'core.approve_stock_count', 'core.manage_inventory_periods',
         *_DEPT_PHARM_MANAGER,
+        *_ATTACHMENT_BASE,
     },
     'Pharmacist': {
         'core.view_patient',
@@ -340,6 +442,7 @@ ROLE_PERMISSIONS = {
         'core.read_pharmacy_reports',
         'core.view_inv_reports',
         *_DEPT_PHARM_USER,
+        *_ATTACHMENT_BASE,
     },
     'Pharmacy Sales': {
         'core.read_prescription_for_dispensing',
@@ -368,6 +471,7 @@ ROLE_PERMISSIONS = {
         'core.perform_stock_count', 'core.approve_stock_count',
         'core.view_store_reports', 'core.export_store_reports',
         'core.view_inv_reports', 'core.export_inv_reports',
+        'core.manage_inventory_periods',
     },
     'Store Staff': {
         'core.read_inventory', 'core.manage_inventory',
@@ -402,6 +506,7 @@ ROLE_PERMISSIONS = {
         'core.generate_surgery_billing',
         'core.read_surgery_reports',
         *_PATIENT_FLOW_READ,
+        'core.view_admission_dashboard', 'core.view_admission_reports',
     },
     'Finance Staff': {
         'core.view_patient', 'core.view_visit',
@@ -411,6 +516,7 @@ ROLE_PERMISSIONS = {
         *_SURGERY_READ,
         'core.generate_surgery_billing',
         *_PATIENT_FLOW_READ,
+        'core.view_admission_dashboard',
     },
     'Cashier': {
         'core.view_patient', 'core.view_visit',
@@ -419,6 +525,7 @@ ROLE_PERMISSIONS = {
         'core.manage_cash_sessions',
         *_SURGERY_READ,
         *_PATIENT_FLOW_READ,
+        'core.view_admission_dashboard',
     },
 
     # ── HR ──────────────────────────────────────────────────────────────────
@@ -426,6 +533,8 @@ ROLE_PERMISSIONS = {
         'core.read_employee', 'core.manage_employees',
         'core.manage_attendance', 'core.manage_payroll',
         'core.read_department_reports',
+        'core.manage_doctors', 'core.view_specialization_reports',
+        'core.manage_employee_signatures',
     },
     'HR Staff': {
         'core.read_employee', 'core.manage_employees',
@@ -438,6 +547,8 @@ ROLE_PERMISSIONS = {
     # ── Department Medication Stores ────────────────────────────────────────
     'Dept Medication Manager': {
         *_DEPT_PHARM_MANAGER,
+        'core.perform_stock_count', 'core.approve_stock_count',
+        'core.ward_supervisor_approve',
     },
     'Ward Store User': {
         *_DEPT_PHARM_USER,
@@ -646,6 +757,31 @@ DASHBOARD_MODULES = [
         ),
     },
     {
+        'id': 'nursing',
+        'title': 'Nursing',
+        'description': 'Ward patients, assessments, MAR, and shift handover',
+        'url_name': 'nursing_dashboard',
+        'permission': 'core.view_nursing_dashboard',
+        'color': 'pink',
+        'available': True,
+        'icon_path': (
+            'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 '
+            '01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+        ),
+    },
+    {
+        'id': 'admission',
+        'title': 'Admission',
+        'description': 'Admission requests, deposits, and bed assignment',
+        'url_name': 'admission_dashboard',
+        'permission': 'core.view_admission_dashboard',
+        'color': 'cyan',
+        'available': True,
+        'icon_path': (
+            'M12 4.5v15m7.5-7.5h-15'
+        ),
+    },
+    {
         'id': 'billing',
         'title': 'Billing & Finance',
         'description': 'Invoicing, payments, and financial records',
@@ -752,6 +888,8 @@ ROLE_DEPARTMENTS = {
     'Medical Director':      'Medical Administration',
     # Reception
     'Receptionist':          'Reception / Front Desk',
+    # Medical Records
+    'Medical Records Officer': 'Medical Records',
     # Medical
     'Doctor':                'Medical Department',
     'Ward Doctor':           'Ward / Inpatient',
@@ -763,6 +901,7 @@ ROLE_DEPARTMENTS = {
     'OR Nurse':              'Operating Room',
     'Emergency Nurse':       'Emergency Department',
     'Triage Staff':          'Emergency / Triage',
+    'Ward Supervisor':       'Ward / Inpatient',
     # Laboratory
     'Laboratory Staff':      'Laboratory',
     'Lab Supervisor':        'Laboratory',
@@ -800,6 +939,7 @@ DEPARTMENT_DEFAULTS = [
     ('Administration',         'administration'),
     ('Medical Administration', 'administration'),
     ('Reception / Front Desk', 'administration'),
+    ('Medical Records',        'medical_records'),
     ('Medical Department',     'clinical'),
     ('Nursing Department',     'nursing'),
     ('Emergency Department',   'emergency'),
@@ -829,6 +969,8 @@ ROLE_META = {
     'Medical Director':      {'badge': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300', 'desc': 'Clinical oversight & direction'},
     # Reception
     'Receptionist':          {'badge': 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',         'desc': 'Patient registration & appointments'},
+    # Medical Records
+    'Medical Records Officer': {'badge': 'bg-stone-100 text-stone-800 dark:bg-stone-900/40 dark:text-stone-300', 'desc': 'Patient document & attachment management'},
     # Medical
     'Doctor':                {'badge': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',     'desc': 'Clinical diagnosis & treatment'},
     'Ward Doctor':           {'badge': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',     'desc': 'Ward rounds & inpatient care'},
@@ -840,6 +982,7 @@ ROLE_META = {
     'OR Nurse':              {'badge': 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', 'desc': 'OR surgical preparation'},
     'Emergency Nurse':       {'badge': 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',     'desc': 'Emergency patient care'},
     'Triage Staff':          {'badge': 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',     'desc': 'Emergency triage & assessment'},
+    'Ward Supervisor':       {'badge': 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',     'desc': 'Ward nursing oversight & request approval'},
     # Laboratory
     'Laboratory Staff':      {'badge': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300', 'desc': 'Lab tests & results'},
     'Lab Supervisor':        {'badge': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300', 'desc': 'Lab oversight & quality control'},
@@ -875,8 +1018,9 @@ ROLE_META = {
 ROLE_CATEGORIES = [
     {'label': 'Administration',             'roles': ['Administrator', 'Medical Director']},
     {'label': 'Reception',                  'roles': ['Receptionist']},
+    {'label': 'Medical Records',            'roles': ['Medical Records Officer']},
     {'label': 'Medical / Clinical',         'roles': ['Doctor', 'Ward Doctor', 'Emergency Doctor', 'Surgeon']},
-    {'label': 'Nursing',                    'roles': ['Nurse', 'Ward Nurse', 'OR Nurse', 'Emergency Nurse', 'Triage Staff']},
+    {'label': 'Nursing',                    'roles': ['Nurse', 'Ward Nurse', 'OR Nurse', 'Emergency Nurse', 'Triage Staff', 'Ward Supervisor']},
     {'label': 'Laboratory',                 'roles': ['Laboratory Staff', 'Lab Supervisor']},
     {'label': 'Radiology',                  'roles': ['Radiologist', 'Radiology Technician']},
     {'label': 'Anesthesia / OR',            'roles': ['Anesthesia Team']},

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Shift Handover — HMS{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Shift Handover Notes</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ notes|length }} note{{ notes|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'nursing_handover_create' %}" class="px-4 py-2 bg-pink-700 hover:bg-pink-800 text-white text-sm font-semibold rounded-lg transition-colors">+ New Handover Note</a>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap items-end gap-3">
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Ward</label>
+      <select name="ward" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Wards</option>
+        {% for w in wards %}<option value="{{ w.id }}" {% if ward_id == w.id|stringformat:"s" %}selected{% endif %}>{{ w.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    {% if notes %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+        <tr>
+          <th class="px-4 py-3 text-left">Ward</th>
+          <th class="px-4 py-3 text-left">Shift</th>
+          <th class="px-4 py-3 text-left">Date</th>
+          <th class="px-4 py-3 text-left">Patient</th>
+          <th class="px-4 py-3 text-left">From / To</th>
+          <th class="px-4 py-3 text-left">Note</th>
+          <th class="px-4 py-3 text-center">Priority</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for n in notes %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors {% if n.priority_flag %}bg-red-50/40 dark:bg-red-900/10{% endif %}">
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ n.ward.name }}</td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ n.get_shift_display }}</td>
+          <td class="px-4 py-3 text-xs text-slate-400">{{ n.handover_date|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{% if n.patient %}{{ n.patient.full_name }}{% else %}Ward-wide{% endif %}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ n.from_nurse.get_full_name|default:n.from_nurse.username|default:"—" }} {% if n.to_nurse %}&rarr; {{ n.to_nurse.get_full_name|default:n.to_nurse.username }}{% endif %}</td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-xs truncate">{{ n.content }}</td>
+          <td class="px-4 py-3 text-center">{% if n.priority_flag %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Priority</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="px-5 py-16 text-center text-slate-400">No handover notes yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

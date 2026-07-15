@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load hms_extras %}
 {% block title %}Appointments — HMS{% endblock %}
 
 {% block content %}
@@ -105,10 +106,10 @@
                     <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">{{ appt.appointment_number }}</td>
                     <td class="px-4 py-3 text-slate-700 dark:text-slate-200 font-medium">{{ appt.appointment_time|time:"H:i" }}</td>
                     <td class="px-4 py-3">
-                        <p class="font-medium text-slate-900 dark:text-white">{{ appt.patient.full_name }}</p>
-                        <p class="text-xs text-slate-400">{{ appt.patient.card_number }}</p>
+                        <p class="font-medium text-slate-900 dark:text-white">{{ appt.display_patient_name }}{% if not appt.patient %} <span class="text-xs text-amber-500 font-normal">(walk-in)</span>{% endif %}</p>
+                        <p class="text-xs text-slate-400">{{ appt.display_identifier }}</p>
                     </td>
-                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300">Dr. {{ appt.doctor.full_name }}</td>
+                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}<span class="text-slate-400">Not assigned</span>{% endif %}</td>
                     <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">{{ appt.visit_type }}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium

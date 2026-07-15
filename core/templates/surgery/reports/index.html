@@ -49,5 +49,13 @@
     <p class="text-xs text-slate-400 mt-1">Operating room usage, occupancy rates by room</p>
   </a>
 
+  <a href="{% url 'report_or_inventory' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md hover:border-teal-300 dark:hover:border-teal-600 transition group">
+    <div class="w-9 h-9 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center mb-3">
+      <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+    </div>
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">OR Inventory</h2>
+    <p class="text-xs text-slate-400 mt-1">Surgical supply stock levels and consumption</p>
+  </a>
+
 </div>
 {% endblock %}

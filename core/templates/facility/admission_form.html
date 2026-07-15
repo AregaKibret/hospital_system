@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'transfer' %}Transfer Patient{% else %}Admit Patient{% endif %}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  {% if mode == 'transfer' %}
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Transfer {{ patient.full_name }}</h1>
+  {% else %}
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Admit {{ patient.full_name }}</h1>
+  {% endif %}
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+
+<div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4 mb-5 text-sm">
+  <span class="font-medium text-slate-800 dark:text-slate-100">{{ patient.full_name }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-600 dark:text-slate-300">{{ patient.card_number }}</span>
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-500">{{ patient.sex }}</span>
+  {% if mode == 'transfer' %}
+  <span class="text-slate-400 mx-2">·</span>
+  <span class="text-slate-500">Currently in bed {{ admission.bed.bed_code }} ({{ admission.bed.room.ward.name }})</span>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="field-input text-sm">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.pk }}" {% if department_f == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Ward Type</label>
+      <select name="ward_type" class="field-input text-sm">
+        <option value="">All</option>
+        {% for val, label in ward_types %}<option value="{{ val }}" {% if ward_type_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Room Type</label>
+      <select name="room_type" class="field-input text-sm">
+        <option value="">All</option>
+        {% for val, label in room_types %}<option value="{{ val }}" {% if room_type_f == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn-secondary text-sm">Filter</button>
+  </div>
+</form>
+
+<form method="post">{% csrf_token %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700">
+      <h2 class="font-semibold text-slate-800 dark:text-slate-200 text-sm">Available Beds ({{ available_beds.count }})</h2>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700 max-h-96 overflow-y-auto">
+      {% for bed in available_beds %}
+      <label class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer">
+        <input type="radio" name="bed_id" value="{{ bed.pk }}" required class="w-4 h-4">
+        <div class="flex-1">
+          <span class="font-medium text-slate-800 dark:text-slate-100">{{ bed.bed_code }}</span>
+          <span class="text-xs text-slate-400 ml-2">{{ bed.room.ward.name }} — Room {{ bed.room.room_number }} ({{ bed.room.get_room_type_display }})</span>
+        </div>
+        <span class="text-xs text-slate-400">{{ bed.ward.get_gender_restriction_display }}</span>
+      </label>
+      {% empty %}
+      <p class="px-5 py-8 text-center text-slate-400 text-sm">No beds available matching this filter. Admission cannot proceed until a bed is available.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if mode == 'transfer' %}
+  <div class="mt-4 field-wrapper">
+    <label class="field-label">Transfer Reason</label>
+    <textarea name="transfer_reason" rows="2" class="field-input" placeholder="e.g. Escalation to ICU, patient request…"></textarea>
+  </div>
+  {% endif %}
+
+  <div class="flex gap-3 mt-5">
+    <button type="submit" class="btn-primary" {% if not available_beds %}disabled{% endif %}>
+      {% if mode == 'transfer' %}Transfer Patient{% else %}Admit Patient{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}

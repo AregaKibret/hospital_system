@@ -48,14 +48,14 @@
         <div class="line-row grid grid-cols-12 gap-2 items-end">
           <div class="col-span-6">
             <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
-            <select name="med_0" class="field-input text-sm" required>
+            <select name="med_0" class="field-input text-sm">
               <option value="">Select medication</option>
               {% for m in medications %}<option value="{{ m.id }}">{{ m.name }} — {{ m.generic_name }}</option>{% endfor %}
             </select>
           </div>
           <div class="col-span-3">
             <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
-            <input type="number" name="qty_0" min="1" required class="field-input text-sm" placeholder="0">
+            <input type="number" name="qty_0" min="1" class="field-input text-sm" placeholder="0">
           </div>
           <div class="col-span-3">
             <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Note</label>
@@ -63,6 +63,16 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Consumable lines -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Consumables / Supplies</h2>
+        <button type="button" id="add-item-line" class="btn-secondary text-xs py-1 px-3">+ Add Line</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-3">Syringes, IV cannulas, gloves, dressings, catheters, and other ward supplies.</p>
+      <div id="item-lines-container" class="space-y-3"></div>
     </div>
 
     <div class="flex gap-3">
@@ -84,13 +94,13 @@ document.getElementById('add-line').addEventListener('click', () => {
   div.innerHTML = `
     <div class="col-span-6">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
-      <select name="med_${idx}" class="field-input text-sm" required>
+      <select name="med_${idx}" class="field-input text-sm">
         <option value="">Select medication</option>${medOptions}
       </select>
     </div>
     <div class="col-span-3">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
-      <input type="number" name="qty_${idx}" min="1" required class="field-input text-sm" placeholder="0">
+      <input type="number" name="qty_${idx}" min="1" class="field-input text-sm" placeholder="0">
     </div>
     <div class="col-span-2">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Note</label>
@@ -100,17 +110,44 @@ document.getElementById('add-line').addEventListener('click', () => {
       <button type="button" onclick="this.closest('.line-row').remove()" class="text-red-400 hover:text-red-600 text-xs">✕</button>
     </div>`;
   document.getElementById('lines-container').appendChild(div);
-  // Add sentinel so the loop in the view knows there are idx items
-  const sentinel = document.getElementById('line-sentinel');
-  if (!sentinel) {
-    const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'med_' + lineIndex; inp.value = ''; inp.id = 'line-sentinel';
-    document.getElementById('req-form').appendChild(inp);
-  }
 });
-// sentinel for loop termination
+
+let itemLineIndex = 0;
+const itemOptions = `{% for c in consumables %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}`;
+document.getElementById('add-item-line').addEventListener('click', () => {
+  const idx = itemLineIndex++;
+  const div = document.createElement('div');
+  div.className = 'line-row grid grid-cols-12 gap-2 items-end';
+  div.innerHTML = `
+    <div class="col-span-6">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Consumable</label>
+      <select name="item_${idx}" class="field-input text-sm">
+        <option value="">Select item</option>${itemOptions}
+      </select>
+    </div>
+    <div class="col-span-3">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
+      <input type="number" name="item_qty_${idx}" min="1" class="field-input text-sm" placeholder="0">
+    </div>
+    <div class="col-span-2">
+      <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Note</label>
+      <input type="text" name="item_notes_${idx}" class="field-input text-sm">
+    </div>
+    <div class="col-span-1 flex items-end pb-1">
+      <button type="button" onclick="this.closest('.line-row').remove()" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+    </div>`;
+  document.getElementById('item-lines-container').appendChild(div);
+});
+
+// Sentinels so the view's while-loops know where the submitted lines end.
 document.getElementById('req-form').addEventListener('submit', () => {
-  const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'med_' + lineIndex; inp.value = '';
-  document.getElementById('req-form').appendChild(inp);
+  const medSentinel = document.createElement('input');
+  medSentinel.type = 'hidden'; medSentinel.name = 'med_' + lineIndex; medSentinel.value = '';
+  document.getElementById('req-form').appendChild(medSentinel);
+
+  const itemSentinel = document.createElement('input');
+  itemSentinel.type = 'hidden'; itemSentinel.name = 'item_' + itemLineIndex; itemSentinel.value = '';
+  document.getElementById('req-form').appendChild(itemSentinel);
 });
 </script>
 {% endblock %}

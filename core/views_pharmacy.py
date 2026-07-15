@@ -1,14 +1,17 @@
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .audit import log_action
 from .decorators import hms_permission_required
-from .models import AuditLog, Dispensing, MedicationOrder, Patient, PharmacyStock
+from .inventory_bridge import ensure_medication_link, record_pharmacy_stock_transaction
+from .models import AuditLog, Dispensing, MedicationOrder, Patient, PharmacyStock, StockTransaction
 
 
 # ── Pharmacy Dashboard ────────────────────────────────────────────────────────
@@ -122,6 +125,7 @@ def pharmacy_stock_create(request):
                 expiry_date=data.get('expiry_date') or None,
                 supplier=data.get('supplier', '').strip(),
             )
+            ensure_medication_link(stock, request.user)
             log_action(
                 request.user, AuditLog.Action.CREATE, AuditLog.Module.PHARMACY,
                 object_type='PharmacyStock', object_id=stock.pk, object_repr=stock.drug_name,
@@ -150,6 +154,7 @@ def pharmacy_stock_edit(request, stock_id):
     if request.method == 'POST':
         data = request.POST
         try:
+            old_qty = stock.quantity_in_stock
             stock.drug_name = data['drug_name'].strip()
             stock.generic_name = data.get('generic_name', '').strip()
             stock.category = data.get('category', '').strip()
@@ -164,6 +169,19 @@ def pharmacy_stock_edit(request, stock_id):
             stock.expiry_date = data.get('expiry_date') or None
             stock.supplier = data.get('supplier', '').strip()
             stock.save()
+
+            diff = stock.quantity_in_stock - old_qty
+            if diff != 0:
+                record_pharmacy_stock_transaction(
+                    stock,
+                    StockTransaction.TxType.ADJUSTMENT_IN if diff > 0 else StockTransaction.TxType.ADJUSTMENT_OUT,
+                    request.user,
+                    qty_in=diff if diff > 0 else 0,
+                    qty_out=-diff if diff < 0 else 0,
+                    reference=f'EDIT-PS-{stock.pk}',
+                    notes=f'Quantity changed via stock edit ({old_qty} → {stock.quantity_in_stock}).',
+                )
+
             messages.success(request, f'"{stock.drug_name}" updated successfully.')
             return redirect('pharmacy_stock_list')
         except Exception as exc:
@@ -194,6 +212,15 @@ def pharmacy_stock_adjust(request, stock_id):
         stock.quantity_in_stock = new_qty
         stock.save()
         direction = 'Added' if adjustment >= 0 else 'Removed'
+        record_pharmacy_stock_transaction(
+            stock,
+            StockTransaction.TxType.ADJUSTMENT_IN if adjustment >= 0 else StockTransaction.TxType.ADJUSTMENT_OUT,
+            request.user,
+            qty_in=adjustment if adjustment >= 0 else 0,
+            qty_out=-adjustment if adjustment < 0 else 0,
+            reference=f'ADJ-PS-{stock.pk}',
+            notes=reason or 'Manual stock adjustment',
+        )
         log_action(
             request.user, AuditLog.Action.ADJUST, AuditLog.Module.PHARMACY,
             object_type='PharmacyStock', object_id=stock.pk, object_repr=stock.drug_name,
@@ -212,16 +239,56 @@ def pharmacy_stock_adjust(request, stock_id):
     return redirect('pharmacy_stock_list')
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# AJAX — Fast pharmacy stock search (used by doctor's medication ordering form)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def pharmacy_stock_search_api(request):
+    """Return JSON list of matching pharmacy stock items for AJAX autocomplete."""
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 2:
+        return JsonResponse({'results': []})
+
+    qs = PharmacyStock.objects.filter(
+        Q(drug_name__icontains=q) |
+        Q(generic_name__icontains=q) |
+        Q(category__icontains=q)
+    ).values(
+        'id', 'drug_name', 'generic_name', 'strength', 'dosage_form',
+        'selling_price', 'quantity_in_stock', 'unit',
+    ).order_by('drug_name')[:25]
+
+    results = [{
+        'id':               row['id'],
+        'drug_name':        row['drug_name'],
+        'generic_name':     row['generic_name'] or '',
+        'strength':         row['strength'] or '',
+        'dosage_form':      row['dosage_form'],
+        'selling_price':    str(row['selling_price']),
+        'quantity_in_stock': row['quantity_in_stock'],
+        'unit':             row['unit'],
+    } for row in qs]
+    return JsonResponse({'results': results})
+
+
 # ── Prescriptions (pending dispensing) ───────────────────────────────────────
 
 @hms_permission_required('core.read_prescription_for_dispensing')
 def pharmacy_prescriptions(request):
     search = request.GET.get('q', '').strip()
 
-    # Active medication orders not yet dispensed
+    # Active medication orders not yet dispensed. Orders with a real charge
+    # only enter this queue once payment has cleared (or been credit-approved
+    # / waived) — mirroring the lab and radiology billing workflow.
     qs = (
         MedicationOrder.objects
         .filter(status=MedicationOrder.Status.ACTIVE)
+        .filter(payment_status__in=[
+            MedicationOrder.PaymentStatus.PAID,
+            MedicationOrder.PaymentStatus.CREDIT,
+            MedicationOrder.PaymentStatus.WAIVED,
+        ])
         .exclude(dispensing__status=Dispensing.Status.DISPENSED)
         .select_related('visit__patient', 'ordered_by')
         .order_by('-ordered_at')
@@ -255,6 +322,10 @@ def pharmacy_dispense(request, order_id):
     # Already dispensed guard
     if hasattr(order, 'dispensing') and order.dispensing.status == Dispensing.Status.DISPENSED:
         messages.warning(request, 'This order has already been fully dispensed.')
+        return redirect('pharmacy_prescriptions')
+
+    if not order.payment_cleared:
+        messages.error(request, 'Payment must be cleared before dispensing this medication.')
         return redirect('pharmacy_prescriptions')
 
     stock_items = PharmacyStock.objects.filter(quantity_in_stock__gt=0).order_by('drug_name')
@@ -315,6 +386,13 @@ def pharmacy_dispense(request, order_id):
                 if stock:
                     stock.quantity_in_stock -= qty
                     stock.save()
+                    record_pharmacy_stock_transaction(
+                        stock, StockTransaction.TxType.DISPENSE, request.user,
+                        qty_out=qty,
+                        reference=f'DISP-MO-{order.pk}',
+                        notes=f'Dispensed for {order.visit.patient.full_name} (order #{order.pk}).',
+                        patient=order.visit.patient,
+                    )
 
                 # Mark order completed if fully dispensed
                 if status_val == Dispensing.Status.DISPENSED:
@@ -390,6 +468,13 @@ def pharmacy_sales(request):
                     )
                     stock.quantity_in_stock -= qty
                     stock.save()
+                    record_pharmacy_stock_transaction(
+                        stock, StockTransaction.TxType.DISPENSE, request.user,
+                        qty_out=qty,
+                        reference=f'SALE-{patient.pk}-{stock.pk}',
+                        notes=f'OTC sale to {patient.full_name}.',
+                        patient=patient,
+                    )
 
                 messages.success(
                     request,

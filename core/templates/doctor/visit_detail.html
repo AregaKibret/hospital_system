@@ -40,9 +40,48 @@
           <span>Dr. {{ visit.doctor.full_name }}</span>
           <span>{{ visit.created_at|date:"M j, Y H:i" }}</span>
         </div>
+        <div class="mt-1.5">
+          {% if current_admission %}
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+            Admitted — {{ current_admission.bed.room.ward.name }} / Bed {{ current_admission.bed.bed_code }}
+          </span>
+          {% if current_admission.discharge_approved_by %}
+          <span class="text-xs text-emerald-600 dark:text-emerald-400 ml-2">Discharge approved</span>
+          {% elif perms.core.manage_discharge %}
+          <form method="post" action="{% url 'admission_approve_discharge' current_admission.pk %}" class="inline">
+            {% csrf_token %}<button type="submit" class="text-xs text-emerald-600 hover:underline ml-2">Approve Discharge</button>
+          </form>
+          {% endif %}
+          {% if perms.core.assign_bed %}
+          <a href="{% url 'patient_transfer' current_admission.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400 ml-2">Transfer</a>
+          <form method="post" action="{% url 'patient_discharge' current_admission.pk %}" class="inline" onsubmit="return confirm('Discharge {{ visit.patient.full_name }}?');">
+            {% csrf_token %}<button type="submit" class="text-xs text-red-500 hover:underline ml-2">Discharge</button>
+          </form>
+          {% endif %}
+          {% if perms.core.upload_attachment %}
+          <a href="{% url 'patient_attachment_upload' visit.patient_id %}?admission={{ current_admission.pk }}" class="text-xs text-teal-600 hover:underline dark:text-teal-400 ml-2">Attach Document</a>
+          {% endif %}
+          {% else %}
+          {% if perms.core.assign_bed %}
+          <a href="{% url 'admission_create' visit.pk %}" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 font-medium">+ Quick Admit</a>
+          {% endif %}
+          {% if perms.core.request_admission %}
+          <a href="{% url 'admission_request_create' visit.pk %}" class="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 font-medium ml-1">+ Request Admission</a>
+          {% endif %}
+          {% endif %}
+        </div>
       </div>
     </div>
     <div class="flex items-center gap-2 shrink-0">
+      {% if perms.core.manage_appointments %}
+      <button type="button" onclick="showFollowUpModal()"
+         class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Schedule Follow-Up
+      </button>
+      {% endif %}
       <a href="{% url 'patient_history' visit.patient.id %}"
          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +285,7 @@
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-slate-800 dark:text-white">Lab Orders</h3>
             {% if perms.core.request_lab_test %}
-            <a href="{% url 'lab_order_create' visit.id %}"
+            <a href="{% url 'lab_order_multi_create' visit.id %}"
                class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
               New Lab Order
@@ -269,8 +308,9 @@
                 {% for order in lab_orders %}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                   <td class="px-4 py-2.5">
-                    <p class="font-medium text-slate-800 dark:text-slate-200">{{ order.test_name }}</p>
+                    <a href="{% url 'lab_order_detail' order.pk %}" class="font-medium text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400">{{ order.test_name }}</a>
                     {% if order.test_category %}<p class="text-xs text-slate-400">{{ order.test_category }}</p>{% endif %}
+                    {% if order.is_critical %}<span class="inline-flex items-center px-1.5 py-0.5 mt-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Critical</span>{% endif %}
                   </td>
                   <td class="px-4 py-2.5">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
@@ -282,14 +322,17 @@
                   </td>
                   <td class="px-4 py-2.5">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                      {% if order.status == 'Completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% if order.status == 'Completed' or order.status == 'Released' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
                       {% elif order.status == 'In Progress' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
                       {% elif order.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
                       {% else %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
                       {{ order.status }}
                     </span>
                   </td>
-                  <td class="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hidden md:table-cell max-w-xs truncate">{{ order.result|default:"—" }}</td>
+                  <td class="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hidden md:table-cell max-w-xs truncate">
+                    {% if order.status == 'Released' or order.status == 'Completed' %}{{ order.result|default:"—" }}
+                    {% else %}<span class="text-slate-400 italic">Pending verification</span>{% endif %}
+                  </td>
                   <td class="px-4 py-2.5 text-xs text-slate-400">{{ order.ordered_at|date:"M j, Y" }}</td>
                 </tr>
                 {% endfor %}
@@ -321,6 +364,7 @@
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Type</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Body Part</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Priority</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Payment</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Ordered</th>
                 </tr>
@@ -336,6 +380,16 @@
                       {% elif order.priority == 'Urgent' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
                       {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
                       {{ order.priority }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.payment_status == 'Paid' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                      {% elif order.payment_status == 'Credit' %}bg-purple-100 text-purple-700
+                      {% elif order.payment_status == 'Partial' %}bg-blue-100 text-blue-700
+                      {% elif order.payment_status == 'Waived' %}bg-slate-100 text-slate-500
+                      {% else %}bg-amber-100 text-amber-700{% endif %}">
+                      {{ order.payment_status }}
                     </span>
                   </td>
                   <td class="px-4 py-2.5">
@@ -379,6 +433,7 @@
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Dose</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden sm:table-cell">Route</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hidden md:table-cell">Frequency</th>
+                  <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Payment</th>
                   <th class="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th>
                   <th class="text-right px-4 py-2.5"></th>
                 </tr>
@@ -393,6 +448,20 @@
                   <td class="px-4 py-2.5 text-slate-600 dark:text-slate-300">{{ order.dosage }}</td>
                   <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hidden sm:table-cell">{{ order.get_route_display }}</td>
                   <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hidden md:table-cell">{{ order.frequency }}{% if order.duration %} · {{ order.duration }}{% endif %}</td>
+                  <td class="px-4 py-2.5">
+                    {% if order.unit_price > 0 %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                      {% if order.payment_status == 'Paid' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                      {% elif order.payment_status == 'Credit' %}bg-purple-100 text-purple-700
+                      {% elif order.payment_status == 'Partial' %}bg-blue-100 text-blue-700
+                      {% elif order.payment_status == 'Waived' %}bg-slate-100 text-slate-500
+                      {% else %}bg-amber-100 text-amber-700{% endif %}">
+                      {{ order.payment_status }}
+                    </span>
+                    {% else %}
+                    <span class="text-xs text-slate-300 dark:text-slate-600">—</span>
+                    {% endif %}
+                  </td>
                   <td class="px-4 py-2.5">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                       {% if order.status == 'Active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
@@ -545,6 +614,164 @@
           {% else %}
           <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No procedure orders</p></div>
           {% endif %}
+
+          {% if surgery_orders %}
+          <div class="mt-6">
+            <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Surgery Orders — Perioperative Documentation</h4>
+            <div class="space-y-2">
+              {% for so in surgery_orders %}
+              <a href="{% url 'surgery_order_detail' so.pk %}" class="block bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ so.order_number }} — {{ so.planned_procedure }}</span>
+                  <span class="text-xs text-slate-400">Dr. {{ so.surgeon.get_full_name }}</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span class="text-xs px-2 py-0.5 rounded-full {% if so.current_anesthesia_record.is_finalized %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% elif so.current_anesthesia_record %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                    Pre-Op: {% if so.current_anesthesia_record.is_finalized %}Finalized{% elif so.current_anesthesia_record %}Draft{% else %}Not started{% endif %}
+                  </span>
+                  <span class="text-xs px-2 py-0.5 rounded-full {% if so.current_operative_note.is_finalized %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% elif so.current_operative_note %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                    Op Note: {% if so.current_operative_note.is_finalized %}Finalized{% elif so.current_operative_note %}Draft{% else %}Not started{% endif %}
+                  </span>
+                  <span class="text-xs px-2 py-0.5 rounded-full {% if so.current_postop_note.is_finalized %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% elif so.current_postop_note %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% else %}bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                    Post-Op: {% if so.current_postop_note.is_finalized %}Finalized{% elif so.current_postop_note %}Draft{% else %}Not started{% endif %}
+                  </span>
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- NURSING -->
+        <div id="tab-nursing" class="tab-pane {% if active_tab != 'nursing' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Nursing Documentation</h3>
+            {% if perms.core.record_vital_signs %}
+            <a href="{% url 'ward_consumable_use' visit.id %}" class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">Record Consumable</a>
+            {% endif %}
+          </div>
+
+          {% if perms.core.write_nursing_note %}
+          <div class="flex flex-wrap gap-2 mb-5">
+            <a href="{% url 'nursing_assessment_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Nursing Assessment</a>
+            <a href="{% url 'pain_assessment_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Pain</a>
+            <a href="{% url 'fall_risk_assessment_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Fall Risk</a>
+            <a href="{% url 'pressure_ulcer_assessment_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Pressure Ulcer</a>
+            <a href="{% url 'nutritional_assessment_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Nutrition</a>
+            <a href="{% url 'fluid_balance_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Fluid Balance / I&amp;O</a>
+            <a href="{% url 'gcs_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ GCS</a>
+            <a href="{% url 'care_plan_create' visit.id %}" class="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/20">+ Care Plan</a>
+          </div>
+          {% endif %}
+
+          {% if nursing_assessments or pain_assessments or fall_risk_assessments or pressure_ulcer_assessments or nutritional_assessments or fluid_balance_records or glasgow_coma_scales or nursing_care_plans %}
+          <div class="space-y-4">
+            {% for a in nursing_assessments %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">{{ a.get_assessment_type_display }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.recorded_by.get_full_name|default:a.recorded_by.username }} &middot; {{ a.recorded_at|date:"d M Y H:i" }}</p>
+              {% if a.notes %}<p class="text-sm text-slate-700 dark:text-slate-300 mt-1">{{ a.notes }}</p>{% endif %}
+            </div>
+            {% endfor %}
+            {% for a in pain_assessments %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pain Assessment — Score {{ a.pain_score }}/10{% if a.reassessment_score %} (reassessed {{ a.reassessment_score }}/10){% endif %}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.location }} &middot; {{ a.get_character_display }} &middot; {{ a.recorded_at|date:"d M Y H:i" }}</p>
+            </div>
+            {% endfor %}
+            {% for a in fall_risk_assessments %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Fall Risk — {{ a.total_score }} pts
+                <span class="ml-1 px-1.5 py-0.5 rounded-full {% if a.risk_level == 'High' %}bg-red-100 text-red-700{% elif a.risk_level == 'Moderate' %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">{{ a.risk_level }}</span>
+              </p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.recorded_at|date:"d M Y H:i" }}</p>
+            </div>
+            {% endfor %}
+            {% for a in pressure_ulcer_assessments %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pressure Ulcer Risk (Braden) — {{ a.total_score }} pts
+                <span class="ml-1 px-1.5 py-0.5 rounded-full {% if a.risk_level == 'High' %}bg-red-100 text-red-700{% elif a.risk_level == 'Moderate' %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">{{ a.risk_level }}</span>
+              </p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.recorded_at|date:"d M Y H:i" }}</p>
+            </div>
+            {% endfor %}
+            {% for a in nutritional_assessments %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nutritional (MUST) — {{ a.total_score }} pts
+                <span class="ml-1 px-1.5 py-0.5 rounded-full {% if a.risk_level == 'High' %}bg-red-100 text-red-700{% elif a.risk_level == 'Medium' %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">{{ a.risk_level }}</span>
+              </p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.recorded_at|date:"d M Y H:i" }}</p>
+            </div>
+            {% endfor %}
+            {% for r in fluid_balance_records %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Fluid Balance — {{ r.record_date }} {{ r.get_shift_display }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">Intake {{ r.total_intake }}mL &middot; Output {{ r.total_output }}mL &middot; Balance {{ r.balance }}mL</p>
+            </div>
+            {% endfor %}
+            {% for g in glasgow_coma_scales %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">GCS — {{ g.total_score }}/15 (E{{ g.eye_opening }} V{{ g.verbal_response }} M{{ g.motor_response }})</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ g.recorded_at|date:"d M Y H:i" }}</p>
+            </div>
+            {% endfor %}
+            {% for p in nursing_care_plans %}
+            <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Care Plan — {{ p.problem }}</p>
+                <span class="px-1.5 py-0.5 rounded-full text-xs {% if p.status == 'active' %}bg-blue-100 text-blue-700{% elif p.status == 'resolved' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ p.get_status_display }}</span>
+              </div>
+              <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">Goal: {{ p.goal }}</p>
+              {% if perms.core.write_nursing_note and p.status != 'resolved' %}
+              <form method="post" action="{% url 'care_plan_update_status' p.id %}" class="mt-2 flex gap-2 items-center">
+                {% csrf_token %}
+                <select name="status" class="text-xs border border-slate-200 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                  <option value="ongoing">Ongoing</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+                <button type="submit" class="text-xs px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white rounded">Update</button>
+              </form>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No nursing documentation recorded yet</p></div>
+          {% endif %}
+        </div>
+
+        <!-- Attachments tab -->
+        <div id="tab-attachments" class="tab-pane {% if active_tab != 'attachments' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Attachments</h3>
+            <div class="flex items-center gap-2">
+              <a href="{% url 'patient_attachment_list' visit.patient_id %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">All patient documents →</a>
+              {% if perms.core.upload_attachment %}
+              <a href="{% url 'patient_attachment_upload' visit.patient_id %}?visit={{ visit.pk }}" class="text-xs px-3 py-1.5 rounded-full border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20">+ Upload Document</a>
+              {% endif %}
+            </div>
+          </div>
+          {% if attachments %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% for a in attachments %}
+            <div class="border border-slate-100 dark:border-slate-700 rounded-lg p-3">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-xs font-medium text-indigo-600 dark:text-indigo-400">{{ a.category.name }}</span>
+                {% if a.is_confidential %}<span class="text-xs text-red-500">Confidential</span>{% endif %}
+              </div>
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100 mt-1">{{ a.title }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ a.uploaded_by.get_full_name|default:a.uploaded_by.username }} · {{ a.uploaded_at|date:"M j, Y" }}</p>
+              <div class="mt-2 flex gap-2">
+                <a href="{% url 'patient_attachment_preview' a.id %}" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Preview</a>
+                <a href="{% url 'patient_attachment_download' a.id %}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">Download</a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center"><p class="text-sm text-slate-400 dark:text-slate-500">No documents attached to this visit yet</p></div>
+          {% endif %}
         </div>
 
       </div><!-- /p-5 -->
@@ -588,7 +815,7 @@
         </a>
         {% endif %}
         {% if perms.core.request_lab_test %}
-        <a href="{% url 'lab_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+        <a href="{% url 'lab_order_multi_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
           <svg class="w-4 h-4 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
           <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Lab Order</span>
         </a>
@@ -609,6 +836,12 @@
         <a href="{% url 'procedure_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
           <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
           <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Procedure/Surgery</span>
+        </a>
+        {% endif %}
+        {% if perms.core.record_vital_signs %}
+        <a href="{% url 'mar_list' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-pink-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 2a1 1 0 00-1 1v1H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2V3a1 1 0 00-1-1H9zm3 8v6m-3-3h6"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Medication Administration (MAR)</span>
         </a>
         {% endif %}
         {% if perms.core.record_vital_signs %}
@@ -645,8 +878,69 @@
   </div>
 </div>
 
+<!-- Schedule Follow-Up Appointment modal -->
+<div id="followup-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto py-6">
+  <div class="absolute inset-0 bg-black/40" onclick="hideFollowUpModal()"></div>
+  <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 z-10">
+    <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Schedule Follow-Up Appointment</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">For {{ visit.patient.full_name }} ({{ visit.patient.card_number }})</p>
+    <form method="post" action="{% url 'schedule_followup' visit.id %}">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Follow-up Date <span class="text-red-500">*</span></label>
+          <input type="date" name="appointment_date" required min="{{ today|date:'Y-m-d' }}"
+                 class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time <span class="text-slate-400 font-normal">(optional)</span></label>
+          <input type="time" name="appointment_time" value="18:00"
+                 class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Appointment Type</label>
+          <select name="appointment_type" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+            {% for value, label in appointment_types %}
+            <option value="{{ value }}" {% if value == 'Follow-up Consultation' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+          <select name="priority" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+            <option value="Normal" selected>Routine</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="field-wrapper sm:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason for Follow-up <span class="text-slate-400 font-normal">(optional)</span></label>
+          <textarea name="reason_for_visit" rows="2" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none"></textarea>
+        </div>
+        <div class="field-wrapper sm:col-span-2">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes / Instructions <span class="text-slate-400 font-normal">(optional)</span></label>
+          <textarea name="notes" rows="2" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="hideFollowUpModal()"
+                class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</button>
+        <button type="submit"
+                class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Schedule Follow-Up</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 var VISIT_ID = {{ visit.id }};
+
+function showFollowUpModal() {
+  document.getElementById('followup-modal').classList.remove('hidden');
+}
+
+function hideFollowUpModal() {
+  document.getElementById('followup-modal').classList.add('hidden');
+}
 
 function switchTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.add('hidden'); });

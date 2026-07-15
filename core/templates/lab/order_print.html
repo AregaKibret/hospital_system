@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load signatures %}
+{% block title %}Lab Report — {{ order.test_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Screen toolbar (hidden when printing) -->
+  <div class="flex items-center justify-between mb-5 print:hidden">
+    <a href="{% url 'lab_order_detail' order.pk %}" class="btn-secondary text-sm">← Back</a>
+    <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+      Print Report
+    </button>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden" id="lab-card">
+
+    <!-- Header -->
+    <div class="bg-indigo-700 text-white px-8 py-5 text-center">
+      <h1 class="text-lg font-bold tracking-wide">LABORATORY REPORT</h1>
+      <p class="text-indigo-200 text-sm">Hospital Management System</p>
+    </div>
+
+    <!-- Order number + date -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Order No.</p>
+          <p class="font-bold text-slate-900 dark:text-white font-mono text-base">LAB-{{ order.pk }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-500 mb-0.5">Date</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ order.ordered_at|date:"d F Y" }}</p>
+          <p class="text-xs text-slate-400">{{ order.ordered_at|date:"H:i" }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-0.5">Status</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ order.status }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-500 mb-0.5">Priority</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ order.priority }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient info -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Patient Information</p>
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p class="text-xs text-slate-400">Name</p>
+          <p class="font-bold text-slate-800 dark:text-white">{{ order.visit.patient.full_name }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">MRN / Card #</p>
+          <p class="font-semibold font-mono text-slate-700 dark:text-slate-300">{{ order.visit.patient.card_number }}</p>
+        </div>
+        {% if order.visit.patient.age_display %}
+        <div>
+          <p class="text-xs text-slate-400">Age / Sex</p>
+          <p class="font-semibold text-slate-700 dark:text-slate-300">{{ order.visit.patient.age_display }} / {{ order.visit.patient.sex }}</p>
+        </div>
+        {% endif %}
+        <div>
+          <p class="text-xs text-slate-400">Department</p>
+          <p class="font-semibold text-slate-700 dark:text-slate-300">{{ order.visit.department.name|default:"—" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test / ordered by -->
+    <div class="px-8 py-4 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Test</p>
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p class="text-xs text-slate-400">Test Name</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ order.test_name }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">Category</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">{{ order.test_category|default:"—" }}</p>
+        </div>
+        <div class="col-span-2">
+          <p class="text-xs text-slate-400">Ordered By</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200">Dr. {{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="px-8 py-5 border-b border-slate-100 dark:border-slate-700">
+      <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-3">Results</p>
+      {% if entries %}
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-600 text-xs uppercase tracking-wide text-slate-500">
+            <th class="text-left py-1.5">Analyte</th>
+            <th class="text-left py-1.5">Result</th>
+            <th class="text-left py-1.5">Unit</th>
+            <th class="text-left py-1.5">Reference Range</th>
+            <th class="text-left py-1.5">Flag</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+          {% if entry.value %}
+          <tr class="border-b border-slate-50 dark:border-slate-700/50">
+            <td class="py-1.5 font-medium text-slate-800 dark:text-slate-100">{{ entry.analyte.name }}</td>
+            <td class="py-1.5 font-semibold {% if entry.flag == 'critical' %}text-red-600{% elif entry.flag == 'high' or entry.flag == 'low' or entry.flag == 'abnormal' %}text-amber-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">{{ entry.value }}</td>
+            <td class="py-1.5 text-slate-500">{{ entry.unit|default:"—" }}</td>
+            <td class="py-1.5 text-slate-500">{{ entry.reference_range|default:"—" }}</td>
+            <td class="py-1.5">
+              {% if entry.flag == 'critical' %}<span class="font-bold text-red-600">CRITICAL</span>
+              {% elif entry.flag == 'high' %}<span class="font-bold text-amber-600">H</span>
+              {% elif entry.flag == 'low' %}<span class="font-bold text-amber-600">L</span>
+              {% elif entry.flag == 'abnormal' %}<span class="font-bold text-amber-600">Abnormal</span>
+              {% else %}<span class="text-slate-400">—</span>{% endif %}
+            </td>
+          </tr>
+          {% if entry.comments %}
+          <tr><td colspan="5" class="pb-1.5 text-xs text-slate-400 italic">{{ entry.comments }}</td></tr>
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-sm text-slate-400">No results entered yet.</p>
+      {% endif %}
+      {% if order.is_critical %}
+      <div class="mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+        ⚠ CRITICAL RESULT{% if order.critical_notes %} — {{ order.critical_notes }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Footer / Signatures -->
+    <div class="px-8 py-5">
+      <div class="grid grid-cols-2 gap-8">
+        {% signature_block order.resulted_by label="Technician Signature" %}
+        {% signature_block order.released_by label="Verifying Professional Signature" %}
+      </div>
+      <p class="text-xs text-slate-300 dark:text-slate-600 text-center mt-4">
+        This is a computer-generated laboratory report.
+        {% if order.released_at %}Released {{ order.released_at|date:"d M Y H:i" }}.{% endif %}
+      </p>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+@media print {
+  body > *:not(#lab-card) { display: none !important; }
+  .print\:hidden { display: none !important; }
+  #lab-card { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+}
+</style>
+{% endblock %}

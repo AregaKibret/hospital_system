@@ -27,9 +27,14 @@ class TriageAssessmentForm(ModelForm):
 @hms_permission_required('core.manage_queue')
 def queue_dashboard(request):
     today = timezone.localdate()
+    # Show everything created today (for today's stats/history) PLUS any
+    # entry still actively in the queue regardless of which day it was
+    # created — otherwise a patient who's been waiting since before
+    # midnight silently vanishes from the live queue view.
+    active_statuses = [Queue.Status.WAITING, Queue.Status.CALLED, Queue.Status.IN_PROGRESS]
     today_queues = (
         Queue.objects
-        .filter(created_at__date=today)
+        .filter(Q(created_at__date=today) | Q(status__in=active_statuses))
         .select_related(
             'visit__patient',
             'visit__department',
@@ -102,10 +107,9 @@ def queue_dashboard(request):
 @hms_permission_required('core.manage_queue')
 @require_POST
 def queue_call_next(request):
-    today = timezone.localdate()
     next_entry = (
         Queue.objects
-        .filter(created_at__date=today, status=Queue.Status.WAITING)
+        .filter(status=Queue.Status.WAITING)
         .order_by('queue_number')
         .first()
     )

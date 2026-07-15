@@ -21,6 +21,7 @@ from .models import (
 )
 from .decorators import hms_permission_required
 from .audit import log_action
+from .report_export import export_excel
 
 
 def _log(user, action, module, desc):
@@ -1071,31 +1072,37 @@ def report_store_valuation(request):
     })
 
 
-@login_required
-@hms_permission_required('core.view_store_reports')
-def report_store_transactions(request):
-    """Stock movement report."""
+def _render_transactions_report(request, *, title, subtitle, filename, forced_types=None, lock_type_filter=False):
+    """Shared implementation for every transaction-log-based inventory
+    report (Stock Movement, Goods Receiving, Goods Issue, Damaged Stock,
+    Inventory Adjustments) — they all read the same InventoryTransaction
+    ledger, just scoped to a different set of transaction types."""
     txs = InventoryTransaction.objects.select_related('inventory_item', 'performed_by', 'department')
     date_from = request.GET.get('from', '')
     date_to = request.GET.get('to', '')
     tx_type = request.GET.get('type', '')
     item_id = request.GET.get('item', '')
+    dept_id = request.GET.get('department', '')
 
+    if forced_types:
+        txs = txs.filter(transaction_type__in=forced_types)
     if date_from:
         txs = txs.filter(transaction_date__date__gte=date_from)
     if date_to:
         txs = txs.filter(transaction_date__date__lte=date_to)
-    if tx_type:
+    if tx_type and not lock_type_filter:
         txs = txs.filter(transaction_type=tx_type)
     if item_id:
         txs = txs.filter(inventory_item_id=item_id)
+    if dept_id:
+        txs = txs.filter(department_id=dept_id)
 
     total_in = txs.aggregate(s=Sum('quantity_in'))['s'] or 0
     total_out = txs.aggregate(s=Sum('quantity_out'))['s'] or 0
 
     if request.GET.get('export') == 'csv':
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="store_transactions.csv"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
         writer = csv.writer(response)
         writer.writerow(['Date', 'Item', 'Type', 'In', 'Out', 'Balance', 'Reference', 'Dept', 'By'])
         for tx in txs.order_by('-transaction_date'):
@@ -1107,16 +1114,108 @@ def report_store_transactions(request):
             ])
         return response
 
+    if request.GET.get('export') == 'excel':
+        headers = ['Date', 'Item', 'Type', 'In', 'Out', 'Balance', 'Reference', 'Department', 'By']
+        rows = [
+            [tx.transaction_date.strftime('%Y-%m-%d %H:%M'), tx.inventory_item.name,
+             tx.get_transaction_type_display(), tx.quantity_in, tx.quantity_out,
+             tx.balance_after, tx.reference_number, str(tx.department or ''),
+             tx.performed_by.get_full_name() or tx.performed_by.username]
+            for tx in txs.order_by('-transaction_date')
+        ]
+        return export_excel(f'{filename}.xlsx', headers, rows, title=title)
+
     paginator = Paginator(txs.order_by('-transaction_date'), 50)
     page_obj = paginator.get_page(request.GET.get('page', 1))
+    qp = '&'.join(f'{k}={v}' for k, v in request.GET.items() if k not in ('page', 'export'))
     return render(request, 'store/reports/transactions.html', {
         'page_obj': page_obj,
         'date_from': date_from, 'date_to': date_to,
-        'tx_type': tx_type, 'item_id': item_id,
+        'tx_type': tx_type, 'item_id': item_id, 'department_id': dept_id,
         'tx_types': InventoryTransaction.TxType.choices,
         'items': InventoryItem.objects.filter(is_active=True).order_by('name'),
+        'departments': Department.objects.order_by('name'),
         'total_in': total_in, 'total_out': total_out,
+        'report_title': title, 'report_subtitle': subtitle,
+        'hide_type_filter': lock_type_filter,
+        'qp': qp,
     })
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_transactions(request):
+    """Stock movement report — every transaction across all types."""
+    return _render_transactions_report(
+        request, title='Stock Movement Report', subtitle='Transaction history for store items',
+        filename='store_transactions',
+    )
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_goods_receiving(request):
+    """Goods Receiving Report — purchases / batch receipts only."""
+    return _render_transactions_report(
+        request, title='Goods Receiving Report', subtitle='Stock received from suppliers / purchase orders',
+        filename='goods_receiving', forced_types=[InventoryTransaction.TxType.PURCHASE], lock_type_filter=True,
+    )
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_goods_issue(request):
+    """Goods Issue Report — items issued to departments only."""
+    return _render_transactions_report(
+        request, title='Goods Issue Report', subtitle='Stock issued to departments',
+        filename='goods_issue', forced_types=[InventoryTransaction.TxType.ISSUE], lock_type_filter=True,
+    )
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_damaged(request):
+    """Damaged Stock Report — damaged and expired disposals."""
+    return _render_transactions_report(
+        request, title='Damaged Stock Report', subtitle='Damaged and expired stock write-offs',
+        filename='damaged_stock',
+        forced_types=[InventoryTransaction.TxType.DAMAGED, InventoryTransaction.TxType.EXPIRED],
+    )
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_adjustments(request):
+    """Inventory Adjustment Report — manual adjustments and stock-count corrections."""
+    return _render_transactions_report(
+        request, title='Inventory Adjustment Report', subtitle='Manual adjustments and physical count corrections',
+        filename='inventory_adjustments',
+        forced_types=[
+            InventoryTransaction.TxType.ADJUSTMENT_IN, InventoryTransaction.TxType.ADJUSTMENT_OUT,
+            InventoryTransaction.TxType.COUNT_ADJUST,
+        ],
+    )
+
+
+@login_required
+@hms_permission_required('core.view_store_reports')
+def report_store_out_of_stock(request):
+    """Out of Stock Report."""
+    items = InventoryItem.objects.filter(
+        is_active=True, quantity_in_stock__lte=0,
+    ).select_related('category', 'supplier').order_by('name')
+
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="out_of_stock.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Item', 'Type', 'Category', 'Reorder Level', 'Supplier'])
+        for item in items:
+            writer.writerow([item.name, item.item_type, item.category or '',
+                              item.reorder_level, item.supplier or item.supplier_name])
+        return response
+
+    return render(request, 'store/reports/out_of_stock.html', {'items': items})
 
 
 @login_required

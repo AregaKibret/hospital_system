@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Upload Document — {{ patient.full_name }}{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium
+    {% if msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'patient_attachment_list' patient.pk %}" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Upload Document</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ patient.full_name }}</p>
+  </div>
+</div>
+
+<div class="max-w-2xl">
+  <form method="post" enctype="multipart/form-data" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5" id="upload-form">
+    {% csrf_token %}
+    {% for field, obj in links.items %}
+    <input type="hidden" name="{{ field }}" value="{{ obj.pk }}">
+    {% endfor %}
+
+    <!-- Drop zone / file picker -->
+    <div id="drop-zone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-6 text-center transition-colors">
+      <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      <p class="text-sm text-slate-600 dark:text-slate-300">Drag &amp; drop a file here, or</p>
+      <label class="mt-2 inline-block cursor-pointer text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+        Browse files
+        <input type="file" name="file" id="file-input" class="hidden" required
+               accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.doc,.docx,.xls,.xlsx,.csv,.dcm,.zip">
+      </label>
+      <p class="text-xs text-slate-400 mt-2" id="file-name-label">No file chosen</p>
+    </div>
+
+    <!-- Webcam capture -->
+    <div>
+      <button type="button" id="capture-toggle" class="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">Or capture a photo with your camera</button>
+      <div id="capture-panel" class="hidden mt-3 space-y-3">
+        <video id="capture-video" autoplay playsinline class="w-full rounded-xl bg-black max-h-72"></video>
+        <canvas id="capture-canvas" class="hidden"></canvas>
+        <div class="flex gap-2">
+          <button type="button" id="capture-shot" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Capture</button>
+          <button type="button" id="capture-cancel" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium">Cancel</button>
+        </div>
+        <img id="capture-preview" class="hidden max-h-72 rounded-xl border border-slate-200 dark:border-slate-700">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Title</label>
+        <div class="field-wrapper"><input type="text" name="title" placeholder="Defaults to the file name if left blank"></div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category <span class="text-red-500">*</span></label>
+        <div class="field-wrapper">
+          <select name="category" required>
+            <option value="">— Select —</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 pt-7">
+        <input type="checkbox" name="is_confidential" id="is_confidential" class="rounded">
+        <label for="is_confidential" class="text-sm text-slate-700 dark:text-slate-300">Mark confidential</label>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+        <div class="field-wrapper"><textarea name="description" rows="3"></textarea></div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">Upload</button>
+      <a href="{% url 'patient_attachment_list' patient.pk %}" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileLabel = document.getElementById('file-name-label');
+
+  function showFile(file) {
+    fileLabel.textContent = file ? file.name : 'No file chosen';
+  }
+  fileInput.addEventListener('change', () => showFile(fileInput.files[0]));
+
+  ['dragover', 'dragenter'].forEach(evt => dropZone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropZone.classList.add('border-blue-400', 'bg-blue-50/40', 'dark:bg-blue-900/10');
+  }));
+  ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropZone.classList.remove('border-blue-400', 'bg-blue-50/40', 'dark:bg-blue-900/10');
+  }));
+  dropZone.addEventListener('drop', e => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length) {
+      fileInput.files = dt.files;
+      showFile(dt.files[0]);
+    }
+  });
+
+  // Webcam capture — converts a captured frame into a File assigned to the
+  // same #file-input, so the server-side view treats it identically to a
+  // regular upload. Also used for clinical photography (wound/skin/etc.) —
+  // the only difference is which category the user selects below.
+  const toggle = document.getElementById('capture-toggle');
+  const panel = document.getElementById('capture-panel');
+  const video = document.getElementById('capture-video');
+  const canvas = document.getElementById('capture-canvas');
+  const shotBtn = document.getElementById('capture-shot');
+  const cancelBtn = document.getElementById('capture-cancel');
+  const preview = document.getElementById('capture-preview');
+  let stream = null;
+
+  toggle.addEventListener('click', async () => {
+    panel.classList.remove('hidden');
+    preview.classList.add('hidden');
+    video.classList.remove('hidden');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+    } catch (err) {
+      alert('Could not access camera: ' + err.message);
+      panel.classList.add('hidden');
+    }
+  });
+
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    stopStream();
+    panel.classList.add('hidden');
+  });
+
+  shotBtn.addEventListener('click', () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'capture-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      showFile(file);
+      preview.src = URL.createObjectURL(blob);
+      preview.classList.remove('hidden');
+      video.classList.add('hidden');
+      stopStream();
+    }, 'image/jpeg', 0.92);
+  });
+})();
+</script>
+{% endblock %}

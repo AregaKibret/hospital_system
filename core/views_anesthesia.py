@@ -6,7 +6,47 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .decorators import hms_permission_required
-from .models import AnesthesiaRecord, ProcedureOrder, Visit
+from .models import AnesthesiaRecord, ProcedureOrder, SurgeryAnesthesiaRecord, SurgeryOrder, Visit
+
+
+def _tag_standalone(records):
+    for r in records:
+        r.source = 'standalone'
+    return records
+
+
+class _VisitLike:
+    """Minimal stand-in exposing just `.patient`, for cases (surgery Pre-Op
+    Assessments) that don't necessarily have a Visit but always have a
+    Patient directly on the SurgeryOrder."""
+    def __init__(self, patient):
+        self.patient = patient
+
+
+class _SurgeryAnesthesiaCase:
+    """Read-only adapter so SurgeryAnesthesiaRecord (the Pre-Operative
+    Anesthetic Assessments tied to SurgeryOrder, built for the Perioperative
+    Documentation Module) can appear in the same dashboard/list templates as
+    the older standalone AnesthesiaRecord. These are two separate models for
+    historical reasons, but from the anesthesia team's point of view they're
+    both just "anesthesia cases" — without this, all real Pre-Op Assessment
+    activity is invisible on the Anesthesia dashboard/records list."""
+    source = 'surgery'
+
+    def __init__(self, rec):
+        self.id = rec.pk
+        self.surgery_order_id = rec.surgery_order_id
+        self.visit = _VisitLike(rec.surgery_order.patient)
+        self.anesthesia_type = (
+            rec.anesthesia_type_planned or rec.anesthesia_technique
+            or rec.surgery_order.anesthesia_type or '—'
+        )
+        self.asa_classification = rec.asa_classification
+        self.duration_minutes = None
+        self.complications = rec.intraop_complications or rec.pacu_complications
+        self.anesthesiologist = rec.created_by
+        self.created_at = rec.created_at
+        self.order_number = rec.surgery_order.order_number
 
 
 # ── Anesthesia Dashboard ──────────────────────────────────────────────────────
@@ -14,37 +54,54 @@ from .models import AnesthesiaRecord, ProcedureOrder, Visit
 @hms_permission_required('core.read_anesthesia_record')
 def anesthesia_dashboard(request):
     today = timezone.localdate()
+    first_of_month = today.replace(day=1)
 
-    # Stats
-    records_today = AnesthesiaRecord.objects.filter(created_at__date=today)
-    records_today_count = records_today.count()
+    # ---- Standalone AnesthesiaRecord (non-surgical procedures) ----
+    std_today = _tag_standalone(list(
+        AnesthesiaRecord.objects.filter(created_at__date=today)
+        .select_related('visit__patient', 'visit__department', 'procedure_order', 'anesthesiologist')
+    ))
+    std_recent = _tag_standalone(list(
+        AnesthesiaRecord.objects.exclude(created_at__date=today)
+        .select_related('visit__patient', 'procedure_order', 'anesthesiologist')
+        .order_by('-created_at')[:10]
+    ))
+    std_month_count = AnesthesiaRecord.objects.filter(created_at__date__gte=first_of_month).count()
 
-    # Pending procedures (procedure orders with no anesthesia record)
+    # ---- Surgery Pre-Op Anesthetic Assessments (SurgeryAnesthesiaRecord) ----
+    surgery_qs_today = (
+        SurgeryAnesthesiaRecord.objects.filter(is_current=True, created_at__date=today)
+        .select_related('surgery_order__patient', 'created_by')
+    )
+    surgery_today = [_SurgeryAnesthesiaCase(r) for r in surgery_qs_today]
+    surgery_recent = [
+        _SurgeryAnesthesiaCase(r) for r in
+        SurgeryAnesthesiaRecord.objects.filter(is_current=True).exclude(created_at__date=today)
+        .select_related('surgery_order__patient', 'created_by').order_by('-created_at')[:10]
+    ]
+    surgery_month_count = SurgeryAnesthesiaRecord.objects.filter(
+        is_current=True, created_at__date__gte=first_of_month,
+    ).count()
+
+    # ---- Merge ----
+    todays_cases = sorted(std_today + surgery_today, key=lambda c: c.created_at, reverse=True)
+    recent_records = sorted(std_recent + surgery_recent, key=lambda c: c.created_at, reverse=True)[:10]
+    records_today_count = len(todays_cases)
+    month_count = std_month_count + surgery_month_count
+
+    # ---- Pending: procedure orders with no anesthesia record, and surgery
+    # orders that requested a Pre-Op assessment but don't have one yet ----
     pending_procedures = ProcedureOrder.objects.filter(
         status__in=['Scheduled', 'In Progress'],
         anesthesia_records__isnull=True,
     ).select_related('visit__patient', 'visit__department').order_by('-ordered_at')
-    pending_count = pending_procedures.count()
 
-    # This month stats
-    first_of_month = today.replace(day=1)
-    month_count = AnesthesiaRecord.objects.filter(created_at__date__gte=first_of_month).count()
+    pending_surgery_orders = SurgeryOrder.objects.filter(
+        anesthesia_assessment_requested=True,
+        status__in=['ordered', 'pending_review', 'approved', 'scheduled', 'patient_prepared'],
+    ).exclude(anesthesia_records__is_current=True).select_related('patient', 'department')
 
-    # Today's cases list
-    todays_cases = (
-        AnesthesiaRecord.objects
-        .filter(created_at__date=today)
-        .select_related('visit__patient', 'visit__department', 'procedure_order', 'anesthesiologist')
-        .order_by('-created_at')
-    )
-
-    # Recent records (last 10)
-    recent_records = (
-        AnesthesiaRecord.objects
-        .exclude(created_at__date=today)
-        .select_related('visit__patient', 'procedure_order', 'anesthesiologist')
-        .order_by('-created_at')[:10]
-    )
+    pending_count = pending_procedures.count() + pending_surgery_orders.count()
 
     return render(request, 'anesthesia/dashboard.html', {
         'today': today,
@@ -54,6 +111,7 @@ def anesthesia_dashboard(request):
         'todays_cases': todays_cases,
         'recent_records': recent_records,
         'pending_procedures': pending_procedures[:5],
+        'pending_surgery_orders': pending_surgery_orders[:5],
     })
 
 
@@ -82,14 +140,20 @@ def anesthesia_record_list(request):
         except ValueError:
             pass
 
-    qs = (
+    std_records = _tag_standalone(list(
         AnesthesiaRecord.objects
         .filter(created_at__date__gte=from_date, created_at__date__lte=to_date)
         .select_related('visit__patient', 'visit__department', 'procedure_order', 'anesthesiologist')
-        .order_by('-created_at')
-    )
+    ))
+    surgery_records = [
+        _SurgeryAnesthesiaCase(r) for r in
+        SurgeryAnesthesiaRecord.objects.filter(
+            is_current=True, created_at__date__gte=from_date, created_at__date__lte=to_date,
+        ).select_related('surgery_order__patient', 'created_by')
+    ]
+    combined = sorted(std_records + surgery_records, key=lambda r: r.created_at, reverse=True)
 
-    paginator = Paginator(qs, 25)
+    paginator = Paginator(combined, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'anesthesia/record_list.html', {
@@ -98,7 +162,7 @@ def anesthesia_record_list(request):
         'to_date': to_date,
         'from_date_str': from_date.strftime('%Y-%m-%d'),
         'to_date_str': to_date.strftime('%Y-%m-%d'),
-        'total_count': qs.count(),
+        'total_count': len(combined),
     })
 
 

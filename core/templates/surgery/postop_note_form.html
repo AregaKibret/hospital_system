@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Post-Operative Note — {{ order.order_number }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6 flex-wrap">
+  <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Post-Operative Note — {{ order.order_number }}</h1>
+  {% if note %}
+  <a href="{% url 'postop_note_history' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View Version History</a>
+  {% endif %}
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for m in messages %}
+  <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+    {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800
+    {% elif m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+    {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">{{ m }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 mb-5 text-sm grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div><span class="text-xs text-slate-400 block">Patient</span><span class="font-semibold text-slate-800 dark:text-slate-100">{{ header.patient.full_name }}</span></div>
+  <div><span class="text-xs text-slate-400 block">MRN</span><span class="text-slate-700 dark:text-slate-200">{{ header.patient.card_number }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Procedure</span><span class="text-slate-700 dark:text-slate-200">{{ header.planned_procedure }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Surgeon</span><span class="text-slate-700 dark:text-slate-200">{{ header.surgeon.get_full_name }}</span></div>
+</div>
+
+{% if note and note.is_finalized %}
+<div class="mb-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+  <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">This post-op note (v{{ note.version }}) is finalized and signed by {{ note.signature_name }} on {{ note.finalized_at|date:"d M Y H:i" }}.</p>
+  <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Editing below will create Version {{ note.version|add:1 }} — the signed original is preserved permanently. A reason is required.</p>
+</div>
+{% endif %}
+
+<form method="post">{% csrf_token %}
+
+  {% if note and note.is_finalized %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-amber-300 dark:border-amber-700 shadow-sm p-5 mb-5">
+    <label class="field-label">Reason for Revision <span class="text-red-500">*</span></label>
+    <textarea name="revision_reason" rows="2" required class="field-input" placeholder="Explain what changed and why…"></textarea>
+  </div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Patient Status</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Consciousness Level</label>
+        <select name="consciousness_level" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in consciousness_choices %}<option value="{{ val }}" {% if note.consciousness_level == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Pain Score (0-10)</label><input type="number" name="pain_score" value="{{ note.pain_score|default_if_none:'' }}" min="0" max="10" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">BP Systolic</label><input type="number" name="po_bp_systolic" value="{{ note.po_bp_systolic|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">BP Diastolic</label><input type="number" name="po_bp_diastolic" value="{{ note.po_bp_diastolic|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Pulse</label><input type="number" name="po_pulse" value="{{ note.po_pulse|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Respiratory Rate</label><input type="number" name="po_respiratory_rate" value="{{ note.po_respiratory_rate|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Temperature (°C)</label><input type="number" step="0.1" name="po_temperature" value="{{ note.po_temperature|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">SpO₂ (%)</label><input type="number" step="0.1" name="po_spo2" value="{{ note.po_spo2|default_if_none:'' }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Airway Status</label><input type="text" name="airway_status" value="{{ note.airway_status }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Oxygen Requirement</label><input type="text" name="o2_requirement" value="{{ note.o2_requirement }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-4"><label class="field-label">Neurological Status</label><textarea name="neuro_status" rows="2" class="field-input">{{ note.neuro_status }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Surgical Assessment</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper"><label class="field-label">Wound Condition</label><textarea name="wound_condition" rows="2" class="field-input">{{ note.wound_condition }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Drain Status</label><textarea name="drain_status" rows="2" class="field-input">{{ note.drain_status }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Catheters</label><textarea name="catheters_present" rows="2" class="field-input">{{ note.catheters_present }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Bleeding Assessment</label><textarea name="bleeding_assessment" rows="2" class="field-input">{{ note.bleeding_assessment }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Complications</label><textarea name="post_op_complications" rows="2" class="field-input">{{ note.post_op_complications }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Immediate Post-op Diagnosis</label><textarea name="immediate_post_op_diagnosis" rows="2" class="field-input">{{ note.immediate_post_op_diagnosis }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Post-Operative Orders</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper"><label class="field-label">Diet</label><input type="text" name="diet_orders" value="{{ note.diet_orders }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Activity Level</label><input type="text" name="activity_level" value="{{ note.activity_level }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">IV Fluids</label><textarea name="iv_fluids_orders" rows="2" class="field-input">{{ note.iv_fluids_orders }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Medications</label><textarea name="medication_orders" rows="2" class="field-input">{{ note.medication_orders }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Antibiotics</label><textarea name="antibiotic_orders" rows="2" class="field-input">{{ note.antibiotic_orders }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Pain Management</label><textarea name="pain_management_plan" rows="2" class="field-input">{{ note.pain_management_plan }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">DVT Prophylaxis</label><textarea name="dvt_prophylaxis" rows="2" class="field-input">{{ note.dvt_prophylaxis }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Physiotherapy</label><textarea name="physiotherapy_orders" rows="2" class="field-input">{{ note.physiotherapy_orders }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Nursing Instructions</label><textarea name="nursing_instructions" rows="2" class="field-input">{{ note.nursing_instructions }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Laboratory Orders</label><textarea name="lab_orders" rows="2" class="field-input">{{ note.lab_orders }}</textarea></div>
+      <div class="field-wrapper"><label class="field-label">Imaging Orders</label><textarea name="imaging_orders" rows="2" class="field-input">{{ note.imaging_orders }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Follow-up Instructions</label><textarea name="follow_up_instructions" rows="2" class="field-input">{{ note.follow_up_instructions }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Disposition</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Disposition</label>
+        <select name="disposition" class="field-input">
+          <option value="">— Select —</option>
+          {% for val, label in disposition_choices %}<option value="{{ val }}" {% if note.disposition == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper"><label class="field-label">Disposition Notes</label><input type="text" name="disposition_notes" value="{{ note.disposition_notes }}" class="field-input" /></div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Follow-Up Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper"><label class="field-label">Review Date</label><input type="date" name="review_date" value="{{ note.review_date|date:'Y-m-d' }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Dressing Change</label><input type="text" name="dressing_change_plan" value="{{ note.dressing_change_plan }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Drain Removal</label><input type="text" name="drain_removal_plan" value="{{ note.drain_removal_plan }}" class="field-input" /></div>
+      <div class="field-wrapper"><label class="field-label">Suture Removal</label><input type="text" name="suture_removal_plan" value="{{ note.suture_removal_plan }}" class="field-input" /></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Additional Procedures Planned</label><textarea name="additional_procedures_planned" rows="2" class="field-input">{{ note.additional_procedures_planned }}</textarea></div>
+      <div class="field-wrapper sm:col-span-2"><label class="field-label">Outpatient Follow-up Instructions</label><textarea name="outpatient_followup_instructions" rows="2" class="field-input">{{ note.outpatient_followup_instructions }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">Save as Draft</button>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
+  </div>
+
+</form>
+
+{% if note and not note.is_finalized %}
+<form method="post" action="{% url 'postop_note_finalize' order.pk %}" class="mt-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+  {% csrf_token %}
+  <label class="flex items-start gap-2 text-sm text-purple-800 dark:text-purple-300 mb-3">
+    <input type="checkbox" name="certify" required class="mt-0.5 rounded border-purple-300">
+    I certify this record is accurate and complete.
+  </label>
+  <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">Finalize &amp; Sign</button>
+</form>
+{% endif %}
+
+{% endblock %}

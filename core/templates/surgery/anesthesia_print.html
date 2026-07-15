@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Print — Anesthesia Assessment {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+{% include "surgery/_periop_print_style.html" %}
+{% include "surgery/_periop_print_header.html" with doc_title="Pre-Operative Anesthetic Assessment" %}
+
+<div class="text-sm space-y-4">
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Medical History</h3>
+    <p><strong>Present Illness:</strong> {{ doc.present_illness_history|default:"—" }}</p>
+    <p><strong>Past Medical History:</strong> {{ doc.past_medical_history|default:"—" }}</p>
+    <p><strong>Previous Surgeries:</strong> {{ doc.previous_surgeries_history|default:"—" }}</p>
+    <p><strong>Previous Anesthesia History:</strong> {{ doc.previous_anesthesia_history|default:"—" }}</p>
+    <p><strong>Previous Anesthesia Complications:</strong> {{ doc.previous_anesthesia_complications|default:"—" }}</p>
+    <p><strong>Drug/Food Allergies:</strong> {{ doc.known_allergies|default:"—" }}</p>
+    <p><strong>Current Medications:</strong> {{ doc.current_medications|default:"—" }}</p>
+    <p><strong>Chronic Diseases:</strong> {{ doc.chronic_diseases|default:"—" }}</p>
+    <p><strong>Smoking:</strong> {{ doc.get_smoking_status_display|default:"—" }} {% if doc.smoking_pack_years %}({{ doc.smoking_pack_years }} pack-years){% endif %}</p>
+    <p><strong>Alcohol:</strong> {{ doc.get_alcohol_use_display|default:"—" }} {{ doc.alcohol_details }}</p>
+    <p><strong>Pregnancy Status:</strong> {{ doc.get_pregnancy_status_display|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Physical Examination</h3>
+    <p><strong>BP:</strong> {{ doc.pe_bp_systolic|default:"—" }}/{{ doc.pe_bp_diastolic|default:"—" }} · <strong>HR:</strong> {{ doc.pe_pulse|default:"—" }} · <strong>RR:</strong> {{ doc.pe_respiratory_rate|default:"—" }} · <strong>Temp:</strong> {{ doc.pe_temperature|default:"—" }}°C · <strong>SpO2:</strong> {{ doc.pe_spo2|default:"—" }}%</p>
+    <p><strong>Weight/Height/BMI:</strong> {{ doc.pe_weight_kg|default:"—" }} kg / {{ doc.pe_height_cm|default:"—" }} cm / {{ doc.pre_op_bmi|default:"—" }}</p>
+    <p><strong>General Appearance:</strong> {{ doc.general_appearance|default:"—" }}</p>
+    <p><strong>CVS Exam:</strong> {{ doc.cvs_exam|default:"—" }}</p>
+    <p><strong>Respiratory Exam:</strong> {{ doc.respiratory_exam|default:"—" }}</p>
+    <p><strong>Neurological Exam:</strong> {{ doc.neuro_exam|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Airway Assessment</h3>
+    <p><strong>Mallampati:</strong> {{ doc.get_mallampati_class_display|default:"—" }} · <strong>Mouth Opening:</strong> {{ doc.mouth_opening|default:"—" }} · <strong>Neck Mobility:</strong> {{ doc.get_neck_mobility_display|default:"—" }}</p>
+    <p><strong>Thyromental Distance:</strong> {{ doc.thyromental_distance_cm|default:"—" }} cm · <strong>Dentition:</strong> {{ doc.dentition_notes|default:"—" }}</p>
+    <p><strong>Difficult Airway Anticipated:</strong> {{ doc.difficult_airway_anticipated|yesno:"Yes,No" }} {{ doc.difficult_airway_notes }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">ASA Physical Status</h3>
+    <p>{{ doc.get_asa_classification_display|default:"—" }}</p>
+    {% if doc.pre_assessment_notes %}<p>{{ doc.pre_assessment_notes }}</p>{% endif %}
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Laboratory &amp; Investigation Review</h3>
+    <p><strong>CBC:</strong> {{ doc.lab_review_cbc|default:"—" }} · <strong>Blood Group:</strong> {{ doc.lab_review_blood_group|default:"—" }}</p>
+    <p><strong>Coagulation:</strong> {{ doc.lab_review_coagulation|default:"—" }} · <strong>Blood Sugar:</strong> {{ doc.lab_review_blood_sugar|default:"—" }}</p>
+    <p><strong>RFT:</strong> {{ doc.lab_review_rft|default:"—" }} · <strong>LFT:</strong> {{ doc.lab_review_lft|default:"—" }}</p>
+    <p><strong>ECG:</strong> {{ doc.lab_review_ecg|default:"—" }} · <strong>CXR:</strong> {{ doc.lab_review_cxr|default:"—" }}</p>
+    <p><strong>Other:</strong> {{ doc.lab_review_other|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Anesthesia Plan</h3>
+    <p><strong>Planned Type:</strong> {{ doc.anesthesia_type_planned|default:"—" }} · <strong>Technique:</strong> {{ doc.anesthesia_technique|default:"—" }}</p>
+    <p><strong>Airway Management:</strong> {{ doc.airway_management|default:"—" }}</p>
+    <p><strong>Monitoring Plan:</strong> {{ doc.monitoring_plan|default:"—" }}</p>
+    <p><strong>Blood Products Required:</strong> {{ doc.blood_products_required|default:"—" }} · <strong>NPO/Fasting:</strong> {{ doc.npo_fasting_status|default:"—" }}</p>
+    <p><strong>Special Equipment:</strong> {{ doc.special_equipment_needed|default:"—" }}</p>
+    <p><strong>Risk Assessment:</strong> {{ doc.risk_assessment|default:"—" }}</p>
+    <p><strong>Pre-medication:</strong> {{ doc.pre_medication|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Assessment Summary</h3>
+    <p><strong>Final Assessment:</strong> {{ doc.final_assessment|default:"—" }}</p>
+    <p><strong>Fitness for Surgery:</strong> {{ doc.get_fitness_for_surgery_display|default:"—" }}</p>
+    <p><strong>Recommendations:</strong> {{ doc.recommendations|default:"—" }}</p>
+    <p><strong>Comments:</strong> {{ doc.assessment_comments|default:"—" }}</p>
+  </div>
+</div>
+
+{% include "surgery/_periop_signature_block.html" %}
+
+<p class="text-xs text-slate-400 mt-4 no-print">Printed by {{ request.user.get_full_name|default:request.user.username }} at {{ now|date:"d M Y H:i" }}</p>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Pain Assessment — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'visit_detail' visit.id %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    </a>
+    <div>
+      <h1 class="text-xl font-bold text-gray-900 dark:text-white">Pain Assessment</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">{{ visit.patient.full_name }} &middot; {{ visit.patient.card_number }}</p>
+    </div>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Pain Score (0-10) <span class="text-red-500">*</span></label>
+      {{ form.pain_score }}
+      {% if form.pain_score.errors %}<p class="text-xs text-red-500 mt-0.5">{{ form.pain_score.errors.0 }}</p>{% endif %}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Location</label>
+      {{ form.location }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Character</label>
+      {{ form.character }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Onset</label>
+      {{ form.onset }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Intervention Given</label>
+      {{ form.intervention }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reassessment Score (0-10, optional)</label>
+      {{ form.reassessment_score }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Notes</label>
+      {{ form.notes }}
+    </div>
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold rounded-lg transition">Save Assessment</button>
+      <a href="{% url 'visit_detail' visit.id %}" class="px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</a>
+    </div>
+  </form>
+</div>
+<script>
+  document.querySelectorAll('form input:not([type="checkbox"]):not([type="submit"]), form select, form textarea').forEach(el => {
+    el.className = 'w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition';
+  });
+</script>
+{% endblock %}

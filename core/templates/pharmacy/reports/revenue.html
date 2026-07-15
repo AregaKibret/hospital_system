@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Medication Revenue Report{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Medication Revenue</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ date_from|date:"d M Y" }} — {{ date_to|date:"d M Y" }}</p>
+    </div>
+    <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&export=csv"
+       class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">
+      Export CSV
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 flex gap-3 flex-wrap items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+      <input type="date" name="date_from" value="{{ date_from_str }}"
+             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+      <input type="date" name="date_to" value="{{ date_to_str }}"
+             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Filter</button>
+  </form>
+
+  <!-- Summary -->
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+      <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ rows|length }}</div>
+      <div class="text-xs text-gray-500 mt-0.5">Unique Medications</div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+      <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ grand_qty }}</div>
+      <div class="text-xs text-gray-500 mt-0.5">Units Dispensed</div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+      <div class="text-2xl font-bold text-green-600 dark:text-green-400">ETB {{ grand_revenue|floatformat:2 }}</div>
+      <div class="text-xs text-gray-500 mt-0.5">Total Revenue</div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if rows %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">#</th>
+          <th class="text-left px-4 py-3">Drug Name</th>
+          <th class="text-right px-4 py-3">Dispenses</th>
+          <th class="text-right px-4 py-3">Qty Sold</th>
+          <th class="text-right px-4 py-3">Revenue (ETB)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for r in rows %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-2.5 text-gray-400">{{ forloop.counter }}</td>
+          <td class="px-4 py-2.5 font-medium text-gray-900 dark:text-white">{{ r.prescription_item__drug_name }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400">{{ r.dispense_count }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400">{{ r.qty_dispensed }}</td>
+          <td class="px-4 py-2.5 text-right font-semibold text-green-600 dark:text-green-400">{{ r.revenue|floatformat:2|default:"0.00" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-gray-50 dark:bg-gray-700/50 font-semibold text-sm">
+        <tr>
+          <td colspan="3" class="px-4 py-3 text-gray-700 dark:text-gray-300">Total</td>
+          <td class="px-4 py-3 text-right text-gray-900 dark:text-white">{{ grand_qty }}</td>
+          <td class="px-4 py-3 text-right text-green-600 dark:text-green-400">{{ grand_revenue|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <p class="text-sm">No dispensed medications in the selected period.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

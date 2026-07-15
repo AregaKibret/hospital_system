@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Admission Deposit Rules{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Admission Deposit Rules</h1>
+  <a href="{% url 'deposit_rule_create' %}" class="btn-primary text-sm">+ New Rule</a>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 uppercase tracking-wide">
+      <tr>
+        <th class="text-left px-4 py-3">Ward</th>
+        <th class="text-left px-4 py-3">Department</th>
+        <th class="text-left px-4 py-3">Priority</th>
+        <th class="text-left px-4 py-3">Amount</th>
+        <th class="text-left px-4 py-3">Exempt</th>
+        <th class="text-left px-4 py-3">Active</th>
+        <th class="text-left px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for rule in rules %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+        <td class="px-4 py-3 text-slate-800 dark:text-slate-100">{{ rule.ward.name|default:"Any" }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ rule.department.name|default:"Any" }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ rule.get_priority_display|default:"Any" }}</td>
+        <td class="px-4 py-3 text-slate-500">ETB {{ rule.amount }}</td>
+        <td class="px-4 py-3">{% if rule.is_exempt %}<span class="text-emerald-600">Yes</span>{% else %}—{% endif %}</td>
+        <td class="px-4 py-3">{% if rule.is_active %}<span class="text-emerald-600">Active</span>{% else %}<span class="text-slate-400">Inactive</span>{% endif %}</td>
+        <td class="px-4 py-3"><a href="{% url 'deposit_rule_edit' rule.pk %}" class="text-blue-600 hover:underline text-xs">Edit</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No deposit rules configured yet — admissions will not require a deposit.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

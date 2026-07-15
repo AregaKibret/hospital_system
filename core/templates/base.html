@@ -319,6 +319,18 @@
                                     Patient Flow
                                 </a>
                                 {% endif %}
+                                {% if perms.core.view_nursing_dashboard %}
+                                <a href="{% url 'nursing_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    Nursing Dashboard
+                                </a>
+                                {% endif %}
+                                {% if perms.core.view_admission_dashboard %}
+                                <a href="{% url 'admission_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                    Admission
+                                </a>
+                                {% endif %}
                                 <!-- Operations -->
                                 <div class="my-1 border-t border-slate-100 dark:border-slate-700"></div>
                                 <p class="px-4 pt-1.5 pb-1 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Operations</p>
@@ -338,6 +350,18 @@
                                 <a href="{% url 'inventory_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
                                     <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                                     Inventory
+                                </a>
+                                {% endif %}
+                                {% if perms.core.perform_stock_count %}
+                                <a href="{% url 'physical_count_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                                    Physical Inventory Count
+                                </a>
+                                {% endif %}
+                                {% if perms.core.manage_inventory_periods %}
+                                <a href="{% url 'inventory_period_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    Inventory Periods
                                 </a>
                                 {% endif %}
                                 {% if perms.core.read_medication_inventory %}
@@ -383,6 +407,18 @@
                                     Departments
                                 </a>
                                 {% endif %}
+                                {% if perms.core.manage_card_types %}
+                                <a href="{% url 'card_type_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                    Card & Consultation Types
+                                </a>
+                                {% endif %}
+                                {% if perms.core.manage_specializations %}
+                                <a href="{% url 'specialization_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                    Specializations
+                                </a>
+                                {% endif %}
                                 {% if perms.core.read_audit_log %}
                                 <a href="{% url 'audit_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
                                     <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
@@ -410,6 +446,35 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
+
+                    <!-- Notification Bell -->
+                    {% if user.is_authenticated %}
+                    <div class="relative" id="notifContainer">
+                      <button onclick="toggleNotifDropdown()"
+                              class="relative p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        <span id="notifBadge"
+                              class="hidden absolute -top-1 -right-1 w-4 h-4 text-xs font-bold bg-red-500 text-white rounded-full flex items-center justify-center">0</span>
+                      </button>
+                      <!-- Dropdown -->
+                      <div id="notifDropdown"
+                           class="hidden absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                        <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                          <span class="text-sm font-semibold text-gray-900 dark:text-white">Notifications</span>
+                          <button onclick="markAllRead()" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">Mark all read</button>
+                        </div>
+                        <div id="notifList" class="divide-y divide-gray-50 dark:divide-gray-700 max-h-80 overflow-y-auto">
+                          <div class="px-4 py-6 text-center text-sm text-gray-400">No new notifications</div>
+                        </div>
+                        <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 text-center">
+                          <a href="/notifications/" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">View all notifications</a>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
 
                     <!-- User menu -->
                     {% if user.is_authenticated %}
@@ -499,6 +564,9 @@
             {% if perms.core.manage_users %}<a href="{% url 'user_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>User Management</a>{% endif %}
             {% if perms.core.manage_roles %}<a href="{% url 'role_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>Role Management</a>{% endif %}
             {% if perms.core.manage_departments %}<a href="{% url 'dept_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>Departments</a>{% endif %}
+            {% if perms.core.manage_card_types %}<a href="{% url 'card_type_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>Card & Consultation Types</a>{% endif %}
+            {% if perms.core.manage_specializations %}<a href="{% url 'specialization_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>Specializations</a>{% endif %}
+            {% if perms.core.manage_doctors %}<a href="{% url 'doctor_list' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Doctors</a>{% endif %}
         </div>
     </div>
 
@@ -641,5 +709,91 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    {% if user.is_authenticated %}
+    <script>
+    // ── Notifications ─────────────────────────────────────────────────────────
+    function toggleNotifDropdown() {
+      var d = document.getElementById('notifDropdown');
+      d.classList.toggle('hidden');
+      if (!d.classList.contains('hidden')) fetchNotifications();
+    }
+    document.addEventListener('click', function(e) {
+      var c = document.getElementById('notifContainer');
+      if (c && !c.contains(e.target)) {
+        var dd = document.getElementById('notifDropdown');
+        if (dd) dd.classList.add('hidden');
+      }
+    });
+
+    var notifTypeLabels = {
+      prescription: 'Prescription',
+      payment: 'Payment',
+      lab_result: 'Lab Result',
+      appointment: 'Appointment',
+      surgery: 'Surgery',
+      inventory: 'Inventory',
+      general: 'General',
+      system: 'System',
+    };
+
+    function fetchNotifications() {
+      fetch('/notifications/unread-count/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var badge = document.getElementById('notifBadge');
+          var list = document.getElementById('notifList');
+          if (data.count > 0) {
+            badge.textContent = data.count > 99 ? '99+' : data.count;
+            badge.classList.remove('hidden');
+          } else {
+            badge.classList.add('hidden');
+          }
+          if (data.notifications && data.notifications.length) {
+            list.innerHTML = data.notifications.map(function(n) {
+              var label = notifTypeLabels[n.notif_type] || 'General';
+              return '<a href="' + (n.url || '/notifications/') + '"'
+                + ' onclick="markRead(' + n.id + ')"'
+                + ' class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">'
+                + '<span class="shrink-0 mt-0.5 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">' + label + '</span>'
+                + '<div class="flex-1 min-w-0">'
+                + '<p class="text-sm font-medium text-gray-900 dark:text-white truncate">' + n.title + '</p>'
+                + (n.message ? '<p class="text-xs text-gray-500 dark:text-gray-400 truncate">' + n.message + '</p>' : '')
+                + '<p class="text-xs text-gray-400 mt-0.5">' + n.created_at + '</p>'
+                + '</div>'
+                + '</a>';
+            }).join('');
+          } else {
+            list.innerHTML = '<div class="px-4 py-6 text-center text-sm text-gray-400">No new notifications</div>';
+          }
+        })
+        .catch(function() {});
+    }
+
+    function markRead(id) {
+      fetch('/notifications/' + id + '/read/', {method:'POST', headers:{'X-CSRFToken': getCsrfToken()}});
+    }
+
+    function markAllRead() {
+      fetch('/notifications/mark-all-read/', {method:'POST', headers:{'X-CSRFToken': getCsrfToken()}})
+        .then(function() {
+          fetchNotifications();
+          var dd = document.getElementById('notifDropdown');
+          if (dd) dd.classList.add('hidden');
+        });
+    }
+
+    function getCsrfToken() {
+      var el = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (el) return el.value;
+      var match = document.cookie.split(';').find(function(c) { return c.trim().startsWith('csrftoken='); });
+      return match ? match.split('=')[1] : '';
+    }
+
+    // Poll every 60 seconds
+    fetchNotifications();
+    setInterval(fetchNotifications, 60000);
+    </script>
+    {% endif %}
 </body>
 </html>

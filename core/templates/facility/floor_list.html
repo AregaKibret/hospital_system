@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Floors — {{ building.name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'building_list' %}" class="btn-secondary text-sm">← Buildings</a>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Floors — {{ building.name }}</h1>
+  </div>
+  {% if perms.core.manage_facilities %}<a href="{% url 'floor_create' building.pk %}" class="btn-primary text-sm">+ Add Floor</a>{% endif %}
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm divide-y divide-slate-100 dark:divide-slate-700">
+  {% for f in floors %}
+  <div class="p-4 flex items-center justify-between flex-wrap gap-2">
+    <div>
+      <span class="font-semibold text-slate-800 dark:text-slate-100">{{ f.name }}</span>
+      {% if not f.is_active %}<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">Inactive</span>{% endif %}
+      {% if f.notes %}<p class="text-xs text-slate-400 mt-0.5">{{ f.notes }}</p>{% endif %}
+    </div>
+    {% if perms.core.manage_facilities %}
+    <div class="flex items-center gap-3">
+      <a href="{% url 'floor_edit' building.pk f.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>
+      <form method="post" action="{% url 'floor_delete' building.pk f.pk %}" class="inline" onsubmit="return confirm('Delete floor {{ f.name }}?');">
+        {% csrf_token %}<button type="submit" class="text-xs text-red-500 hover:underline">Delete</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="p-6 text-center text-slate-400 text-sm">No floors configured for this building yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

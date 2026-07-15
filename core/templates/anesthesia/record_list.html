@@ -56,7 +56,9 @@
           <!-- Patient -->
           <td class="px-5 py-3">
             <p class="font-medium text-slate-900 dark:text-white text-sm">{{ record.visit.patient.full_name }}</p>
-            <p class="text-xs font-mono text-slate-400">{{ record.visit.patient.card_number }}</p>
+            <p class="text-xs font-mono text-slate-400">{{ record.visit.patient.card_number }}
+              {% if record.source == 'surgery' %}<span class="ml-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 font-sans">{{ record.order_number }}</span>{% endif %}
+            </p>
           </td>
 
           <!-- Date -->
@@ -113,10 +115,17 @@
 
           <!-- Actions -->
           <td class="px-5 py-3 text-right">
+            {% if record.source == 'surgery' %}
+            <a href="{% url 'surgery_anesthesia_print' record.surgery_order_id %}"
+               class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+              View
+            </a>
+            {% else %}
             <a href="{% url 'anesthesia_record_detail' record.id %}"
                class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
               View
             </a>
+            {% endif %}
           </td>
 
         </tr>

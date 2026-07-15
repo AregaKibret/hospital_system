@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Purchase Report{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  {% include "reports/_toolbar.html" with title="Purchase Report" qp=qp %}
+
+  <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
+    <select name="status" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All Statuses</option>
+      {% for val, lbl in status_choices %}
+      <option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="supplier" value="{{ supplier_q }}" placeholder="Supplier name…" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <input type="date" name="from" value="{{ date_from }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <input type="date" name="to" value="{{ date_to }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Purchase Orders</h3>
+      <span class="text-sm font-bold text-slate-900 dark:text-white">Total: ETB {{ total_value|floatformat:2 }}</span>
+    </div>
+    {% if page_obj.object_list %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">PO Number</th>
+          <th class="text-left px-4 py-3">Supplier</th>
+          <th class="text-left px-4 py-3">Status</th>
+          <th class="text-left px-4 py-3 hidden md:table-cell">Ordered</th>
+          <th class="text-left px-4 py-3 hidden md:table-cell">Expected Delivery</th>
+          <th class="text-right px-4 py-3">Total</th>
+          <th class="text-left px-4 py-3 hidden lg:table-cell">Created By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for po in page_obj.object_list %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+          <td class="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">
+            <a href="{% url 'purchase_order_detail' po.pk %}">{{ po.po_number }}</a>
+          </td>
+          <td class="px-4 py-3 text-slate-800 dark:text-slate-200">{{ po.supplier_name }}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+              {% if po.status == 'Received' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+              {% elif po.status == 'Cancelled' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif po.status == 'Approved' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+              {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+              {{ po.status }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden md:table-cell">{{ po.ordered_at|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden md:table-cell">{{ po.expected_delivery|default:"—" }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">ETB {{ po.total_amount|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 hidden lg:table-cell">{{ po.created_by.get_full_name|default:po.created_by.username }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No purchase orders found.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="mt-4 flex justify-between items-center no-print">
+    <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-1.5">
+      {% if page_obj.has_previous %}<a href="?{{ qp }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?{{ qp }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

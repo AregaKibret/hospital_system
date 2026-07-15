@@ -52,7 +52,7 @@
     <div class="space-y-2">
       {% for med in top_meds %}
       <div class="flex justify-between text-xs">
-        <span class="text-slate-600 dark:text-slate-400 truncate flex-1 mr-2">{{ med.medication_name }}</span>
+        <span class="text-slate-600 dark:text-slate-400 truncate flex-1 mr-2">{{ med.drug_name }}</span>
         <span class="font-semibold text-green-600 dark:text-green-400 shrink-0">{{ med.count }}</span>
       </div>
       {% endfor %}

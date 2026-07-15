@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Check-In Summary — {{ appointment.appointment_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-5">
+
+  <div class="text-center mb-2">
+    <div class="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+      <svg class="w-7 h-7 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ appointment.display_patient_name }} checked in.</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Appointment {{ appointment.appointment_number }}</p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-xl text-sm font-medium
+      {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+      {% else %}bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if visit %}
+  <!-- Billing summary -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Automatic Billing Summary</h2>
+
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div>
+        <dt class="text-xs text-slate-400 mb-0.5">Card Status</dt>
+        <dd class="font-semibold">
+          {% if visit.patient_card %}
+            {% if visit.patient_card.effective_status == 'Active' and visit.patient_card.is_expiring_soon %}
+            <span class="text-amber-600 dark:text-amber-400">Expiring Soon ({{ visit.patient_card.expiry_date|date:"M j, Y" }})</span>
+            {% elif visit.patient_card.effective_status == 'Active' %}
+            <span class="text-emerald-600 dark:text-emerald-400">Valid{% if visit.patient_card.expiry_date %} until {{ visit.patient_card.expiry_date|date:"M j, Y" }}{% endif %}</span>
+            {% else %}
+            <span class="text-slate-600 dark:text-slate-300">{{ visit.patient_card.effective_status }}</span>
+            {% endif %}
+          {% else %}<span class="text-slate-400">—</span>{% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400 mb-0.5">Visit Type</dt>
+        <dd class="font-semibold text-slate-800 dark:text-slate-100">{{ appointment.get_visit_type_display }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400 mb-0.5">Registration / Card Fee</dt>
+        <dd class="font-semibold">
+          {% if card_fee_item %}
+          <span class="text-amber-600 dark:text-amber-400">Charged — ETB {{ card_fee_item.total|floatformat:2 }}</span>
+          {% else %}
+          <span class="text-emerald-600 dark:text-emerald-400">Not Required</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-400 mb-0.5">Consultation Fee</dt>
+        <dd class="font-semibold">
+          {% if consultation_fee_item %}
+          <span class="text-slate-800 dark:text-slate-100">ETB {{ consultation_fee_item.total|floatformat:2 }} ({{ visit.consultation_type.name }})</span>
+          {% else %}
+          <span class="text-emerald-600 dark:text-emerald-400">Not Required</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+
+    <div class="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <span class="text-sm font-semibold text-slate-500 uppercase">Total Amount Due</span>
+      <span class="text-2xl font-bold {% if invoice.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+        ETB {{ invoice.balance|default:"0.00"|floatformat:2 }}
+      </span>
+    </div>
+
+    {% if card_status_reason %}
+    <p class="text-xs text-slate-400 mt-3">{{ card_status_reason }}</p>
+    {% endif %}
+  </div>
+
+  <!-- Next step -->
+  <div class="flex justify-end gap-3">
+    <a href="{% url 'appointment_detail' appointment.id %}" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Back to Appointment</a>
+    {% if invoice and invoice.balance > 0 %}
+    <a href="{% url 'payment_create' invoice.id %}" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors">Proceed to Payment</a>
+    {% else %}
+    <span class="px-5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-semibold">No Payment Needed — Patient Proceeds to Doctor's Queue Once Cleared</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 text-center">
+    <p class="text-sm text-slate-500 dark:text-slate-400">No visit/billing record is linked to this appointment.</p>
+    <a href="{% url 'appointment_detail' appointment.id %}" class="mt-4 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">Back to Appointment</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

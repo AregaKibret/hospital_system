@@ -13,11 +13,12 @@
   <form method="post" class="space-y-5">
     {% csrf_token %}
     {% for item in items %}
+    {% if item.medication_id %}
     {% with batches=batch_options|get_item:item.id %}
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
       <div class="flex items-start justify-between mb-4">
         <div>
-          <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ item.medication.name }}</h3>
+          <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ item.item_name }}</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400">Approved: {{ item.quantity_approved }} units</p>
         </div>
       </div>
@@ -41,6 +42,23 @@
       {% endif %}
     </div>
     {% endwith %}
+    {% else %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ item.item_name }} <span class="text-xs font-normal text-teal-600 dark:text-teal-400">(Consumable)</span></h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Approved: {{ item.quantity_approved }} units · In stock: {{ item.inventory_item.quantity_in_stock }}</p>
+        </div>
+      </div>
+      <div class="field-wrapper max-w-xs">
+        <label class="field-label">Fulfill Qty (max: {{ item.quantity_approved }})</label>
+        <input type="number" name="fulfill_qty_{{ item.id }}" value="{{ item.quantity_approved }}" min="0" max="{{ item.quantity_approved }}" class="field-input text-sm">
+      </div>
+      {% if item.inventory_item.quantity_in_stock < item.quantity_approved %}
+      <p class="text-sm text-red-600 dark:text-red-400 mt-2">Insufficient stock — only {{ item.inventory_item.quantity_in_stock }} available.</p>
+      {% endif %}
+    </div>
+    {% endif %}
     {% endfor %}
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">

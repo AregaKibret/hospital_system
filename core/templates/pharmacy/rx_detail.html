@@ -25,7 +25,7 @@
         Send to Billing
       </a>
       {% endif %}
-      {% if can_dispense and has_billed_items %}
+      {% if can_dispense and has_billed_items and rx.billing_status == 'paid' or can_dispense and has_billed_items and rx.billing_status == 'credit_approved' or can_dispense and has_billed_items and rx.billing_status == 'waived' %}
       <form method="post" action="{% url 'rx_confirm_dispense' rx.id %}" onsubmit="return confirm('Confirm dispensing? This will deduct inventory.')">
         {% csrf_token %}
         <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition">
@@ -42,6 +42,82 @@
   {% if messages %}
   <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif m.tags == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">{{ m }}</div>{% endfor %}</div>
   {% endif %}
+
+  <!-- ── Payment Status Banner ─────────────────────────────────────────────── -->
+  {% if rx.billing_status != 'not_billed' %}
+  <div class="mb-4 rounded-xl border px-4 py-3 flex items-center justify-between gap-4
+    {% if rx.billing_status == 'paid' or rx.billing_status == 'waived' %}bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800
+    {% elif rx.billing_status == 'credit_approved' %}bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800
+    {% elif rx.billing_status == 'pending_payment' %}bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800
+    {% else %}bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700{% endif %}">
+    <div class="flex items-center gap-3">
+      {% if rx.billing_status == 'paid' or rx.billing_status == 'waived' %}
+      <svg class="w-5 h-5 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <p class="text-sm font-bold text-green-800 dark:text-green-300">Payment Confirmed — Pharmacy May Dispense</p>
+        <p class="text-xs text-green-600 dark:text-green-400">ETB {{ rx.billing_amount|floatformat:2 }} — {{ rx.invoice.invoice_number|default:"Invoice linked" }}</p>
+      </div>
+      {% elif rx.billing_status == 'credit_approved' %}
+      <svg class="w-5 h-5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+      <div>
+        <p class="text-sm font-bold text-indigo-800 dark:text-indigo-300">Credit Approved — Pharmacy May Dispense</p>
+        <p class="text-xs text-indigo-600 dark:text-indigo-400">Approved by {{ rx.credit_approved_by.get_full_name|default:rx.credit_approved_by.username }} &middot; {{ rx.credit_approved_at|date:"d M Y H:i" }}{% if rx.credit_reason %} &middot; {{ rx.credit_reason }}{% endif %}</p>
+      </div>
+      {% elif rx.billing_status == 'pending_payment' %}
+      <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <p class="text-sm font-bold text-amber-800 dark:text-amber-300">Payment Required Before Dispensing</p>
+        <p class="text-xs text-amber-600 dark:text-amber-400">ETB {{ rx.billing_amount|floatformat:2 }} — Patient must pay at billing counter.
+          {% if rx.invoice %}<a href="{% url 'invoice_detail' rx.invoice.pk %}" class="underline">View Invoice</a>{% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+    <!-- Credit approval action (billing/manager only) -->
+    {% if rx.billing_status == 'pending_payment' and perms.core.manage_billing %}
+    <div class="shrink-0">
+      <button onclick="document.getElementById('creditModal').classList.remove('hidden')"
+              class="px-3 py-1.5 text-xs font-semibold text-indigo-700 border border-indigo-300 rounded-lg hover:bg-indigo-50 transition">
+        Approve Credit
+      </button>
+    </div>
+    {% elif rx.billing_status == 'credit_approved' and perms.core.manage_billing %}
+    <form method="post" action="{% url 'rx_credit_revoke' rx.pk %}">
+      {% csrf_token %}
+      <button type="submit" onclick="return confirm('Revoke credit approval?')"
+              class="px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+        Revoke Credit
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Credit Approval Modal -->
+  <div id="creditModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Approve Credit Dispensing</h3>
+      <p class="text-sm text-slate-500 mb-4">Rx {{ rx.prescription_number }} &middot; ETB {{ rx.billing_amount|floatformat:2 }}</p>
+      <form method="post" action="{% url 'rx_credit_approve' rx.pk %}">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Reason / Authorization Note</label>
+          <textarea name="reason" rows="3" required
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="E.g. Insurance patient, inpatient credit, corporate account..."></textarea>
+        </div>
+        <div class="flex gap-3">
+          <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition">
+            Approve Credit
+          </button>
+          <button type="button" onclick="document.getElementById('creditModal').classList.add('hidden')"
+                  class="flex-1 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-bold rounded-lg hover:bg-slate-50 transition">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 

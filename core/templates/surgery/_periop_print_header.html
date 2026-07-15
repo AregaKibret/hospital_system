@@ -1,0 +1,26 @@
+{# Shared perioperative document print header. Expects: order, header, doc, doc_title #}
+<div style="text-align:center;border-bottom:2px solid #1E3A5F;padding-bottom:12px;margin-bottom:16px">
+  <div style="font-size:18px;font-weight:bold;color:#1E3A5F">HOSPITAL MANAGEMENT SYSTEM</div>
+  <div style="font-size:14px;font-weight:bold;margin-top:4px">{{ doc_title }}</div>
+  <div style="font-size:11px;color:#666;margin-top:2px">
+    {% if doc.is_finalized %}Version {{ doc.version }} — Finalized{% else %}Version {{ doc.version }} — Draft{% endif %}
+  </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:12px">
+  <div>
+    <div><strong>Patient:</strong> {{ header.patient.full_name }}</div>
+    <div><strong>MRN:</strong> {{ header.patient.card_number }}</div>
+    <div><strong>Age / Sex:</strong> {{ header.age }} / {{ header.patient.sex }}</div>
+  </div>
+  <div>
+    <div><strong>Procedure:</strong> {{ header.planned_procedure }}</div>
+    <div><strong>Surgeon:</strong> {{ header.surgeon.get_full_name }}</div>
+    <div><strong>Department:</strong> {{ header.department.name|default:"—" }}</div>
+  </div>
+  <div>
+    <div><strong>Order #:</strong> {{ order.order_number }}</div>
+    <div><strong>Scheduled Date:</strong> {{ header.scheduled_date|date:"d M Y"|default:"—" }}</div>
+    <div><strong>OR Room:</strong> {{ header.or_room.name|default:"—" }}</div>
+  </div>
+</div>

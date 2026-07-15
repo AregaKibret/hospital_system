@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Specializations{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Medical Specializations</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ specializations.count }} specialization{{ specializations.count|pluralize }} configured</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'doctor_list' %}" class="btn-secondary text-sm">Doctors</a>
+      <a href="{% url 'specialization_create' %}" class="btn-primary text-sm">+ Add Specialization</a>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+          <tr>
+            <th class="px-5 py-3 text-left">Order</th>
+            <th class="px-5 py-3 text-left">Specialization</th>
+            <th class="px-5 py-3 text-left">Departments</th>
+            <th class="px-5 py-3 text-center">Doctors</th>
+            <th class="px-5 py-3 text-center">Status</th>
+            <th class="px-5 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for s in specializations %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors {% if not s.is_active %}opacity-60{% endif %}">
+            <td class="px-5 py-3 text-xs text-slate-400">{{ s.display_order }}</td>
+            <td class="px-5 py-3 font-semibold text-slate-800 dark:text-slate-100">{{ s.name }}</td>
+            <td class="px-5 py-3 text-xs text-slate-500 dark:text-slate-400">
+              {% for d in s.departments.all %}{{ d.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </td>
+            <td class="px-5 py-3 text-center text-slate-600 dark:text-slate-300">{{ s.doctors.count }}</td>
+            <td class="px-5 py-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                {% if s.is_active %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% else %}bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                {% if s.is_active %}Active{% else %}Inactive{% endif %}
+              </span>
+            </td>
+            <td class="px-5 py-3 text-right whitespace-nowrap">
+              <a href="{% url 'specialization_edit' s.id %}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline mr-3">Edit</a>
+              <form method="post" action="{% url 'specialization_toggle_active' s.id %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-xs font-semibold {% if s.is_active %}text-amber-600 dark:text-amber-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %} hover:underline">
+                  {% if s.is_active %}Deactivate{% else %}Activate{% endif %}
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="px-5 py-12 text-center text-slate-400">No specializations configured yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

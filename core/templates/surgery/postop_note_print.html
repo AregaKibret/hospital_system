@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Print — Post-Operative Note {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+{% include "surgery/_periop_print_style.html" %}
+{% include "surgery/_periop_print_header.html" with doc_title="Post-Operative Note" %}
+
+<div class="text-sm space-y-4">
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Patient Status</h3>
+    <p><strong>Consciousness:</strong> {{ doc.get_consciousness_level_display|default:"—" }} · <strong>Pain Score:</strong> {{ doc.pain_score|default:"—" }}/10</p>
+    <p><strong>Vitals:</strong> BP {{ doc.po_bp_systolic|default:"—" }}/{{ doc.po_bp_diastolic|default:"—" }} · HR {{ doc.po_pulse|default:"—" }} · RR {{ doc.po_respiratory_rate|default:"—" }} · Temp {{ doc.po_temperature|default:"—" }}°C · SpO2 {{ doc.po_spo2|default:"—" }}%</p>
+    <p><strong>Airway Status:</strong> {{ doc.airway_status|default:"—" }} · <strong>O2 Requirement:</strong> {{ doc.o2_requirement|default:"—" }}</p>
+    <p><strong>Neurological Status:</strong> {{ doc.neuro_status|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Surgical Assessment</h3>
+    <p><strong>Wound Condition:</strong> {{ doc.wound_condition|default:"—" }}</p>
+    <p><strong>Drain Status:</strong> {{ doc.drain_status|default:"—" }} · <strong>Catheters:</strong> {{ doc.catheters_present|default:"—" }}</p>
+    <p><strong>Bleeding:</strong> {{ doc.bleeding_assessment|default:"—" }}</p>
+    <p><strong>Complications:</strong> {{ doc.post_op_complications|default:"None" }}</p>
+    <p><strong>Immediate Post-op Diagnosis:</strong> {{ doc.immediate_post_op_diagnosis|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Post-Operative Orders</h3>
+    <p><strong>Diet:</strong> {{ doc.diet_orders|default:"—" }} · <strong>Activity Level:</strong> {{ doc.activity_level|default:"—" }}</p>
+    <p><strong>IV Fluids:</strong> {{ doc.iv_fluids_orders|default:"—" }}</p>
+    <p><strong>Medications:</strong> {{ doc.medication_orders|default:"—" }}</p>
+    <p><strong>Antibiotics:</strong> {{ doc.antibiotic_orders|default:"—" }}</p>
+    <p><strong>Pain Management:</strong> {{ doc.pain_management_plan|default:"—" }}</p>
+    <p><strong>DVT Prophylaxis:</strong> {{ doc.dvt_prophylaxis|default:"—" }}</p>
+    <p><strong>Physiotherapy:</strong> {{ doc.physiotherapy_orders|default:"—" }}</p>
+    <p><strong>Nursing Instructions:</strong> {{ doc.nursing_instructions|default:"—" }}</p>
+    <p><strong>Laboratory Orders:</strong> {{ doc.lab_orders|default:"—" }}</p>
+    <p><strong>Imaging Orders:</strong> {{ doc.imaging_orders|default:"—" }}</p>
+    <p><strong>Follow-up Instructions:</strong> {{ doc.follow_up_instructions|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Disposition</h3>
+    <p>{{ doc.get_disposition_display|default:"—" }} {{ doc.disposition_notes }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Follow-Up Plan</h3>
+    <p><strong>Review Date:</strong> {{ doc.review_date|date:"d M Y"|default:"—" }}</p>
+    <p><strong>Dressing Change:</strong> {{ doc.dressing_change_plan|default:"—" }} · <strong>Drain Removal:</strong> {{ doc.drain_removal_plan|default:"—" }} · <strong>Suture Removal:</strong> {{ doc.suture_removal_plan|default:"—" }}</p>
+    <p><strong>Additional Procedures Planned:</strong> {{ doc.additional_procedures_planned|default:"—" }}</p>
+    <p><strong>Outpatient Follow-up:</strong> {{ doc.outpatient_followup_instructions|default:"—" }}</p>
+  </div>
+</div>
+
+{% include "surgery/_periop_signature_block.html" %}
+
+<p class="text-xs text-slate-400 mt-4 no-print">Printed by {{ request.user.get_full_name|default:request.user.username }} at {{ now|date:"d M Y H:i" }}</p>
+</div>
+{% endblock %}

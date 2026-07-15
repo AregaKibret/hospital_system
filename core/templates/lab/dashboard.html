@@ -7,10 +7,23 @@
     <p class="text-sm text-slate-500 dark:text-slate-400">{{ today|date:"l, d F Y" }}</p>
   </div>
   <div class="flex gap-2 no-print">
-    {% if perms.core.lab_reception %}<a href="{% url 'lab_reception' %}" class="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">Reception</a>{% endif %}
-    {% if perms.core.manage_lab_services %}<a href="{% url 'lab_service_list' %}" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors">Services & Pricing</a>{% endif %}
+    {% if perms.core.manage_lab_services %}<a href="{% url 'lab_service_list' %}" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors">Services &amp; Pricing</a>{% endif %}
   </div>
 </div>
+
+{% if perms.core.view_lab_reports %}
+<div class="flex flex-wrap gap-2 mb-5 no-print">
+  <a href="{% url 'report_lab_master_list' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Master List</a>
+  <a href="{% url 'report_lab_prices' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Price List</a>
+  <a href="{% url 'report_lab_by_category' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Tests by Category</a>
+  <a href="{% url 'report_lab_by_department' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Tests by Department</a>
+  <a href="{% url 'report_lab_usage' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Test Utilization</a>
+  <a href="{% url 'report_lab_tat' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Turnaround Time</a>
+  <a href="{% url 'report_lab_critical' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-full hover:border-red-400 transition-colors">Critical Results</a>
+  <a href="{% url 'report_lab_new_tests' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">New Tests</a>
+  <a href="{% url 'report_lab_inventory' %}" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-full hover:border-blue-400 transition-colors">Lab Inventory</a>
+</div>
+{% endif %}
 
 <!-- KPI Cards -->
 <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">

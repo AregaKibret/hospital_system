@@ -7,11 +7,20 @@
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Patient History</h1>
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ patient.full_name }} · {{ patient.card_number }} · {{ patient.sex }}{% if patient.date_of_birth %} · DOB {{ patient.date_of_birth|date:"M j, Y" }}{% if patient.age_display %} ({{ patient.age_display }}){% endif %}{% endif %}</p>
   </div>
-  <a href="{% url 'doctor_patient_list' %}"
-     class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-    Patients
-  </a>
+  <div class="flex items-center gap-4">
+    {% if perms.core.view_attachments %}
+    <a href="{% url 'patient_attachment_list' patient.pk %}"
+       class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+      Attachments
+    </a>
+    {% endif %}
+    <a href="{% url 'doctor_patient_list' %}"
+       class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Patients
+    </a>
+  </div>
 </div>
 
 <!-- Patient demographics card -->

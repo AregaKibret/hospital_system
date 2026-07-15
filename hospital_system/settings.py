@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.AuditMiddleware',
+    'core.middleware.SessionActivityMiddleware',
 ]
 
 ROOT_URLCONF = 'hospital_system.urls'

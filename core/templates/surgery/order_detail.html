@@ -19,6 +19,9 @@
       <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.patient.full_name }} · {{ order.patient.card_number }} · {{ order.ordered_at|date:"d M Y H:i" }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
+      {% if perms.core.upload_attachment %}
+      <a href="{% url 'patient_attachment_upload' order.patient_id %}?surgery={{ order.pk }}" class="btn-secondary text-sm">Attach Document</a>
+      {% endif %}
       {% if perms.core.order_surgery and order.status in "ordered pending_review" %}
       <a href="{% url 'surgery_order_edit' order.pk %}" class="btn-secondary text-sm">Edit</a>
       {% endif %}
@@ -87,35 +90,52 @@
     </div>
     {% endif %}
 
-    <!-- Anesthesia Record -->
+    <!-- Pre-Operative Anesthetic Assessment -->
     {% if anesthesia_record %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Anesthesia Record</h2>
-        {% if perms.core.write_surgery_anesthesia %}<a href="{% url 'surgery_anesthesia_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Pre-Operative Anesthetic Assessment</h2>
+          {% if anesthesia_record.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized v{{ anesthesia_record.version }}</span>
+          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft v{{ anesthesia_record.version }}</span>{% endif %}
+        </div>
+        <div class="flex items-center gap-3">
+          {% if perms.core.write_surgery_anesthesia %}<a href="{% url 'surgery_anesthesia_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+          {% if perms.core.read_periop_document_history %}<a href="{% url 'surgery_anesthesia_history' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">History</a>{% endif %}
+          <a href="{% url 'surgery_anesthesia_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>
+        </div>
       </div>
       <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-        <div><span class="text-xs text-slate-400 block">Anesthesiologist</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ anesthesia_record.anesthesiologist.get_full_name }}</span></div>
+        <div><span class="text-xs text-slate-400 block">Anesthetist</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ anesthesia_record.created_by.get_full_name }}</span></div>
         {% if anesthesia_record.asa_classification %}<div><span class="text-xs text-slate-400 block">ASA Classification</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.asa_classification }}</span></div>{% endif %}
+        {% if anesthesia_record.fitness_for_surgery %}<div><span class="text-xs text-slate-400 block">Fitness for Surgery</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.get_fitness_for_surgery_display }}</span></div>{% endif %}
         {% if anesthesia_record.anesthesia_technique %}<div><span class="text-xs text-slate-400 block">Technique</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.anesthesia_technique }}</span></div>{% endif %}
-        {% if anesthesia_record.induction_agent %}<div><span class="text-xs text-slate-400 block">Induction Agent</span><span class="text-slate-700 dark:text-slate-300">{{ anesthesia_record.induction_agent }}</span></div>{% endif %}
         {% if anesthesia_record.post_anesthesia_notes %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Post-anesthesia Notes</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ anesthesia_record.post_anesthesia_notes }}</p></div>{% endif %}
       </div>
+      {% include "surgery/_nursing_addendum_panel.html" with doc_type="anesthesia" doc_label="Anesthesia" %}
     </div>
     {% endif %}
 
-    <!-- Operative Note -->
+    <!-- OR Operative Note -->
     {% if operative_note %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Operative Note</h2>
-        {% if perms.core.write_operative_note %}<a href="{% url 'operative_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-white">OR Operative Note</h2>
+          {% if operative_note.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized v{{ operative_note.version }}</span>
+          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft v{{ operative_note.version }}</span>{% endif %}
+        </div>
+        <div class="flex items-center gap-3">
+          {% if perms.core.write_operative_note %}<a href="{% url 'operative_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+          {% if perms.core.read_periop_document_history %}<a href="{% url 'operative_note_history' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">History</a>{% endif %}
+          <a href="{% url 'operative_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>
+        </div>
       </div>
       <div class="p-5 space-y-4 text-sm">
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div><span class="text-xs text-slate-400 block">Procedure Performed</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ operative_note.procedure_performed }}</span></div>
-          {% if operative_note.start_time %}<div><span class="text-xs text-slate-400 block">Start</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.start_time|date:"H:i" }}</span></div>{% endif %}
-          {% if operative_note.end_time %}<div><span class="text-xs text-slate-400 block">End</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.end_time|date:"H:i" }}</span></div>{% endif %}
+          {% if operative_note.time_surgery_start %}<div><span class="text-xs text-slate-400 block">Surgery Start</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.time_surgery_start|date:"H:i" }}</span></div>{% endif %}
+          {% if operative_note.time_surgery_end %}<div><span class="text-xs text-slate-400 block">Surgery End</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.time_surgery_end|date:"H:i" }}</span></div>{% endif %}
           <div><span class="text-xs text-slate-400 block">Pre-op Diagnosis</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.pre_op_diagnosis }}</span></div>
           <div><span class="text-xs text-slate-400 block">Post-op Diagnosis</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.post_op_diagnosis }}</span></div>
           {% if operative_note.blood_loss_ml %}<div><span class="text-xs text-slate-400 block">Blood Loss</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.blood_loss_ml }} mL</span></div>{% endif %}
@@ -125,6 +145,37 @@
         <div><p class="text-xs text-slate-400 mb-1">Procedure Steps</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.procedure_steps }}</p></div>
         {% if operative_note.post_op_instructions %}<div><p class="text-xs text-slate-400 mb-1">Post-op Instructions</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ operative_note.post_op_instructions }}</p></div>{% endif %}
       </div>
+      {% include "surgery/_nursing_addendum_panel.html" with doc_type="operative" doc_label="Operative Note" %}
+    </div>
+    {% endif %}
+
+    <!-- Post-Operative Note -->
+    {% if postop_note %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Post-Operative Note</h2>
+          {% if postop_note.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized v{{ postop_note.version }}</span>
+          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft v{{ postop_note.version }}</span>{% endif %}
+        </div>
+        <div class="flex items-center gap-3">
+          {% if perms.core.write_postop_note %}<a href="{% url 'postop_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+          {% if perms.core.read_periop_document_history %}<a href="{% url 'postop_note_history' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">History</a>{% endif %}
+          {% if perms.core.read_postop_note %}<a href="{% url 'postop_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>{% endif %}
+        </div>
+      </div>
+      <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div><span class="text-xs text-slate-400 block">Disposition</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ postop_note.get_disposition_display|default:"—" }}</span></div>
+        {% if postop_note.consciousness_level %}<div><span class="text-xs text-slate-400 block">Consciousness</span><span class="text-slate-700 dark:text-slate-300">{{ postop_note.get_consciousness_level_display }}</span></div>{% endif %}
+        {% if postop_note.pain_score is not None %}<div><span class="text-xs text-slate-400 block">Pain Score</span><span class="text-slate-700 dark:text-slate-300">{{ postop_note.pain_score }}/10</span></div>{% endif %}
+        {% if postop_note.post_op_complications %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Complications</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ postop_note.post_op_complications }}</p></div>{% endif %}
+      </div>
+      {% include "surgery/_nursing_addendum_panel.html" with doc_type="postop" doc_label="Post-Op Note" %}
+    </div>
+    {% elif perms.core.write_postop_note and order.status in "completed post_op" %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 shadow-sm p-5 text-center">
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">No post-operative note recorded yet.</p>
+      <a href="{% url 'postop_note_create' order.pk %}" class="btn-primary text-sm">Write Post-Operative Note</a>
     </div>
     {% endif %}
 
@@ -199,10 +250,15 @@
         {% endif %}
 
         {% if perms.core.manage_or_schedule and order.status == 'patient_prepared' %}
+        {% if order.payment_cleared %}
         <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
           <input type="hidden" name="action" value="in_or" />
           <button type="submit" class="w-full btn-primary text-sm bg-orange-600 hover:bg-orange-700">Start Surgery (In OR)</button>
         </form>
+        {% else %}
+        <button type="button" disabled class="w-full text-sm bg-slate-200 dark:bg-slate-700 text-slate-400 rounded-lg py-2 cursor-not-allowed">Start Surgery (In OR)</button>
+        <p class="text-xs text-red-500 mt-1">Payment must be cleared (Paid, Credit Approved, or Waived) before starting surgery.</p>
+        {% endif %}
         {% endif %}
 
         {% if perms.core.approve_surgery_order and order.status == 'in_or' %}
@@ -309,8 +365,20 @@
     <form method="post" action="{% url 'surgery_consumable_add' order.pk %}">{% csrf_token %}
       <div class="grid grid-cols-2 gap-3 mb-3">
         <div class="field-wrapper col-span-2">
+          <label class="field-label">From OR Inventory <span class="text-slate-400 font-normal">(optional — deducts real stock)</span></label>
+          <select name="inventory_item" id="or_inventory_item" class="field-input"
+                  onchange="const o=this.options[this.selectedIndex]; if(o.value){document.getElementById('or_item_name').value=o.dataset.name; document.getElementById('or_unit_cost').value=o.dataset.cost; document.getElementById('or_unit').value=o.dataset.unit;}">
+            <option value="">— Untracked item (type name manually) —</option>
+            {% for item in or_items %}
+            <option value="{{ item.pk }}" data-name="{{ item.name }}" data-cost="{{ item.unit_cost }}" data-unit="{{ item.unit }}">
+              {{ item.name }} ({{ item.quantity_in_stock }} {{ item.unit }} available)
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper col-span-2">
           <label class="field-label">Item Name <span class="text-red-500">*</span></label>
-          <input type="text" name="item_name" required class="field-input" placeholder="e.g. Surgical suture, Implant…" />
+          <input type="text" name="item_name" id="or_item_name" required class="field-input" placeholder="e.g. Surgical suture, Implant…" />
         </div>
         <div class="field-wrapper">
           <label class="field-label">Type</label>
@@ -329,11 +397,11 @@
         </div>
         <div class="field-wrapper">
           <label class="field-label">Unit</label>
-          <input type="text" name="unit" value="unit" class="field-input" />
+          <input type="text" name="unit" id="or_unit" value="unit" class="field-input" />
         </div>
         <div class="field-wrapper">
           <label class="field-label">Unit Cost (ETB)</label>
-          <input type="number" name="unit_cost" value="0" min="0" step="0.01" class="field-input" />
+          <input type="number" name="unit_cost" id="or_unit_cost" value="0" min="0" step="0.01" class="field-input" />
         </div>
         <div class="field-wrapper">
           <label class="field-label">Batch #</label>

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Patient Medication Billing{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Patient Medication Billing</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ date_from|date:"d M Y" }} — {{ date_to|date:"d M Y" }}</p>
+    </div>
+    <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&q={{ search_q }}&export=csv"
+       class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">
+      Export CSV
+    </a>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 flex gap-3 flex-wrap items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+      <input type="date" name="date_from" value="{{ date_from_str }}"
+             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+      <input type="date" name="date_to" value="{{ date_to_str }}"
+             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Search</label>
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Patient name or Rx #"
+             class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if records %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">Patient</th>
+          <th class="text-left px-4 py-3">Rx #</th>
+          <th class="text-left px-4 py-3">Drug</th>
+          <th class="text-right px-4 py-3">Qty</th>
+          <th class="text-right px-4 py-3">Unit Price</th>
+          <th class="text-right px-4 py-3">Total (ETB)</th>
+          <th class="text-left px-4 py-3">Date</th>
+          <th class="text-left px-4 py-3">Dispensed By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for rec in records %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-2.5">
+            <div class="font-medium text-gray-900 dark:text-white">{{ rec.prescription_item.prescription.patient.full_name }}</div>
+            <div class="text-xs text-gray-400 font-mono">{{ rec.prescription_item.prescription.patient.card_number }}</div>
+          </td>
+          <td class="px-4 py-2.5 font-mono text-xs text-gray-500">{{ rec.prescription_item.prescription.prescription_number }}</td>
+          <td class="px-4 py-2.5 text-gray-700 dark:text-gray-300">{{ rec.prescription_item.drug_name }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400">{{ rec.quantity_dispensed }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600 dark:text-gray-400">{{ rec.unit_price|floatformat:2 }}</td>
+          <td class="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{{ rec.total_amount|floatformat:2 }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-400">{{ rec.dispensed_at|date:"d M Y" }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500">{{ rec.dispensed_by.get_full_name|default:rec.dispensed_by.username }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-gray-50 dark:bg-gray-700/50 font-semibold">
+        <tr>
+          <td colspan="5" class="px-4 py-3 text-gray-700 dark:text-gray-300">Grand Total</td>
+          <td class="px-4 py-3 text-right text-green-600 dark:text-green-400">{{ grand_total|floatformat:2 }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <p class="text-sm">No records found.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

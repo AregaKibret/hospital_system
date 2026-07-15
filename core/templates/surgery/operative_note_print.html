@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Print — Operative Note {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+{% include "surgery/_periop_print_style.html" %}
+{% include "surgery/_periop_print_header.html" with doc_title="OR Operative Note" %}
+
+<div class="text-sm space-y-4">
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Team Members</h3>
+    <p><strong>Surgeon:</strong> {{ header.surgeon.get_full_name }}</p>
+    <p><strong>Assistant Surgeon(s):</strong>
+      {% for s in doc.assistant_surgeons.all %}{{ s.get_full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+    </p>
+    <p><strong>Scrub Nurse:</strong> {{ header.scrub_nurse.get_full_name|default:"—" }} · <strong>Circulating Nurse:</strong> {{ header.circulating_nurse.get_full_name|default:"—" }}</p>
+    <p><strong>Anesthetist:</strong> {{ header.schedule_anesthesiologist.get_full_name|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Procedure Timing</h3>
+    <p><strong>Patient Entered OR:</strong> {{ doc.time_patient_entered_or|date:"d M Y H:i"|default:"—" }} · <strong>Patient Left OR:</strong> {{ doc.time_patient_left_or|date:"d M Y H:i"|default:"—" }}</p>
+    <p><strong>Surgery Start:</strong> {{ doc.time_surgery_start|date:"d M Y H:i"|default:"—" }} · <strong>Surgery End:</strong> {{ doc.time_surgery_end|date:"d M Y H:i"|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Operative Details</h3>
+    <p><strong>Pre-op Diagnosis:</strong> {{ doc.pre_op_diagnosis }}</p>
+    <p><strong>Post-op Diagnosis:</strong> {{ doc.post_op_diagnosis }}</p>
+    <p><strong>Anesthesia Type:</strong> {{ doc.anesthesia_type|default:"—" }}</p>
+    <p><strong>Incision Type:</strong> {{ doc.incision_type|default:"—" }} · <strong>Surgical Technique:</strong> {{ doc.surgical_technique|default:"—" }}</p>
+    <p><strong>Surgical Findings:</strong> {{ doc.findings }}</p>
+    <p><strong>Specimens Collected:</strong> {{ doc.specimens_collected|default:"—" }}</p>
+    <p><strong>Implants Used:</strong> {{ doc.implants_used|default:"—" }}</p>
+    <p><strong>Drains Inserted:</strong> {{ doc.drains_placed|default:"—" }}</p>
+    <p><strong>Blood Loss:</strong> {{ doc.blood_loss_ml|default:"—" }} mL · <strong>Blood Transfusion:</strong> {{ doc.blood_transfusion_given|yesno:"Yes,No" }} {{ doc.blood_transfusion_details }}</p>
+    <p><strong>Complications:</strong> {{ doc.complications|default:"None" }}</p>
+    <p><strong>Counts Correct:</strong> {{ doc.get_counts_correct_display|default:"—" }}</p>
+    <p><strong>Wound Classification:</strong> {{ doc.get_wound_classification_display|default:"—" }}</p>
+    <p><strong>Closure Technique:</strong> {{ doc.wound_closure|default:"—" }} · <strong>Dressings Applied:</strong> {{ doc.dressings_applied|default:"—" }}</p>
+  </div>
+
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Procedure Narrative</h3>
+    <p style="white-space:pre-line">{{ doc.procedure_steps }}</p>
+    {% if doc.intraop_events %}<p><strong>Intra-operative Events:</strong> {{ doc.intraop_events }}</p>{% endif %}
+    {% if doc.unexpected_findings %}<p><strong>Unexpected Findings:</strong> {{ doc.unexpected_findings }}</p>{% endif %}
+    {% if doc.recommendations %}<p><strong>Recommendations:</strong> {{ doc.recommendations }}</p>{% endif %}
+  </div>
+
+  {% if doc.post_op_instructions %}
+  <div>
+    <h3 class="font-bold border-b border-slate-300 pb-1 mb-2">Post-operative Instructions</h3>
+    <p>{{ doc.post_op_instructions }}</p>
+  </div>
+  {% endif %}
+</div>
+
+{% include "surgery/_periop_signature_block.html" %}
+
+<p class="text-xs text-slate-400 mt-4 no-print">Printed by {{ request.user.get_full_name|default:request.user.username }} at {{ now|date:"d M Y H:i" }}</p>
+</div>
+{% endblock %}

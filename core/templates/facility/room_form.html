@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Room — {{ ward.name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'ward_detail' ward.pk %}" class="btn-secondary text-sm">← Back to {{ ward.name }}</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ action }} Room — {{ ward.name }}</h1>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+
+<form method="post" class="max-w-xl">{% csrf_token %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Room Number <span class="text-red-500">*</span></label>
+        <input type="text" name="room_number" value="{{ room.room_number|default:'' }}" required class="field-input" placeholder="e.g. 101" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Room Name</label>
+        <input type="text" name="room_name" value="{{ room.room_name|default:'' }}" class="field-input" placeholder="optional" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Room Type</label>
+        <select name="room_type" class="field-input">
+          {% for val, label in room_types %}<option value="{{ val }}" {% if room and room.room_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Privacy</label>
+        <select name="privacy_type" class="field-input">
+          {% for val, label in privacy_choices %}<option value="{{ val }}" {% if room and room.privacy_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Capacity</label>
+        <input type="number" name="capacity" value="{{ room.capacity|default:1 }}" min="1" class="field-input" />
+      </div>
+    </div>
+    <div class="flex items-center gap-6">
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="is_ac" {% if room.is_ac %}checked{% endif %} class="w-4 h-4 rounded" /> Air-Conditioned
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="is_isolation" {% if room.is_isolation %}checked{% endif %} class="w-4 h-4 rounded" /> Isolation Room
+      </label>
+    </div>
+  </div>
+  <div class="flex gap-3 mt-5">
+    <button type="submit" class="btn-primary">{{ action }} Room</button>
+    <a href="{% url 'ward_detail' ward.pk %}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

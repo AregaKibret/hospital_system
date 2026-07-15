@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Pending Doctor Orders — HMS{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Pending Doctor Orders</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Lab, imaging, and procedure orders awaiting completion for admitted patients</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Laboratory ({{ lab_orders|length }})</h3>
+      </div>
+      {% if lab_orders %}
+      <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-96 overflow-y-auto">
+        {% for o in lab_orders %}
+        <li class="px-5 py-2.5">
+          <a href="{% url 'lab_order_detail' o.pk %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ o.test_name }}</a>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} &middot; {{ o.status }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="px-5 py-10 text-sm text-slate-400 text-center">None pending.</p>{% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Imaging ({{ imaging_orders|length }})</h3>
+      </div>
+      {% if imaging_orders %}
+      <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-96 overflow-y-auto">
+        {% for o in imaging_orders %}
+        <li class="px-5 py-2.5">
+          <a href="{% url 'imaging_order_detail' o.pk %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ o.imaging_type }} — {{ o.body_part }}</a>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} &middot; {{ o.status }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="px-5 py-10 text-sm text-slate-400 text-center">None pending.</p>{% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Procedures ({{ procedure_orders|length }})</h3>
+      </div>
+      {% if procedure_orders %}
+      <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-96 overflow-y-auto">
+        {% for o in procedure_orders %}
+        <li class="px-5 py-2.5">
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.procedure_name }}</p>
+          <p class="text-xs text-slate-400">{{ o.visit.patient.full_name }} &middot; {{ o.status }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="px-5 py-10 text-sm text-slate-400 text-center">None pending.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

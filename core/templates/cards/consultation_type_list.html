@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Consultation Types{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Consultation Types</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ consultation_types.count }} consultation type{{ consultation_types.count|pluralize }} configured</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'card_type_list' %}" class="btn-secondary text-sm">Card Types</a>
+      <a href="{% url 'consultation_type_create' %}" class="btn-primary text-sm">+ Add Consultation Type</a>
+    </div>
+  </div>
+
+  {% regroup consultation_types by department as dept_groups %}
+  {% for grp in dept_groups %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 rounded-t-2xl">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ grp.grouper.name|default:"Hospital-wide" }}</h2>
+    </div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for ct in grp.list %}
+      <div class="flex items-center justify-between px-5 py-3.5 {% if not ct.is_active %}opacity-60{% endif %}">
+        <div class="min-w-0">
+          <p class="font-semibold text-sm text-slate-800 dark:text-slate-100">
+            {{ ct.name }}
+            {% if ct.is_default %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">Default</span>{% endif %}
+          </p>
+          <div class="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            <span>ETB {{ ct.fee|floatformat:2 }}</span>
+            {% if ct.duration_minutes %}<span>{{ ct.duration_minutes }} min</span>{% endif %}
+            {% if not ct.is_active %}<span class="text-red-500">Inactive</span>{% endif %}
+          </div>
+        </div>
+        <div class="flex gap-2 shrink-0 ml-4">
+          <a href="{% url 'consultation_type_edit' ct.id %}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">Edit</a>
+          <form method="post" action="{% url 'consultation_type_toggle_active' ct.id %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="text-xs font-semibold {% if ct.is_active %}text-amber-600 dark:text-amber-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %} hover:underline">
+              {% if ct.is_active %}Deactivate{% else %}Activate{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 p-12 text-center">
+    <p class="text-slate-400 dark:text-slate-500">No consultation types configured yet.</p>
+    <a href="{% url 'consultation_type_create' %}" class="mt-4 inline-block btn-primary">Add First Consultation Type</a>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

@@ -76,6 +76,8 @@ class Command(BaseCommand):
             ('miriam.getachew',     'Test@1234', 'Miriam',    'Getachew',      'miriam.getachew@hospital.et',     'Medical Director',       'Medical Director',       '+251911000001', 'EMP-MD001'),
             # Reception
             ('sara.tadesse',        'Test@1234', 'Sara',      'Tadesse',       'sara.tadesse@hospital.et',        'Receptionist',           'Front Desk Officer',     '+251933445566', 'EMP-R001'),
+            # Medical Records
+            ('helen.assefa',        'Test@1234', 'Helen',     'Assefa',        'helen.assefa@hospital.et',        'Medical Records Officer', 'Medical Records Officer', '+251911000099', 'EMP-MR001'),
             # Medical
             ('bekele.haile',        'Test@1234', 'Bekele',    'Haile',         'bekele.haile@hospital.et',        'Doctor',                 'General Practitioner',   '+251922334455', 'EMP-D001'),
             ('abiy.mekonen',        'Test@1234', 'Abiy',      'Mekonen',       'abiy.mekonen@hospital.et',        'Ward Doctor',            'Ward Physician',         '+251911000002', 'EMP-D002'),

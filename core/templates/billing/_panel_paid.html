@@ -51,7 +51,7 @@
       </div>
       <span class="text-xs text-slate-400">{{ lp.received_by.get_full_name|default:lp.received_by.username }}</span>
     </div>
-    <div class="text-xs text-slate-400 mb-2">{{ lp.payment_date|date:"d M Y H:i" }}</div>
+    <div class="text-xs text-slate-400 mb-2">{{ lp.created_at|date:"d M Y H:i" }}</div>
     {% else %}
     <div class="text-xs text-slate-400 mb-2">Paid {{ inv.updated_at|date:"d M Y H:i" }}</div>
     {% endif %}

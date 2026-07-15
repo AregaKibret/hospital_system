@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Critical Result Report{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Critical Result Report</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ date_from|date:"d M Y" }} — {{ date_to|date:"d M Y" }} &middot; {{ total }} flagged result{{ total|pluralize }}</p>
+    </div>
+    <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&export=csv" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">Export CSV</a>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ date_from_str }}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ date_to_str }}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+      </div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Filter</button>
+    </div>
+  </form>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if orders %}
+    <table class="w-full text-sm">
+      <thead class="bg-red-50 dark:bg-red-900/20 text-xs uppercase tracking-wide text-red-600 dark:text-red-400">
+        <tr>
+          <th class="text-left px-4 py-3">Test</th>
+          <th class="text-left px-4 py-3">Patient</th>
+          <th class="text-left px-4 py-3">Result</th>
+          <th class="text-left px-4 py-3">Critical Notes</th>
+          <th class="text-left px-4 py-3">Flagged By</th>
+          <th class="text-left px-4 py-3">Flagged At</th>
+          <th class="text-center px-4 py-3">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for o in orders %}
+        <tr class="hover:bg-red-50/50 dark:hover:bg-red-900/10 transition">
+          <td class="px-4 py-2.5"><a href="{% url 'lab_order_detail' o.pk %}" class="font-medium text-gray-900 dark:text-white hover:text-blue-600">{{ o.test_name }}</a></td>
+          <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">{{ o.visit.patient.full_name }}</td>
+          <td class="px-4 py-2.5 text-gray-700 dark:text-gray-300 max-w-xs truncate">{{ o.result }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ o.critical_notes|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{% if o.critical_flagged_by %}{{ o.critical_flagged_by.get_full_name|default:o.critical_flagged_by.username }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ o.critical_flagged_at|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-2.5 text-center">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+              {% if o.status == 'Released' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+              {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">{{ o.status }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500"><p class="text-sm">No critical results flagged in the selected period.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

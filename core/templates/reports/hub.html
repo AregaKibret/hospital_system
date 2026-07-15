@@ -397,6 +397,128 @@
           </div>
         </div>
       </a>
+      <a href="{% url 'report_supplier_performance' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-cyan-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors">Supplier Report</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Purchase value and batches by vendor</p>
+          </div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- General Store / Department Inventory -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">General Store &amp; Department Inventory</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <a href="{% url 'report_store_stock_on_hand' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-orange-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Store Stock On Hand</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">General store, lab, OR, equipment</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_transactions' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-blue-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Store Stock Movement</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">All store transactions, any type</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_out_of_stock' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-red-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Out of Stock</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Items at zero quantity</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_damaged' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-amber-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Damaged Stock</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Damaged and expired write-offs</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_goods_receiving' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-emerald-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Goods Receiving</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Purchases and batch receipts</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_goods_issue' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Goods Issue</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Stock issued to departments</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_adjustments' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-purple-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Inventory Adjustments</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manual corrections &amp; counts</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_store_valuation' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-teal-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3v-6m-3 6v-1m4-11H7a2 2 0 00-2 2v14l4-2 4 2 4-2 4 2V6a2 2 0 00-2-2z"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Store Valuation</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Inventory value by category/type</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_purchase_orders' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-sky-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-sky-100 dark:bg-sky-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7a2 2 0 012-2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2h2"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Purchase Report</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Purchase orders with totals</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_inventory_item_master' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-teal-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Item Master List</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Full inventory catalog dump</p></div>
+        </div>
+      </a>
+      <a href="{% url 'dept_report_transfer_history' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-violet-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Stock Transfer</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Department-to-department transfers</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_lab_inventory' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-rose-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-rose-100 dark:bg-rose-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Lab Inventory</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Reagents &amp; consumables stock</p></div>
+        </div>
+      </a>
+      <a href="{% url 'report_or_inventory' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-fuchsia-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-fuchsia-100 dark:bg-fuchsia-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-fuchsia-600 dark:text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+          <div><p class="text-sm font-semibold text-slate-800 dark:text-slate-100">OR Inventory</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Surgical supplies stock &amp; consumption</p></div>
+        </div>
+      </a>
     </div>
   </section>
 
@@ -439,6 +561,143 @@
       </a>
     </div>
   </section>
+
+  {% if can_facility %}
+  <!-- Facility Management -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Facility Management Reports</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in facility_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-teal-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_admission %}
+  <!-- Admission Management -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Admission Management Reports</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in admission_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-cyan-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_attachments %}
+  <!-- Document Management -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Document Management Reports</h2>
+      {% if perms.core.manage_attachment_categories %}
+      <a href="{% url 'attachment_category_list' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Manage Attachment Categories →</a>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in attachment_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-stone-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-stone-100 dark:bg-stone-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-stone-600 dark:text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-stone-700 dark:group-hover:text-stone-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_cards %}
+  <!-- Card & Consultation Type Management -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Card &amp; Consultation Type Reports</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in card_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_specializations %}
+  <!-- Doctor Specialization Management -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Specialization Reports</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in specialization_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-violet-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_physical_count %}
+  <!-- Physical Inventory Count -->
+  <section>
+    <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Physical Inventory Count Reports</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for url_name, title, subtitle in physical_count_reports %}
+      <a href="{% url url_name %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-amber-400 hover:shadow-md transition-all group">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">{{ title }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ subtitle }}</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <!-- HR & Audit -->
   <section>

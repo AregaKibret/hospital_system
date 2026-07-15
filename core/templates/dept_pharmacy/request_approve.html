@@ -15,7 +15,7 @@
     <div class="space-y-2 text-sm">
       {% for item in items %}
       <div class="flex items-center justify-between py-1 border-b last:border-0 border-slate-100 dark:border-slate-700">
-        <span class="font-medium text-slate-800 dark:text-slate-100">{{ item.medication.name }}</span>
+        <span class="font-medium text-slate-800 dark:text-slate-100">{{ item.item_name }}</span>
         <span class="text-slate-600 dark:text-slate-400">{{ item.quantity_requested }} units requested</span>
       </div>
       {% endfor %}
@@ -29,7 +29,7 @@
     <div class="space-y-3">
       {% for item in items %}
       <div class="grid grid-cols-3 gap-3 items-center">
-        <span class="text-sm font-medium text-slate-800 dark:text-slate-100 col-span-2">{{ item.medication.name }}</span>
+        <span class="text-sm font-medium text-slate-800 dark:text-slate-100 col-span-2">{{ item.item_name }}</span>
         <div>
           <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Approve Qty (requested: {{ item.quantity_requested }})</label>
           <input type="number" name="approved_{{ item.id }}" value="{{ item.quantity_requested }}" min="0" max="{{ item.quantity_requested }}" class="field-input text-sm">

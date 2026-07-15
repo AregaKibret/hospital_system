@@ -1,89 +1,395 @@
 {% extends "base.html" %}
-{% block title %}{{ svc.name }} — Lab Services — HMS{% endblock %}
+{% block title %}{{ svc.name }} — Lab Services{% endblock %}
+
 {% block content %}
-<div class="flex items-start justify-between mb-5">
-  <div>
-    <nav class="text-xs text-slate-400 mb-1"><a href="{% url 'lab_service_list' %}" class="hover:text-blue-600">Lab Services</a> / {{ svc.code }}</nav>
-    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ svc.name }}</h1>
-    <p class="text-sm text-slate-500 font-mono">{{ svc.code }} · {{ svc.section }}</p>
-  </div>
-  <a href="{% url 'lab_service_edit' svc.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Edit Service</a>
-</div>
+<div class="max-w-6xl mx-auto px-4 py-6">
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-  <!-- Info -->
-  <div class="lg:col-span-2 space-y-4">
-
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Test Details</h3></div>
-      <div class="px-5 py-4 grid grid-cols-2 gap-4 text-sm">
-        <div><p class="text-xs text-slate-500 mb-0.5">Section</p><p class="text-slate-700 dark:text-slate-300">{{ svc.section }}</p></div>
-        <div><p class="text-xs text-slate-500 mb-0.5">Sample Type</p><p class="text-slate-700 dark:text-slate-300">{{ svc.sample_type }}</p></div>
-        <div><p class="text-xs text-slate-500 mb-0.5">Category</p><p class="text-slate-700 dark:text-slate-300">{{ svc.category|default:"—" }}</p></div>
-        <div><p class="text-xs text-slate-500 mb-0.5">Turnaround</p><p class="text-slate-700 dark:text-slate-300">{{ svc.turnaround_hours }} hours</p></div>
-        <div><p class="text-xs text-slate-500 mb-0.5">Status</p>
-          <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if svc.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{% if svc.is_active %}Active{% else %}Inactive{% endif %}</span>
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div class="flex items-start gap-3">
+      <a href="{% url 'lab_service_list' %}"
+         class="mt-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+      </a>
+      <div>
+        <div class="flex items-center gap-3 mb-1">
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ svc.name }}</h1>
+          {% if svc.short_name %}
+          <span class="px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-sm font-semibold rounded">{{ svc.short_name }}</span>
+          {% endif %}
+          {% if svc.is_active %}
+          <span class="px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-semibold rounded-full">Active</span>
+          {% else %}
+          <span class="px-2 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 text-xs font-semibold rounded-full">Inactive</span>
+          {% endif %}
         </div>
-        {% if svc.sample_requirements %}
-        <div class="col-span-2"><p class="text-xs text-slate-500 mb-0.5">Sample Requirements</p><p class="text-slate-600 dark:text-slate-400">{{ svc.sample_requirements }}</p></div>
-        {% endif %}
-        {% if svc.preparation_instructions %}
-        <div class="col-span-2"><p class="text-xs text-slate-500 mb-0.5">Patient Preparation</p><p class="text-slate-600 dark:text-slate-400">{{ svc.preparation_instructions }}</p></div>
-        {% endif %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ svc.code }} &middot; {{ svc.category.name|default:"Uncategorised" }}{% if svc.panel %} &middot; Panel: {{ svc.panel.name }}{% endif %}</p>
       </div>
     </div>
-
-    <!-- Recent Orders -->
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent Orders</h3></div>
-      {% if recent_orders %}
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
-          {% for order in recent_orders %}
-          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-            <td class="px-4 py-2.5">
-              <p class="font-medium text-slate-800 dark:text-slate-100">{{ order.visit.patient.full_name }}</p>
-              <p class="text-xs text-slate-400">{{ order.ordered_at|date:"d M Y H:i" }}</p>
-            </td>
-            <td class="px-4 py-2.5 text-xs">
-              <span class="px-2 py-0.5 rounded-full {% if order.status == 'Released' or order.status == 'Completed' %}bg-emerald-100 text-emerald-700{% elif order.status == 'Result Ready' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ order.status }}</span>
-            </td>
-            <td class="px-4 py-2.5 text-right">
-              <a href="{% url 'lab_order_detail' order.pk %}" class="text-xs text-blue-600 hover:text-blue-800">View</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="px-5 py-6 text-sm text-slate-400 text-center">No orders yet.</p>
-      {% endif %}
+    <div class="flex items-center gap-2 shrink-0">
+      <form method="post" action="{% url 'lab_service_toggle' svc.pk %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="px-4 py-2 text-sm font-medium rounded-lg border transition
+                       {% if svc.is_active %}border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20
+                       {% else %}border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20{% endif %}">
+          {% if svc.is_active %}Deactivate{% else %}Activate{% endif %}
+        </button>
+      </form>
+      <a href="{% url 'lab_service_edit' svc.pk %}"
+         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">
+        Edit
+      </a>
     </div>
   </div>
 
-  <!-- Pricing sidebar -->
-  <div class="space-y-4">
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Pricing</h3></div>
-      <div class="px-5 py-4 space-y-3 text-sm">
-        <div class="flex justify-between"><span class="text-slate-500">Standard</span><span class="font-bold text-slate-800 dark:text-slate-100">ETB {{ svc.standard_price|floatformat:2 }}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Insurance</span><span class="text-slate-600 dark:text-slate-400">{% if svc.insurance_price %}ETB {{ svc.insurance_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Corporate</span><span class="text-slate-600 dark:text-slate-400">{% if svc.corporate_price %}ETB {{ svc.corporate_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Emergency</span><span class="text-slate-600 dark:text-slate-400">{% if svc.emergency_price %}ETB {{ svc.emergency_price|floatformat:2 }}{% else %}<span class="text-slate-300">Use standard</span>{% endif %}</span></div>
-        {% if svc.tax_percent > 0 %}
-        <div class="flex justify-between border-t border-slate-100 dark:border-slate-700 pt-3"><span class="text-slate-500">Tax</span><span class="text-slate-600 dark:text-slate-400">{{ svc.tax_percent }}%</span></div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- LEFT: Details + Orders + Price History -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Test Details -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Test Details</h3>
+        </div>
+        <div class="px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Category</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.category.name|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Group</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.group.name|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Panel</p>
+            <p class="text-gray-700 dark:text-gray-300">{% if svc.panel %}<a href="{% url 'lab_service_detail' svc.panel.pk %}" class="text-blue-600 hover:underline">{{ svc.panel.name }}</a>{% else %}—{% endif %}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Sample Type</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.sample_type }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Container</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.container|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Turnaround Time</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.turnaround_hours }} hours</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Unit of Measurement</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.unit_of_measurement|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Reference Range</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.reference_range|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Critical Values</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.critical_values|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">QC Reference Range</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.qc_reference_range|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Result Type</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.get_result_type_display }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Result Input Type</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.get_result_input_type_display }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Default Result</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.default_result|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Analyzer</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.analyzer|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Department</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.department.name|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Display Order</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ svc.display_order }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-0.5">Printable</p>
+            <p class="text-gray-700 dark:text-gray-300">{% if svc.is_printable %}Yes{% else %}No{% endif %}</p>
+          </div>
+          {% if result_options %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-1">Result Options</p>
+            <div class="flex flex-wrap gap-1.5">
+              {% for opt in result_options %}
+              <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full">{{ opt.value }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          {% if panel_tests %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-1">Tests in this Panel ({{ panel_tests|length }})</p>
+            <div class="flex flex-wrap gap-1.5">
+              {% for t in panel_tests %}
+              <a href="{% url 'lab_service_detail' t.pk %}" class="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs rounded-full hover:bg-blue-100">{{ t.name }}</a>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          {% if svc.notes %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-0.5">Notes / Footnote</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ svc.notes }}</p>
+          </div>
+          {% endif %}
+          {% if svc.keywords %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-0.5">Search Keywords</p>
+            <p class="text-gray-600 dark:text-gray-400 text-xs">{{ svc.keywords }}</p>
+          </div>
+          {% endif %}
+          {% if svc.description %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-0.5">Description</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ svc.description }}</p>
+          </div>
+          {% endif %}
+          {% if svc.sample_requirements %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-0.5">Sample Requirements</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ svc.sample_requirements }}</p>
+          </div>
+          {% endif %}
+          {% if svc.preparation_instructions %}
+          <div class="col-span-full">
+            <p class="text-xs text-gray-500 mb-0.5">Patient Preparation</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ svc.preparation_instructions }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Reference Range Overrides -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Reference Range Overrides</h3>
+          <a href="{% url 'lab_reference_range_create' svc.pk %}" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium">+ Add Override</a>
+        </div>
+        {% if svc.reference_ranges.all %}
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <tr>
+              <th class="text-left px-4 py-2.5">Sex</th>
+              <th class="text-left px-4 py-2.5">Age Range</th>
+              <th class="text-left px-4 py-2.5">Reference Range</th>
+              <th class="text-left px-4 py-2.5">Critical Values</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">
+            {% for rr in svc.reference_ranges.all %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+              <td class="px-4 py-2.5 text-gray-700 dark:text-gray-300">{{ rr.get_sex_display }}</td>
+              <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400">{{ rr.age_min_years|default:"0" }}–{{ rr.age_max_years|default:"∞" }}y</td>
+              <td class="px-4 py-2.5 font-mono text-xs text-gray-700 dark:text-gray-300">{{ rr.reference_range }}</td>
+              <td class="px-4 py-2.5 font-mono text-xs text-red-600 dark:text-red-400">{{ rr.critical_values|default:"—" }}</td>
+              <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                <a href="{% url 'lab_reference_range_edit' svc.pk rr.pk %}" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Edit</a>
+                <form method="post" action="{% url 'lab_reference_range_delete' svc.pk rr.pk %}" class="inline" onsubmit="return confirm('Remove this override?')">
+                  {% csrf_token %}
+                  <button type="submit" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="px-5 py-6 text-sm text-gray-400 text-center">No overrides — using the default reference range for all patients.</p>
         {% endif %}
       </div>
+
+      <!-- Recent Orders -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Recent Orders</h3>
+        </div>
+        {% if recent_orders %}
+        <table class="w-full text-sm">
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">
+            {% for order in recent_orders %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+              <td class="px-4 py-2.5">
+                <p class="font-medium text-gray-800 dark:text-gray-100">{{ order.visit.patient.full_name }}</p>
+                <p class="text-xs text-gray-400">{{ order.ordered_at|date:"d M Y H:i" }}</p>
+              </td>
+              <td class="px-4 py-2.5">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if order.status == 'Released' or order.status == 'Completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                  {% elif order.status == 'Result Ready' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                  {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                  {{ order.status }}
+                </span>
+              </td>
+              <td class="px-4 py-2.5 text-right text-sm text-gray-600 dark:text-gray-400">
+                ETB {{ order.unit_price|floatformat:2 }}
+              </td>
+              <td class="px-4 py-2.5 text-right">
+                <a href="{% url 'lab_order_detail' order.pk %}"
+                   class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">View</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="px-5 py-8 text-sm text-gray-400 text-center">No orders yet.</p>
+        {% endif %}
+      </div>
+
+      <!-- Price History -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Price Change History</h3>
+        </div>
+        {% if price_history %}
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <tr>
+              <th class="text-left px-4 py-2.5">Date</th>
+              <th class="text-left px-4 py-2.5">Type</th>
+              <th class="text-right px-4 py-2.5">Old Price</th>
+              <th class="text-right px-4 py-2.5">New Price</th>
+              <th class="text-left px-4 py-2.5">Changed By</th>
+              <th class="text-left px-4 py-2.5">Reason</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-700/50">
+            {% for h in price_history %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+              <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                {{ h.changed_at|date:"d M Y H:i" }}
+              </td>
+              <td class="px-4 py-2.5">
+                <span class="px-1.5 py-0.5 rounded text-xs font-medium
+                  {% if h.price_type == 'standard' %}bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300
+                  {% elif h.price_type == 'emergency' %}bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300
+                  {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                  {{ h.price_type|capfirst }}
+                </span>
+              </td>
+              <td class="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400 line-through text-xs">
+                ETB {{ h.old_price|floatformat:2 }}
+              </td>
+              <td class="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-white">
+                ETB {{ h.new_price|floatformat:2 }}
+              </td>
+              <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
+                {% if h.changed_by %}{{ h.changed_by.get_full_name|default:h.changed_by.username }}{% else %}—{% endif %}
+              </td>
+              <td class="px-4 py-2.5 text-xs text-gray-400 dark:text-gray-500">
+                {{ h.reason|default:"—" }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="px-5 py-8 text-sm text-gray-400 text-center">No price changes recorded.</p>
+        {% endif %}
+      </div>
+
     </div>
 
-    <!-- Stats -->
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700"><h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Statistics</h3></div>
-      <div class="px-5 py-4 space-y-3 text-sm">
-        <div class="flex justify-between"><span class="text-slate-500">Total Orders</span><span class="font-semibold text-slate-700 dark:text-slate-300">{{ stats.total|default:0 }}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Released</span><span class="font-semibold text-emerald-600">{{ stats.released|default:0 }}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Revenue (Paid)</span><span class="font-semibold text-blue-600">ETB {{ stats.revenue|floatformat:2|default:"0.00" }}</span></div>
+    <!-- RIGHT: Pricing + Stats sidebar -->
+    <div class="space-y-5">
+
+      <!-- Pricing -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Pricing (ETB)</h3>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500">Standard</span>
+            <span class="font-bold text-gray-900 dark:text-white text-base">{{ svc.standard_price|floatformat:2 }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500">Insurance</span>
+            {% if svc.insurance_price %}
+            <span class="text-gray-700 dark:text-gray-300">{{ svc.insurance_price|floatformat:2 }}</span>
+            {% else %}
+            <span class="text-gray-300 dark:text-gray-600 text-xs italic">use standard</span>
+            {% endif %}
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500">Corporate</span>
+            {% if svc.corporate_price %}
+            <span class="text-gray-700 dark:text-gray-300">{{ svc.corporate_price|floatformat:2 }}</span>
+            {% else %}
+            <span class="text-gray-300 dark:text-gray-600 text-xs italic">use standard</span>
+            {% endif %}
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500">Emergency</span>
+            {% if svc.emergency_price %}
+            <span class="text-gray-700 dark:text-gray-300">{{ svc.emergency_price|floatformat:2 }}</span>
+            {% else %}
+            <span class="text-gray-300 dark:text-gray-600 text-xs italic">use standard</span>
+            {% endif %}
+          </div>
+          {% if svc.tax_percent > 0 %}
+          <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">
+            <span class="text-gray-500">Tax</span>
+            <span class="text-gray-600 dark:text-gray-400">{{ svc.tax_percent }}%</span>
+          </div>
+          {% endif %}
+        </div>
       </div>
+
+      <!-- Statistics -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Statistics</h3>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Total Orders</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{{ stats.total|default:0 }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Released / Completed</span>
+            <span class="font-semibold text-green-600 dark:text-green-400">{{ stats.released|default:0 }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Revenue (Paid)</span>
+            <span class="font-semibold text-blue-600 dark:text-blue-400">ETB {{ stats.revenue|floatformat:2|default:"0.00" }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-4 space-y-2 text-xs text-gray-500 dark:text-gray-400">
+          <div class="flex justify-between">
+            <span>Added by</span>
+            <span>{% if svc.created_by %}{{ svc.created_by.get_full_name|default:svc.created_by.username }}{% else %}—{% endif %}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Created</span>
+            <span>{{ svc.created_at|date:"d M Y" }}</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Deposit Rule{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white mb-6">{{ action }} Deposit Rule</h1>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+    {% csrf_token %}
+    <p class="text-xs text-slate-500 dark:text-slate-400">Leave Ward / Department / Priority blank to match "any" — a rule with all three blank acts as the global fallback. The most specific matching active rule wins.</p>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Ward</label>
+      {{ form.ward }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      {{ form.department }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+      {{ form.priority }}
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Deposit Amount (ETB)</label>
+      {{ form.amount }}
+    </div>
+    <div class="flex gap-6">
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">{{ form.is_exempt }} Exempt (no deposit required)</label>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">{{ form.is_active }} Active</label>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+      {{ form.notes }}
+    </div>
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn-primary">Save Rule</button>
+      <a href="{% url 'deposit_rule_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+<script>
+  document.querySelectorAll('form input:not([type="checkbox"]):not([type="submit"]), form select, form textarea').forEach(el => {
+    el.className = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition';
+  });
+  document.querySelectorAll('form input[type="checkbox"]').forEach(el => { el.className = 'w-4 h-4'; });
+</script>
+{% endblock %}

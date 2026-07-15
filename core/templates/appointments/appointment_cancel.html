@@ -18,8 +18,8 @@
             </svg>
             <div>
                 <p class="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">You are about to cancel this appointment</p>
-                <p class="text-sm text-red-600 dark:text-red-300">{{ appt.appointment_number }} — {{ appt.patient.full_name }}</p>
-                <p class="text-sm text-red-600 dark:text-red-300">Dr. {{ appt.doctor.full_name }} · {{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time|time:"H:i" }}</p>
+                <p class="text-sm text-red-600 dark:text-red-300">{{ appt.appointment_number }} — {{ appt.display_patient_name }}</p>
+                <p class="text-sm text-red-600 dark:text-red-300">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}No doctor assigned{% endif %} · {{ appt.appointment_date|date:"M j, Y" }} at {{ appt.appointment_time|time:"H:i" }}</p>
             </div>
         </div>
     </div>

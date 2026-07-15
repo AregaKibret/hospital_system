@@ -1,0 +1,20 @@
+{# Nursing addenda panel for a perioperative document. Expects (from parent context): order, nursing_addenda, plus doc_type/doc_label passed via include-with. #}
+<div class="border-t border-slate-100 dark:border-slate-700 px-5 py-3 bg-slate-50 dark:bg-slate-900/20">
+  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Nursing Addenda</p>
+  {% for a in nursing_addenda %}
+    {% if a.document_type == doc_type %}
+    <div class="text-xs text-slate-600 dark:text-slate-300 mb-1.5">
+      <span class="text-slate-400">{{ a.created_at|date:"d M Y H:i" }} — {{ a.created_by.get_full_name|default:a.created_by.username }}:</span>
+      {{ a.note }}
+    </div>
+    {% endif %}
+  {% empty %}
+  {% endfor %}
+  {% if perms.core.add_periop_nursing_note %}
+  <form method="post" action="{% url 'periop_nursing_addendum_add' order.pk doc_type %}" class="flex gap-2 mt-2">
+    {% csrf_token %}
+    <input type="text" name="note" placeholder="Add a nursing note ({{ doc_label }})…" class="field-input text-xs flex-1" required>
+    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-medium transition">Add</button>
+  </form>
+  {% endif %}
+</div>

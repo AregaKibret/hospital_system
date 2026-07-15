@@ -120,10 +120,11 @@ def patient_flow_dashboard(request):
 def patient_flow_list(request):
     qs = Visit.objects.select_related('patient', 'doctor', 'department').order_by('-created_at')
 
-    # Filters
+    # Filters — "date" is opt-in; leaving it blank must show all visits,
+    # not just today's (this page is titled "All Visits").
     status_f = request.GET.get('status', '')
     dept_f   = request.GET.get('dept', '')
-    date_f   = request.GET.get('date', str(timezone.localdate()))
+    date_f   = request.GET.get('date', '')
     q        = request.GET.get('q', '')
 
     if status_f:
@@ -136,7 +137,6 @@ def patient_flow_list(request):
         qs = qs.filter(
             Q(patient__first_name__icontains=q) |
             Q(patient__last_name__icontains=q) |
-            Q(patient__mrn__icontains=q) |
             Q(patient__card_number__icontains=q)
         )
 
@@ -365,7 +365,7 @@ def dept_worklist(request):
     # Pharmacy pending
     context['pending_meds'] = MedicationOrder.objects.filter(
         status__in=['ordered', 'active']
-    ).select_related('visit__patient', 'prescribed_by').order_by('-ordered_at')[:30]
+    ).select_related('visit__patient', 'ordered_by').order_by('-ordered_at')[:30]
 
     # Surgery pending
     context['pending_surgery'] = SurgeryOrder.objects.filter(

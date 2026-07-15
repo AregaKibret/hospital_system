@@ -11,6 +11,13 @@
     </p>
   </div>
   <div class="flex items-center gap-2">
+    <a href="{% url 'appointment_create_walkin' %}"
+       class="inline-flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      Walk-In Appointment
+    </a>
     <a href="{% url 'appointment_create' %}"
        class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,14 +151,14 @@
 
           <!-- Patient -->
           <td class="px-5 py-3">
-            <p class="font-medium text-slate-900 dark:text-white text-sm">{{ appt.patient.full_name }}</p>
-            <p class="text-xs font-mono text-slate-400">{{ appt.patient.card_number }}</p>
+            <p class="font-medium text-slate-900 dark:text-white text-sm">{{ appt.display_patient_name }}{% if not appt.patient %} <span class="text-xs text-amber-500 font-normal">(walk-in)</span>{% endif %}</p>
+            <p class="text-xs font-mono text-slate-400">{{ appt.display_identifier }}</p>
           </td>
 
           <!-- Doctor / Dept -->
           <td class="px-5 py-3 hidden md:table-cell">
-            <p class="text-sm text-slate-700 dark:text-slate-300">{{ appt.doctor.full_name }}</p>
-            <p class="text-xs text-slate-400">{{ appt.department.name }}</p>
+            <p class="text-sm text-slate-700 dark:text-slate-300">{{ appt.doctor.full_name|default:"Not assigned" }}</p>
+            <p class="text-xs text-slate-400">{{ appt.department.name|default:"—" }}</p>
           </td>
 
           <!-- Type -->

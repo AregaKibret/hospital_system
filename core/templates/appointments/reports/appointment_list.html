@@ -78,11 +78,11 @@
                     <td class="px-4 py-3 text-slate-700 dark:text-slate-200 text-xs">{{ appt.appointment_date|date:"M j, Y" }}</td>
                     <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ appt.appointment_time|time:"H:i" }}</td>
                     <td class="px-4 py-3">
-                        <p class="font-medium text-slate-800 dark:text-slate-100">{{ appt.patient.full_name }}</p>
-                        <p class="text-xs text-slate-400">{{ appt.patient.card_number }}</p>
+                        <p class="font-medium text-slate-800 dark:text-slate-100">{{ appt.display_patient_name }}</p>
+                        <p class="text-xs text-slate-400">{{ appt.display_identifier }}</p>
                     </td>
-                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-sm">Dr. {{ appt.doctor.full_name }}</td>
-                    <td class="px-4 py-3 text-xs text-slate-500">{{ appt.department.name }}</td>
+                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-sm">{% if appt.doctor %}Dr. {{ appt.doctor.full_name }}{% else %}Not assigned{% endif %}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ appt.department.name|default:"—" }}</td>
                     <td class="px-4 py-3 text-xs text-slate-500">{{ appt.visit_type }}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium

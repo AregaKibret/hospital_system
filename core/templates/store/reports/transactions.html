@@ -1,25 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Store Stock Movement{% endblock %}
+{% block title %}{{ report_title|default:"Store Stock Movement" }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-5">
-  <div>
-    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Stock Movement Report</h1>
-    <p class="text-sm text-slate-500">Transaction history for store items</p>
-  </div>
-  <div class="flex gap-2">
-    <a href="?{{ request.GET.urlencode }}&export=csv" class="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 text-slate-600 rounded-lg hover:bg-slate-50 no-print">Export CSV</a>
-    <button onclick="window.print()" class="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 text-slate-600 rounded-lg hover:bg-slate-50 no-print">Print</button>
-  </div>
-</div>
+
+{% include "reports/_toolbar.html" with title=report_title|default:"Stock Movement Report" qp=qp %}
+<p class="text-sm text-slate-500 -mt-3 mb-4">{{ report_subtitle|default:"Transaction history for store items" }}</p>
 
 <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
   <select name="item" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
     <option value="">All Items</option>
     {% for item in items %}<option value="{{ item.pk }}" {% if item_id == item.pk|stringformat:'s' %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
   </select>
+  {% if not hide_type_filter %}
   <select name="type" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
     <option value="">All Types</option>
     {% for val, lbl in tx_types %}<option value="{{ val }}" {% if tx_type == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <select name="department" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <option value="">All Departments</option>
+    {% for dept in departments %}<option value="{{ dept.pk }}" {% if department_id == dept.pk|stringformat:'s' %}selected{% endif %}>{{ dept.name }}</option>{% endfor %}
   </select>
   <input type="date" name="from" value="{{ date_from }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
   <input type="date" name="to" value="{{ date_to }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
@@ -78,8 +77,8 @@
   <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center no-print">
     <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
     <div class="flex gap-1.5">
-      {% if page_obj.has_previous %}<a href="?item={{ item_id }}&type={{ tx_type }}&from={{ date_from }}&to={{ date_to }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">← Prev</a>{% endif %}
-      {% if page_obj.has_next %}<a href="?item={{ item_id }}&type={{ tx_type }}&from={{ date_from }}&to={{ date_to }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Next →</a>{% endif %}
+      {% if page_obj.has_previous %}<a href="?{{ qp }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?{{ qp }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Next →</a>{% endif %}
     </div>
   </div>
   {% endif %}

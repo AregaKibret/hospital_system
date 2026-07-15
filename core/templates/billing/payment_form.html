@@ -24,26 +24,96 @@
     </div>
   </div>
 
-  <!-- Invoice items summary -->
+  <form method="post" id="payment-form">
+    {% csrf_token %}
+
+  <!-- Item selection — pay only the checked services -->
   {% if items %}
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
-      <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Services Being Paid</h2>
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3 flex-wrap">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Select Items to Pay</h2>
+      <div class="flex items-center gap-2">
+        <input type="text" id="item-filter" placeholder="Filter by service or status…"
+               class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+        <label class="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <input type="checkbox" id="select-all" class="rounded"> Select All
+        </label>
+      </div>
     </div>
-    <table class="w-full text-sm">
+    <table class="w-full text-sm" id="items-table">
+      <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+        <tr>
+          <th class="px-4 py-2 text-left w-8"></th>
+          <th class="px-4 py-2 text-left">Service</th>
+          <th class="px-4 py-2 text-left hidden sm:table-cell">Department</th>
+          <th class="px-4 py-2 text-right">Amount</th>
+          <th class="px-4 py-2 text-center">Status</th>
+          {% if sc_settings.enabled %}
+          <th class="px-4 py-2 text-center">Apply {{ sc_settings.charge_name }} ({{ sc_settings.percentage }}%)</th>
+          {% endif %}
+        </tr>
+      </thead>
       <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
         {% for item in items %}
-        <tr>
-          <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300">{{ item.description }}</td>
-          <td class="px-4 py-2.5 text-xs text-slate-400">{{ item.service_type }}</td>
-          <td class="px-4 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">ETB {{ item.total|floatformat:2 }}</td>
+        <tr class="item-row {% if not item.is_payable %}opacity-60{% endif %}" data-status="{{ item.payment_status }}" data-balance="{{ item.balance }}">
+          <td class="px-4 py-2.5">
+            {% if item.is_payable %}
+            <input type="checkbox" name="item_ids" value="{{ item.pk }}" class="item-checkbox rounded" data-balance="{{ item.balance }}" checked>
+            {% else %}
+            <input type="checkbox" class="rounded" disabled title="Already {{ item.payment_status }}">
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-slate-700 dark:text-slate-300">
+            {{ item.description }}
+            {% if item.payment_status == 'Partially Paid' %}<span class="block text-xs text-slate-400">Paid so far: ETB {{ item.paid_amount|floatformat:2 }} of ETB {{ item.total|floatformat:2 }}</span>{% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-xs text-slate-400 hidden sm:table-cell">{{ item.service_type }}</td>
+          <td class="px-4 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">
+            {% if item.is_payable %}ETB {{ item.balance|floatformat:2 }}{% else %}ETB {{ item.total|floatformat:2 }}{% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-center">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if item.payment_status == 'Paid' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+              {% elif item.payment_status == 'Credit Approved' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300
+              {% elif item.payment_status == 'Partially Paid' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+              {% elif item.payment_status == 'Cancelled' %}bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400
+              {% elif item.payment_status == 'Refunded' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300
+              {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+              {{ item.payment_status }}
+            </span>
+          </td>
+          {% if sc_settings.enabled %}
+          <td class="px-4 py-2.5 text-center">
+            {% if item.is_payable and item.service_type != 'Service Charge' %}
+            <input type="checkbox" name="service_charge_item_ids" value="{{ item.pk }}"
+                   class="sc-checkbox rounded text-amber-600 focus:ring-amber-500"
+                   data-balance="{{ item.balance }}"
+                   {% if item.sc_default_checked %}checked{% endif %}
+                   {% if not sc_settings.allow_cashier_override %}disabled{% endif %}>
+            {% else %}
+            <span class="text-slate-300">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
       <tfoot class="bg-slate-50 dark:bg-slate-900/30">
-        <tr><td colspan="2" class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Total</td><td class="px-4 py-2.5 text-right font-bold text-slate-800 dark:text-slate-200">ETB {{ invoice.total_amount|floatformat:2 }}</td></tr>
-        {% if invoice.discount > 0 %}<tr><td colspan="2" class="px-4 py-2 text-right text-xs text-purple-600">Discount</td><td class="px-4 py-2 text-right text-purple-600 font-semibold">- ETB {{ invoice.discount|floatformat:2 }}</td></tr>{% endif %}
-        {% if invoice.paid_amount > 0 %}<tr><td colspan="2" class="px-4 py-2 text-right text-xs text-emerald-600">Already Paid</td><td class="px-4 py-2 text-right text-emerald-600 font-semibold">ETB {{ invoice.paid_amount|floatformat:2 }}</td></tr>{% endif %}
+        <tr>
+          <td colspan="{% if sc_settings.enabled %}4{% else %}3{% endif %}" class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Subtotal</td>
+          <td colspan="{% if sc_settings.enabled %}2{% else %}2{% endif %}" class="px-4 py-2.5 text-right font-bold text-slate-800 dark:text-slate-100" id="subtotal-amount">ETB 0.00</td>
+        </tr>
+        {% if sc_settings.enabled %}
+        <tr>
+          <td colspan="4" class="px-4 py-2 text-right text-xs font-semibold text-amber-600 uppercase">{{ sc_settings.charge_name }} ({{ sc_settings.percentage }}%)</td>
+          <td colspan="2" class="px-4 py-2 text-right font-bold text-amber-600" id="service-charge-amount">ETB 0.00</td>
+        </tr>
+        {% endif %}
+        {% if invoice.discount > 0 %}<tr><td colspan="{% if sc_settings.enabled %}4{% else %}3{% endif %}" class="px-4 py-2 text-right text-xs text-purple-600">Discount</td><td colspan="2" class="px-4 py-2 text-right text-purple-600 font-semibold">- ETB {{ invoice.discount|floatformat:2 }}</td></tr>{% endif %}
+        <tr class="border-t border-slate-200 dark:border-slate-600">
+          <td colspan="{% if sc_settings.enabled %}4{% else %}3{% endif %}" class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase">Grand Total</td>
+          <td colspan="2" class="px-4 py-2.5 text-right font-bold text-emerald-700 dark:text-emerald-400 text-base" id="selected-total">ETB 0.00</td>
+        </tr>
       </tfoot>
     </table>
   </div>
@@ -79,7 +149,7 @@
             {% if p.payment_method == 'Cash' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300{% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
             {{ p.payment_method }}
           </span>
-          <span class="text-slate-500 text-xs">{{ p.payment_date|date:"d M Y H:i" }} · {{ p.receipt_number }}</span>
+          <span class="text-slate-500 text-xs">{{ p.created_at|date:"d M Y H:i" }} · {{ p.receipt_number }}</span>
         </div>
         <span class="font-semibold text-emerald-700 dark:text-emerald-400">ETB {{ p.amount|floatformat:2 }}</span>
       </div>
@@ -91,17 +161,14 @@
   <!-- Payment form -->
   <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
     <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-5">Payment Details</h2>
-    <form method="post" id="payment-form">
-      {% csrf_token %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
         <!-- Amount -->
         <div class="field-wrapper sm:col-span-2">
           <label class="field-label">Amount to Pay (ETB) <span class="text-red-500">*</span></label>
-          <input type="number" name="amount" id="amount-input" step="0.01" min="0.01"
-                 max="{{ invoice.balance }}" value="{{ invoice.balance }}" required
+          <input type="number" name="amount" id="amount-input" step="0.01" min="0.01" required
                  class="field-input text-xl font-bold">
-          <p class="text-xs text-slate-400 mt-1">Maximum: ETB {{ invoice.balance|floatformat:2 }} (full balance)</p>
+          <p class="text-xs text-slate-400 mt-1" id="amount-hint">Auto-filled from selected items — edit to pay less (partial payment).</p>
         </div>
 
         <!-- Payment method -->
@@ -220,5 +287,72 @@ methodSelect.addEventListener('change', updateMethodUI);
 amountInput.addEventListener('input', calcChange);
 cashInput.addEventListener('input', calcChange);
 updateMethodUI();
+
+// ── Item selection: running total, select-all, filter ──────────────────────
+const itemCheckboxes = Array.from(document.querySelectorAll('.item-checkbox'));
+const selectAll       = document.getElementById('select-all');
+const selectedTotalEl = document.getElementById('selected-total');
+const subtotalEl      = document.getElementById('subtotal-amount');
+const scAmountEl      = document.getElementById('service-charge-amount');
+const itemFilter      = document.getElementById('item-filter');
+const SC_RATE         = {{ sc_settings.percentage|default:0 }} / 100;
+
+function fmt2(n) {
+  return 'ETB ' + n.toLocaleString('en-ET', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function updateSelectedTotal() {
+  let subtotal = 0;
+  let serviceCharge = 0;
+
+  document.querySelectorAll('#items-table tbody tr.item-row').forEach(row => {
+    const itemCb = row.querySelector('.item-checkbox');
+    const scCb = row.querySelector('.sc-checkbox');
+    if (itemCb && itemCb.checked) {
+      const balance = parseFloat(itemCb.dataset.balance) || 0;
+      subtotal += balance;
+      if (scCb) {
+        scCb.closest('td').classList.remove('opacity-40');
+        if (scCb.checked) serviceCharge += balance * SC_RATE;
+      }
+    } else if (scCb) {
+      scCb.closest('td').classList.add('opacity-40');
+    }
+  });
+
+  serviceCharge = Math.round(serviceCharge * 100) / 100;
+  const grandTotal = subtotal + serviceCharge;
+
+  if (subtotalEl) subtotalEl.textContent = fmt2(subtotal);
+  if (scAmountEl) scAmountEl.textContent = fmt2(serviceCharge);
+  selectedTotalEl.textContent = fmt2(grandTotal);
+  amountInput.value = grandTotal.toFixed(2);
+  amountInput.max = grandTotal;
+  calcChange();
+  const allChecked = itemCheckboxes.length > 0 && itemCheckboxes.every(cb => cb.checked);
+  if (selectAll) selectAll.checked = allChecked;
+}
+
+itemCheckboxes.forEach(cb => cb.addEventListener('change', updateSelectedTotal));
+document.querySelectorAll('.sc-checkbox').forEach(cb => cb.addEventListener('change', updateSelectedTotal));
+
+if (selectAll) {
+  selectAll.addEventListener('change', function () {
+    itemCheckboxes.forEach(cb => { cb.checked = selectAll.checked; });
+    updateSelectedTotal();
+  });
+}
+
+if (itemFilter) {
+  itemFilter.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    document.querySelectorAll('#items-table tbody tr.item-row').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = !q || text.includes(q) ? '' : 'none';
+    });
+  });
+}
+
+updateSelectedTotal();
 </script>
 {% endblock %}

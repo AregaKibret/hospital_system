@@ -73,7 +73,7 @@
           </div>
           <div>
             <dt class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Department</dt>
-            <dd class="text-sm text-slate-700 dark:text-slate-300">{{ appointment.department.name }}</dd>
+            <dd class="text-sm text-slate-700 dark:text-slate-300">{{ appointment.department.name|default:"Not specified" }}</dd>
           </div>
         </dl>
       </div>
@@ -83,10 +83,13 @@
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
         <h2 class="font-semibold text-slate-900 dark:text-white text-sm">Patient</h2>
+        {% if appointment.patient %}
         <a href="{% url 'patient_search' %}?q={{ appointment.patient.card_number }}"
            class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View Record →</a>
+        {% endif %}
       </div>
       <div class="p-5">
+        {% if appointment.patient %}
         <a href="{% url 'patient_search' %}?q={{ appointment.patient.card_number }}" class="flex items-center gap-4 group">
           <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0">
             <span class="text-base font-bold text-blue-600 dark:text-blue-400">
@@ -105,6 +108,29 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </a>
+        {% else %}
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center shrink-0">
+            <span class="text-base font-bold text-amber-600 dark:text-amber-400">
+              {{ appointment.walkin_name|first|upper|default:"?" }}
+            </span>
+          </div>
+          <div class="min-w-0">
+            <p class="text-base font-semibold text-slate-900 dark:text-white">{{ appointment.walkin_name|default:"Unregistered Patient" }}</p>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5 font-medium">Not yet registered — no MRN</p>
+            {% if appointment.phone_number %}<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ appointment.phone_number }}</p>{% endif %}
+          </div>
+        </div>
+        {% if perms.core.add_patient %}
+        <a href="{% url 'register_patient_for_appointment' appointment.id %}"
+           class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+          </svg>
+          Register Patient
+        </a>
+        {% endif %}
+        {% endif %}
       </div>
     </div>
 
@@ -120,8 +146,12 @@
           </svg>
         </div>
         <div>
+          {% if appointment.doctor %}
           <p class="text-base font-semibold text-slate-900 dark:text-white">Dr. {{ appointment.doctor.full_name }}</p>
-          <p class="text-sm text-slate-500 dark:text-slate-400">{{ appointment.department.name }}</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">{{ appointment.department.name|default:"—" }}</p>
+          {% else %}
+          <p class="text-base font-semibold text-slate-400 dark:text-slate-500">No preferred doctor specified</p>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -191,10 +221,22 @@
       </div>
       <div class="p-4 space-y-2">
 
+        {% if appointment.is_unregistered %}
+        <p class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+          Register the patient (see Patient card) before checking in or starting a visit.
+        </p>
+        {% endif %}
+
         <!-- Check In (Scheduled or Confirmed) -->
-        {% if appointment.status == 'Scheduled' or appointment.status == 'Confirmed' %}
+        {% if not appointment.is_unregistered and appointment.status == 'Scheduled' or not appointment.is_unregistered and appointment.status == 'Confirmed' %}
         <form method="post" action="{% url 'appointment_mark_arrived' appointment.id %}">
           {% csrf_token %}
+          {% if perms.core.override_card_expiry %}
+          <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 mb-2">
+            <input type="checkbox" name="waive_card_fee" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+            Waive card fee if renewal is needed (override)
+          </label>
+          {% endif %}
           <button type="submit"
                   class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,11 +244,12 @@
             </svg>
             Check In Patient
           </button>
+          <p class="text-xs text-slate-400 mt-1.5">Registration/consultation fees are determined automatically based on card validity and visit type.</p>
         </form>
         {% endif %}
 
         <!-- Create Visit (Waiting or In Progress) -->
-        {% if appointment.status == 'Waiting' or appointment.status == 'In Progress' %}
+        {% if not appointment.is_unregistered and appointment.status == 'Waiting' or not appointment.is_unregistered and appointment.status == 'In Progress' %}
         {% if not appointment.visit %}
         <form method="post" action="{% url 'appointment_start_visit' appointment.id %}">
           {% csrf_token %}

@@ -10,7 +10,7 @@
 <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-5 text-sm">
   <span class="font-semibold text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</span>
   <span class="text-slate-400 mx-2">·</span>
-  <span class="text-slate-600 dark:text-slate-300">MRN: {{ visit.patient.mrn }}</span>
+  <span class="text-slate-600 dark:text-slate-300">MRN: {{ visit.patient.card_number }}</span>
   <span class="text-slate-400 mx-2">·</span>
   <span class="text-slate-500">Admitted: {{ visit.created_at|date:"d M Y, H:i" }}</span>
   <span class="text-slate-400 mx-2">·</span>

@@ -57,9 +57,9 @@
 
       <!-- Department -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+        <label id="dept-label" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
         <div class="field-wrapper">
-          <select name="department">
+          <select name="department" id="id_department">
             <option value="">— No Department —</option>
             {% for dept in departments %}
             <option value="{{ dept.id }}" {% if employee and employee.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
@@ -68,12 +68,36 @@
         </div>
       </div>
 
-      <!-- Position -->
+      <!-- Position / Role -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Position / Job Title</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Position / Role</label>
         <div class="field-wrapper">
-          <input type="text" name="position" value="{{ employee.position|default:'' }}" placeholder="e.g. Head Nurse">
+          <select name="position_select" id="id_position_select">
+            <option value="">— Select position —</option>
+            {% for p in common_positions %}
+            <option value="{{ p }}" {% if employee.position == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+            <option value="__other__" {% if employee.position and employee.position not in common_positions %}selected{% endif %}>Other…</option>
+          </select>
         </div>
+        <div class="field-wrapper mt-2" id="position-other-wrapper" style="display:none">
+          <input type="text" id="id_position_other" placeholder="e.g. Head Nurse"
+                 value="{% if employee.position and employee.position not in common_positions %}{{ employee.position }}{% endif %}">
+        </div>
+        <input type="hidden" name="position" id="id_position" value="{{ employee.position|default:'' }}">
+      </div>
+
+      <!-- Medical Specialization — required only when Position = Doctor -->
+      <div class="sm:col-span-2" id="specialization-field" style="display:none">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Medical Specialization <span class="text-red-500">*</span>
+        </label>
+        <div class="field-wrapper">
+          <select name="specialization" id="id_specialization">
+            {% if existing_doctor.specialization %}<option value="{{ existing_doctor.specialization.id }}" selected>{{ existing_doctor.specialization.name }}</option>{% endif %}
+          </select>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Filtered automatically based on the selected department. Doctors must have a department and specialization set.</p>
       </div>
 
       <!-- Employment Type -->
@@ -154,4 +178,77 @@
   </form>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var positionSelect = document.getElementById('id_position_select');
+  var positionOtherWrapper = document.getElementById('position-other-wrapper');
+  var positionOtherInput = document.getElementById('id_position_other');
+  var positionHidden = document.getElementById('id_position');
+  var specField = document.getElementById('specialization-field');
+  var specSelect = document.getElementById('id_specialization');
+  var deptSelect = document.getElementById('id_department');
+  var deptLabel = document.getElementById('dept-label');
+  var preselectedSpec = "{% if existing_doctor.specialization %}{{ existing_doctor.specialization.id }}{% endif %}";
+
+  function isDoctor() {
+    return positionHidden.value.trim().toLowerCase() === 'doctor';
+  }
+
+  function loadSpecializations() {
+    if (!isDoctor()) return;
+    var deptId = deptSelect.value;
+    if (!deptId) {
+      specSelect.innerHTML = '<option value="">— Select department first —</option>';
+      return;
+    }
+    fetch('{% url "specializations_for_department" %}?department=' + encodeURIComponent(deptId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        specSelect.innerHTML = '<option value="">— Select specialization —</option>';
+        data.results.forEach(function (s) {
+          var opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          if (String(s.id) === preselectedSpec) opt.selected = true;
+          specSelect.appendChild(opt);
+        });
+      });
+  }
+
+  function syncPositionUI() {
+    var val = positionSelect.value;
+    if (val === '__other__') {
+      positionOtherWrapper.style.display = '';
+      positionHidden.value = positionOtherInput.value;
+    } else {
+      positionOtherWrapper.style.display = 'none';
+      positionHidden.value = val;
+    }
+
+    if (isDoctor()) {
+      specField.style.display = '';
+      specSelect.setAttribute('required', 'required');
+      deptSelect.setAttribute('required', 'required');
+      deptLabel.innerHTML = 'Department <span class="text-red-500">*</span>';
+      loadSpecializations();
+    } else {
+      specField.style.display = 'none';
+      specSelect.removeAttribute('required');
+      deptSelect.removeAttribute('required');
+      deptLabel.textContent = 'Department';
+    }
+  }
+
+  positionSelect.addEventListener('change', syncPositionUI);
+  positionOtherInput.addEventListener('input', function () {
+    positionHidden.value = this.value;
+  });
+  deptSelect.addEventListener('change', loadSpecializations);
+
+  syncPositionUI();
+})();
+</script>
 {% endblock %}

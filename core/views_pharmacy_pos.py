@@ -12,10 +12,11 @@ from django.views.decorators.http import require_POST
 
 from .audit import log_action
 from .decorators import hms_permission_required
+from .inventory_bridge import record_pharmacy_stock_transaction
 from .models import (
     AuditLog, Invoice, InvoiceItem, MedicationBatch, Patient,
     PharmacyReturn, PharmacyReturnItem, PharmacySale, PharmacySaleItem,
-    PharmacyStock, Medication,
+    PharmacyStock, Medication, StockTransaction,
 )
 
 
@@ -24,6 +25,38 @@ def _d(val, default='0'):
         return Decimal(str(val))
     except (InvalidOperation, TypeError):
         return Decimal(default)
+
+
+def _log_stock_movement(batch_obj, ps_obj, tx_type, qty, user, reference, notes, patient=None):
+    """Write a StockTransaction ledger entry for a POS movement, regardless of
+    whether the item came from the Medication catalog (batch_obj) or the
+    legacy PharmacyStock (ps_obj)."""
+    is_in = tx_type in (StockTransaction.TxType.RETURN, StockTransaction.TxType.ADJUSTMENT_IN)
+    if batch_obj is not None:
+        StockTransaction.objects.create(
+            medication=batch_obj.medication,
+            batch=batch_obj,
+            transaction_type=tx_type,
+            quantity_in=qty if is_in else 0,
+            quantity_out=0 if is_in else qty,
+            balance_after=batch_obj.medication.current_stock,
+            unit_cost=batch_obj.purchase_price,
+            total_value=batch_obj.purchase_price * qty,
+            reference_number=reference,
+            notes=notes,
+            patient=patient,
+            performed_by=user,
+            transaction_date=timezone.now(),
+        )
+    elif ps_obj is not None:
+        record_pharmacy_stock_transaction(
+            ps_obj, tx_type, user,
+            qty_in=qty if is_in else 0,
+            qty_out=0 if is_in else qty,
+            reference=reference,
+            notes=notes,
+            patient=patient,
+        )
 
 
 # ── AJAX: product search ───────────────────────────────────────────────────────
@@ -94,14 +127,14 @@ def pharmacy_patient_search(request):
             Q(first_name__icontains=q)
             | Q(last_name__icontains=q)
             | Q(card_number__icontains=q)
-            | Q(phone__icontains=q)
+            | Q(mobile__icontains=q)
         ).order_by('first_name')[:10]
         for p in pts:
             results.append({
                 'id': p.pk,
                 'name': p.full_name,
                 'mrn': p.card_number,
-                'phone': p.phone or '',
+                'phone': p.mobile or '',
             })
     return JsonResponse({'results': results})
 
@@ -213,6 +246,12 @@ def pharmacy_sale_create(request):
                     if not via_billing:
                         batch_obj.quantity_available -= qty
                         batch_obj.save(update_fields=['quantity_available'])
+                        _log_stock_movement(
+                            batch_obj, None, StockTransaction.TxType.DISPENSE, qty, request.user,
+                            reference=f'SALE-{sale.sale_number}',
+                            notes=f'Walk-in sale {sale.sale_number}.',
+                            patient=patient,
+                        )
 
                 elif src.startswith('ps:'):
                     ps_obj = PharmacyStock.objects.select_for_update().get(pk=int(src.split(':')[1]))
@@ -226,6 +265,12 @@ def pharmacy_sale_create(request):
                     if not via_billing:
                         ps_obj.quantity_in_stock -= qty
                         ps_obj.save(update_fields=['quantity_in_stock'])
+                        _log_stock_movement(
+                            None, ps_obj, StockTransaction.TxType.DISPENSE, qty, request.user,
+                            reference=f'SALE-{sale.sale_number}',
+                            notes=f'Walk-in sale {sale.sale_number}.',
+                            patient=patient,
+                        )
 
                 item = PharmacySaleItem(
                     sale=sale,
@@ -377,6 +422,12 @@ def pharmacy_sale_dispense(request, sale_id):
                         )
                     b.quantity_available -= qty
                     b.save(update_fields=['quantity_available'])
+                    _log_stock_movement(
+                        b, None, StockTransaction.TxType.DISPENSE, qty, request.user,
+                        reference=f'SALE-{sale.sale_number}',
+                        notes=f'Dispensed for sale {sale.sale_number} ({sale.customer_display}).',
+                        patient=sale.patient,
+                    )
 
                 elif item.pharmacy_stock_id:
                     s = item.pharmacy_stock
@@ -387,6 +438,12 @@ def pharmacy_sale_dispense(request, sale_id):
                         )
                     s.quantity_in_stock -= qty
                     s.save(update_fields=['quantity_in_stock'])
+                    _log_stock_movement(
+                        None, s, StockTransaction.TxType.DISPENSE, qty, request.user,
+                        reference=f'SALE-{sale.sale_number}',
+                        notes=f'Dispensed for sale {sale.sale_number} ({sale.customer_display}).',
+                        patient=sale.patient,
+                    )
 
                 item.dispensed = True
                 item.dispensed_at = timezone.now()
@@ -509,9 +566,21 @@ def pharmacy_sale_cancel(request, sale_id):
             if item.medication_batch_id:
                 item.medication_batch.quantity_available += item.quantity
                 item.medication_batch.save(update_fields=['quantity_available'])
+                _log_stock_movement(
+                    item.medication_batch, None, StockTransaction.TxType.RETURN, item.quantity, request.user,
+                    reference=f'CANCEL-{sale.sale_number}',
+                    notes=f'Sale {sale.sale_number} cancelled — stock restored. Reason: {reason}',
+                    patient=sale.patient,
+                )
             elif item.pharmacy_stock_id:
                 item.pharmacy_stock.quantity_in_stock += item.quantity
                 item.pharmacy_stock.save(update_fields=['quantity_in_stock'])
+                _log_stock_movement(
+                    None, item.pharmacy_stock, StockTransaction.TxType.RETURN, item.quantity, request.user,
+                    reference=f'CANCEL-{sale.sale_number}',
+                    notes=f'Sale {sale.sale_number} cancelled — stock restored. Reason: {reason}',
+                    patient=sale.patient,
+                )
         sale.status = PharmacySale.Status.CANCELLED
         sale.notes = (sale.notes + f'\nCancelled: {reason}').strip()
         sale.save()
@@ -624,10 +693,22 @@ def pharmacy_return_approve(request, return_id):
                         b = ri.original_item.medication_batch
                         b.quantity_available += ri.quantity
                         b.save(update_fields=['quantity_available'])
+                        _log_stock_movement(
+                            b, None, StockTransaction.TxType.RETURN, ri.quantity, request.user,
+                            reference=f'RTN-{ret.return_number}',
+                            notes=f'Return {ret.return_number} restocked. Reason: {ret.reason}',
+                            patient=ret.patient,
+                        )
                     elif ri.original_item and ri.original_item.pharmacy_stock_id:
                         s = ri.original_item.pharmacy_stock
                         s.quantity_in_stock += ri.quantity
                         s.save(update_fields=['quantity_in_stock'])
+                        _log_stock_movement(
+                            None, s, StockTransaction.TxType.RETURN, ri.quantity, request.user,
+                            reference=f'RTN-{ret.return_number}',
+                            notes=f'Return {ret.return_number} restocked. Reason: {ret.reason}',
+                            patient=ret.patient,
+                        )
                     ri.restocked = True
                     ri.save(update_fields=['restocked'])
             log_action(

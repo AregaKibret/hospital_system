@@ -1,0 +1,15 @@
+{# Shared perioperative document signature block. Expects: doc #}
+{% load signatures %}
+<div style="margin-top:24px;padding-top:12px;border-top:1px solid #ccc;font-size:12px">
+  {% if doc.is_finalized %}
+  <p><strong>Signed by:</strong> {{ doc.signature_name }}</p>
+  <p><strong>Date / Time:</strong> {{ doc.finalized_at|date:"d M Y H:i" }}</p>
+  <div style="margin-top:10px">
+    {% signature_block doc.finalized_by label="Doctor's Signature" %}
+  </div>
+  {% else %}
+  <p style="color:#b45309"><strong>Not yet finalized / signed — this is a draft.</strong></p>
+  {% endif %}
+  <p style="color:#888;margin-top:6px">Created by {{ doc.created_by.get_full_name|default:doc.created_by.username }} on {{ doc.created_at|date:"d M Y H:i" }}</p>
+  {% if doc.revision_reason %}<p style="color:#888;margin-top:2px">Revision reason: {{ doc.revision_reason }}</p>{% endif %}
+</div>

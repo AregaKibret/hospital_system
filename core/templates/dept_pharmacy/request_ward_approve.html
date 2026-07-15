@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Ward Supervisor Review — {{ req.request_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'transfer_request_detail' req.id %}" class="text-sm text-indigo-600 hover:underline">&larr; Request {{ req.request_number }}</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Ward Supervisor Review</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ req.requesting_store.name }} · {{ req.request_date|date:"M d, Y H:i" }} · Requested by {{ req.requested_by.get_full_name|default:req.requested_by.username }}</p>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Requested Items</h3>
+    <div class="space-y-2 text-sm">
+      {% for item in items %}
+      <div class="flex items-center justify-between py-1 border-b last:border-0 border-slate-100 dark:border-slate-700">
+        <span class="font-medium text-slate-800 dark:text-slate-100">{{ item.item_name }}</span>
+        <span class="text-slate-600 dark:text-slate-400">{{ item.quantity_requested }} units requested</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-400 px-1">Approving forwards this request to the store/pharmacy for final review and issue. This does not itself set approved quantities — that happens at the next stage.</p>
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
+    {% csrf_token %}
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="approve" class="btn-primary flex-1">Approve &amp; Forward</button>
+      <button type="submit" name="action" value="reject" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium text-sm rounded-xl px-4 py-2 transition">Reject</button>
+    </div>
+    <div class="field-wrapper">
+      <label class="field-label">Rejection Reason (if rejecting)</label>
+      <textarea name="rejection_reason" rows="2" class="field-input" placeholder="Explain why this request is being rejected..."></textarea>
+    </div>
+  </form>
+</div>
+{% endblock %}

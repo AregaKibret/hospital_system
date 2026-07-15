@@ -33,6 +33,18 @@
     </div>
   </div>
   <div class="flex gap-2 no-print">
+    {% if perms.core.upload_attachment %}
+    <a href="{% url 'patient_attachment_upload' order.visit.patient_id %}?lab_order={{ order.pk }}"
+       class="px-4 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+      Attach Document
+    </a>
+    {% endif %}
+    {% if can_process and order.payment_cleared %}
+    <a href="{% url 'lab_consumable_use' order.pk %}"
+       class="px-4 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+      Record Consumable Usage
+    </a>
+    {% endif %}
     {% if can_release and order.status == 'Result Ready' %}
     <form method="post" action="{% url 'lab_result_release' order.pk %}" onsubmit="return confirm('Release result to patient?')">
       {% csrf_token %}
@@ -91,10 +103,6 @@
           <p class="text-slate-700 dark:text-slate-300">{{ order.test_category|default:"—" }}</p>
         </div>
         {% if order.lab_service %}
-        <div>
-          <p class="text-xs text-slate-500 mb-0.5">Section</p>
-          <p class="text-slate-700 dark:text-slate-300">{{ order.lab_service.section }}</p>
-        </div>
         <div>
           <p class="text-xs text-slate-500 mb-0.5">Sample Type</p>
           <p class="text-slate-700 dark:text-slate-300">{{ order.lab_service.sample_type }}</p>
@@ -156,28 +164,131 @@
 
     <!-- Result -->
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
         <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Laboratory Result</h3>
+        {% if order.status == 'Result Ready' or order.status == 'Released' or order.status == 'Completed' %}
+        <a href="{% url 'lab_order_print' order.pk %}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium no-print">Print Report →</a>
+        {% endif %}
       </div>
       <div class="px-5 py-4">
-        {% if order.result %}
-        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-4 text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-mono mb-3">{{ order.result }}</div>
-        {% if order.resulted_at %}<p class="text-xs text-slate-400">Entered: {{ order.resulted_at|date:"d M Y H:i" }}</p>{% endif %}
-        {% if order.released_at %}<p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Released: {{ order.released_at|date:"d M Y H:i" }} by {{ order.released_by.get_full_name|default:"—" }}</p>{% endif %}
-        {% else %}
-        <p class="text-sm text-slate-400 mb-3">No result entered yet.</p>
+        {% if order.is_critical %}
+        <div class="mb-3 px-3 py-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-semibold">
+          ⚠ Flagged CRITICAL{% if order.critical_flagged_by %} by {{ order.critical_flagged_by.get_full_name|default:order.critical_flagged_by.username }}{% endif %}{% if order.critical_flagged_at %} on {{ order.critical_flagged_at|date:"d M Y H:i" }}{% endif %}
+          {% if order.critical_notes %} — {{ order.critical_notes }}{% endif %}
+        </div>
         {% endif %}
 
+        {% if not result_entries %}
+        <p class="text-sm text-slate-400 mb-3">This order has no linked catalog service, so no structured result template is available.</p>
+        {% else %}
         {% if can_process and order.status not in 'Cancelled,Released,Completed' and order.status != 'Waiting Payment' %}
-        <form method="post" action="{% url 'lab_result_enter' order.pk %}" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+        <form method="post" action="{% url 'lab_result_enter' order.pk %}">
           {% csrf_token %}
-          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Enter / Update Result</label>
-          <textarea name="result" rows="5" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white font-mono" placeholder="Enter result text…">{{ order.result }}</textarea>
-          <div class="flex items-center gap-3 mt-2">
+        {% endif %}
+
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-xs uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                <th class="text-left py-2 pr-3">Analyte</th>
+                <th class="text-left py-2 pr-3">Result</th>
+                <th class="text-left py-2 pr-3">Unit</th>
+                <th class="text-left py-2 pr-3">Reference Range</th>
+                <th class="text-left py-2 pr-3">Flag</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+              {% for entry in result_entries %}
+              <tr>
+                <td class="py-2.5 pr-3 align-top">
+                  <p class="font-medium text-slate-800 dark:text-slate-100">{{ entry.analyte.name }}</p>
+                  {% if entry.analyte.short_name %}<p class="text-xs text-slate-400">{{ entry.analyte.short_name }}</p>{% endif %}
+                </td>
+                <td class="py-2.5 pr-3 align-top">
+                  {% if can_process and order.status not in 'Cancelled,Released,Completed' and order.status != 'Waiting Payment' %}
+                    {% with input_type=entry.analyte.result_input_type %}
+                    {% if input_type == 'numeric_entry' %}
+                    <input type="number" step="1" name="value_{{ entry.analyte_id }}" value="{{ entry.value }}" class="w-28 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    {% elif input_type == 'decimal_entry' %}
+                    <input type="number" step="any" name="value_{{ entry.analyte_id }}" value="{{ entry.value }}" class="w-28 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    {% elif input_type == 'date_entry' %}
+                    <input type="date" name="value_{{ entry.analyte_id }}" value="{{ entry.value }}" class="px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    {% elif input_type == 'time_entry' %}
+                    <input type="time" name="value_{{ entry.analyte_id }}" value="{{ entry.value }}" class="px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    {% elif input_type == 'checkbox' %}
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <input type="checkbox" name="value_{{ entry.analyte_id }}" value="Checked" {% if entry.value == 'Checked' %}checked{% endif %} class="w-4 h-4 rounded border-slate-300">
+                      Checked
+                    </label>
+                    {% elif input_type == 'dropdown_select' %}
+                    <select name="value_{{ entry.analyte_id }}" class="px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                      <option value="">—</option>
+                      {% for opt in entry.analyte.result_options.all %}
+                      <option value="{{ opt.value }}" {% if entry.value == opt.value %}selected{% endif %}>{{ opt.value }}</option>
+                      {% endfor %}
+                    </select>
+                    {% elif input_type == 'radio_select' %}
+                    <div class="flex flex-wrap gap-3">
+                      {% for opt in entry.analyte.result_options.all %}
+                      <label class="inline-flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+                        <input type="radio" name="value_{{ entry.analyte_id }}" value="{{ opt.value }}" {% if entry.value == opt.value %}checked{% endif %} class="w-4 h-4 border-slate-300">
+                        {{ opt.value }}
+                      </label>
+                      {% endfor %}
+                    </div>
+                    {% elif input_type == 'text_entry' %}
+                    <input type="text" name="value_{{ entry.analyte_id }}" value="{{ entry.value }}" class="w-40 px-2 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    {% else %}
+                    <div class="flex flex-wrap gap-3">
+                      {% for opt in entry.analyte.fixed_result_options %}
+                      <label class="inline-flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+                        <input type="radio" name="value_{{ entry.analyte_id }}" value="{{ opt }}" {% if entry.value == opt %}checked{% endif %} class="w-4 h-4 border-slate-300">
+                        {{ opt }}
+                      </label>
+                      {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    <input type="text" name="comments_{{ entry.analyte_id }}" value="{{ entry.comments }}" placeholder="Comment (optional)" class="w-full mt-1 px-2 py-1 text-xs rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 text-slate-600 dark:text-slate-300">
+                  {% else %}
+                    <span class="font-semibold text-slate-800 dark:text-slate-100">{{ entry.value|default:"—" }}</span>
+                    {% if entry.comments %}<p class="text-xs text-slate-400">{{ entry.comments }}</p>{% endif %}
+                  {% endif %}
+                </td>
+                <td class="py-2.5 pr-3 align-top text-xs text-slate-500">{{ entry.unit|default:"—" }}</td>
+                <td class="py-2.5 pr-3 align-top text-xs text-slate-500">{{ entry.reference_range|default:"—" }}</td>
+                <td class="py-2.5 pr-3 align-top">
+                  {% if entry.flag == 'critical' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Critical</span>
+                  {% elif entry.flag == 'high' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">H</span>
+                  {% elif entry.flag == 'low' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">L</span>
+                  {% elif entry.flag == 'abnormal' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Abnormal</span>
+                  {% elif entry.flag == 'normal' %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Normal</span>
+                  {% else %}<span class="text-slate-300">—</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if can_process and order.status not in 'Cancelled,Released,Completed' and order.status != 'Waiting Payment' %}
+          <div class="mt-3 p-3 rounded-lg border border-red-100 dark:border-red-900/40 bg-red-50/50 dark:bg-red-900/10">
+            <label class="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-400">
+              <input type="checkbox" name="is_critical" value="1" id="isCriticalCheck" {% if order.is_critical %}checked{% endif %} class="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500">
+              Also mark as Critical Result (manual override)
+            </label>
+            <input type="text" name="critical_notes" value="{{ order.critical_notes }}" placeholder="Critical notes (e.g. value, who was notified)…"
+                   class="w-full mt-2 px-3 py-1.5 text-xs rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+            <p class="text-xs text-slate-400 mt-1">Values outside a parseable reference/critical range are flagged automatically — use this to flag a result critical based on clinical judgment beyond what the system can detect.</p>
+          </div>
+          <div class="flex items-center gap-3 mt-3">
             <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Save Result</button>
             <span class="text-xs text-slate-400">Status will change to "Result Ready"</span>
           </div>
         </form>
+        {% endif %}
+        {% if order.resulted_at %}<p class="text-xs text-slate-400 mt-3">Entered: {{ order.resulted_at|date:"d M Y H:i" }}</p>{% endif %}
+        {% if order.released_at %}<p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Released: {{ order.released_at|date:"d M Y H:i" }} by {{ order.released_by.get_full_name|default:"—" }}</p>{% endif %}
         {% endif %}
       </div>
     </div>
@@ -217,7 +328,7 @@
       </div>
       <div class="px-5 py-4 text-sm space-y-2">
         <div class="flex justify-between"><span class="text-slate-500">Code</span><span class="font-mono text-xs text-slate-700 dark:text-slate-300">{{ order.lab_service.code }}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Section</span><span class="text-slate-700 dark:text-slate-300">{{ order.lab_service.section }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Category</span><span class="text-slate-700 dark:text-slate-300">{{ order.lab_service.category.name|default:"—" }}</span></div>
         <div class="flex justify-between"><span class="text-slate-500">Turnaround</span><span class="text-slate-700 dark:text-slate-300">{{ order.lab_service.turnaround_hours }}h</span></div>
         {% if order.lab_service.sample_requirements %}
         <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">

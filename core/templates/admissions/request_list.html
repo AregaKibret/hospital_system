@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Admission Requests{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Admission Requests</h1>
+  <a href="{% url 'admission_dashboard' %}" class="btn-secondary text-sm">Dashboard</a>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+{% endif %}
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5">
+  <div class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+      <select name="status" class="field-input text-sm">
+        <option value="">All (active)</option>
+        {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="field-input text-sm">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.pk }}" {% if dept_filter == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Priority</label>
+      <select name="priority" class="field-input text-sm">
+        <option value="">All</option>
+        {% for val, label in priority_choices %}<option value="{{ val }}" {% if priority_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn-secondary text-sm">Filter</button>
+  </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 uppercase tracking-wide">
+      <tr>
+        <th class="text-left px-4 py-3">Patient</th>
+        <th class="text-left px-4 py-3">Diagnosis</th>
+        <th class="text-left px-4 py-3">Department</th>
+        <th class="text-left px-4 py-3">Priority</th>
+        <th class="text-left px-4 py-3">Source</th>
+        <th class="text-left px-4 py-3">Status</th>
+        <th class="text-left px-4 py-3">Requested</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for r in requests %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer" onclick="window.location='{% url 'admission_request_detail' r.pk %}'">
+        <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ r.patient.full_name }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ r.admission_diagnosis }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ r.admitting_department.name|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ r.get_priority_display }}</td>
+        <td class="px-4 py-3 text-slate-500">{{ r.get_request_source_display }}</td>
+        <td class="px-4 py-3">
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">{{ r.get_status_display }}</span>
+        </td>
+        <td class="px-4 py-3 text-slate-400 text-xs">{{ r.created_at|date:"d M Y H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No admission requests match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

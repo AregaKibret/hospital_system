@@ -6,11 +6,15 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from .audit import log_action
+from .card_utils import perform_checkin_billing
 from .decorators import hms_permission_required
-from .models import Appointment, Department, Doctor, DoctorSchedule, Patient, Visit, Queue
+from .forms import PatientForm
+from .models import AuditLog, Appointment, Department, Doctor, DoctorSchedule, Invoice, Patient, Visit, Queue
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +103,9 @@ def appointment_list(request):
             | Q(patient__last_name__icontains=search)
             | Q(patient__middle_name__icontains=search)
             | Q(patient__card_number__icontains=search)
+            | Q(patient__mobile__icontains=search)
+            | Q(walkin_name__icontains=search)
+            | Q(phone_number__icontains=search)
             | Q(appointment_number__icontains=search)
         )
 
@@ -120,6 +127,9 @@ def appointment_list(request):
             | Q(patient__last_name__icontains=search)
             | Q(patient__middle_name__icontains=search)
             | Q(patient__card_number__icontains=search)
+            | Q(patient__mobile__icontains=search)
+            | Q(walkin_name__icontains=search)
+            | Q(phone_number__icontains=search)
         )
     if doctor_id:
         base_qs = base_qs.filter(doctor_id=doctor_id)
@@ -173,14 +183,14 @@ def appointment_list(request):
 @hms_permission_required('core.manage_appointments')
 def appointment_create(request):
     """Create a new appointment. Optionally pre-fills patient from ?patient=ID."""
-    doctors = Doctor.objects.filter(active=True).select_related('department').order_by('last_name', 'first_name')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization').order_by('last_name', 'first_name')
     departments = Department.objects.all()
-    patients = Patient.objects.filter(is_active=True).order_by('last_name', 'first_name')
     appointment_types = Appointment.AppointmentType.choices
+    selected_patient = None
 
     # Pre-selected patient from query param
     pre_patient = None
-    patient_param = request.GET.get('patient') or request.POST.get('patient_id')
+    patient_param = request.GET.get('patient') or request.POST.get('patient')
     if patient_param:
         try:
             pre_patient = Patient.objects.get(pk=int(patient_param))
@@ -188,8 +198,10 @@ def appointment_create(request):
             pre_patient = None
 
     if request.method == 'POST':
-        patient_id = request.POST.get('patient_id')
-        doctor_id = request.POST.get('doctor_id')
+        # The form's <select>/hidden inputs are named "patient"/"doctor"
+        # (see receptionist/appointment_form.html) — not "patient_id"/"doctor_id".
+        patient_id = request.POST.get('patient')
+        doctor_id = request.POST.get('doctor')
         appointment_date = request.POST.get('appointment_date')
         appointment_time = request.POST.get('appointment_time')
         appointment_type = request.POST.get('appointment_type', Appointment.AppointmentType.NEW)
@@ -209,6 +221,11 @@ def appointment_create(request):
         if errors:
             for err in errors:
                 messages.error(request, err)
+            if patient_id:
+                try:
+                    selected_patient = Patient.objects.get(pk=patient_id)
+                except (Patient.DoesNotExist, ValueError, TypeError):
+                    pass
         else:
             try:
                 patient = Patient.objects.get(pk=patient_id)
@@ -227,6 +244,13 @@ def appointment_create(request):
                     created_by=request.user,
                 )
                 appointment.save()
+                log_action(
+                    request.user, AuditLog.Action.CREATE, AuditLog.Module.APPOINTMENT,
+                    object_type='Appointment', object_id=appointment.pk,
+                    object_repr=appointment.appointment_number,
+                    description=f'Appointment {appointment.appointment_number} created for {patient.full_name}',
+                    request=request,
+                )
                 messages.success(
                     request,
                     f'Appointment {appointment.appointment_number} created successfully for {patient.full_name}.',
@@ -240,13 +264,178 @@ def appointment_create(request):
                 messages.error(request, f'Error creating appointment: {exc}')
 
     context = {
-        'patients': patients,
         'doctors': doctors,
         'departments': departments,
         'appointment_types': appointment_types,
         'pre_patient': pre_patient,
+        'selected_patient': selected_patient,
     }
     return render(request, 'receptionist/appointment_form.html', context)
+
+
+# ---------------------------------------------------------------------------
+# 3b. Walk-In Appointment (no patient registration required yet)
+# ---------------------------------------------------------------------------
+
+@hms_permission_required('core.manage_appointments')
+def appointment_create_walkin(request):
+    """Book an appointment for a caller/walk-in who has no MRN yet.
+
+    Only name + phone are required — patient/doctor/department stay null
+    until the receptionist registers the patient when they arrive.
+    """
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization').order_by('last_name', 'first_name')
+    departments = Department.objects.all()
+    appointment_types = Appointment.AppointmentType.choices
+
+    if request.method == 'POST':
+        walkin_name = request.POST.get('walkin_name', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        doctor_id = request.POST.get('doctor_id', '').strip()
+        department_id = request.POST.get('department_id', '').strip()
+        appointment_date = request.POST.get('appointment_date', '').strip()
+        appointment_time = request.POST.get('appointment_time', '').strip()
+        appointment_type = request.POST.get('appointment_type', Appointment.AppointmentType.NEW)
+        reason_for_visit = request.POST.get('reason_for_visit', '').strip()
+        notes = request.POST.get('notes', '').strip()
+
+        errors = []
+        if not walkin_name:
+            errors.append('Patient full name is required.')
+        if not phone_number:
+            errors.append('Mobile phone number is required.')
+
+        doctor = None
+        if doctor_id:
+            try:
+                doctor = Doctor.objects.select_related('department').get(pk=doctor_id)
+            except Doctor.DoesNotExist:
+                errors.append('Selected doctor not found.')
+
+        department = None
+        if department_id:
+            try:
+                department = Department.objects.get(pk=department_id)
+            except Department.DoesNotExist:
+                errors.append('Selected department not found.')
+        elif doctor:
+            department = doctor.department
+
+        if not errors:
+            # Date/time are optional per spec — default to "today, 6pm" (same
+            # convention used by the New Appointment time field) rather than
+            # leaving the DB columns null, since nothing downstream (ordering,
+            # calendar, reports) expects a dateless appointment.
+            appointment = Appointment.objects.create(
+                patient=None,
+                walkin_name=walkin_name,
+                phone_number=phone_number,
+                doctor=doctor,
+                department=department,
+                appointment_date=appointment_date or timezone.localdate(),
+                appointment_time=appointment_time or '18:00',
+                appointment_type=appointment_type,
+                reason_for_visit=reason_for_visit,
+                notes=notes,
+                status=Appointment.Status.SCHEDULED,
+                created_by=request.user,
+            )
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.APPOINTMENT,
+                object_type='Appointment', object_id=appointment.pk,
+                object_repr=appointment.appointment_number,
+                description=f'Walk-in appointment {appointment.appointment_number} booked for '
+                            f'"{walkin_name}" ({phone_number}) — no patient record yet',
+                request=request,
+            )
+            messages.success(
+                request,
+                f'Walk-in appointment {appointment.appointment_number} booked for {walkin_name}. '
+                f'No patient record was created — complete registration when they arrive.',
+            )
+            return redirect('appointment_detail', appt_id=appointment.pk)
+
+        for err in errors:
+            messages.error(request, err)
+
+        return render(request, 'receptionist/appointment_walkin_form.html', {
+            'doctors': doctors,
+            'departments': departments,
+            'appointment_types': appointment_types,
+            'post': request.POST,
+        })
+
+    return render(request, 'receptionist/appointment_walkin_form.html', {
+        'doctors': doctors,
+        'departments': departments,
+        'appointment_types': appointment_types,
+    })
+
+
+# ---------------------------------------------------------------------------
+# 3c. Register Patient (completes registration for a walk-in appointment)
+# ---------------------------------------------------------------------------
+
+@hms_permission_required('core.add_patient')
+def register_patient_for_appointment(request, appt_id):
+    """Standard patient registration, pre-filled from & linked back to a
+    walk-in appointment. Creates exactly one Patient row and links the
+    existing Appointment to it — no new appointment is created."""
+    appointment = get_object_or_404(Appointment, pk=appt_id)
+
+    if not appointment.is_unregistered:
+        messages.info(request, 'This appointment is already linked to a registered patient.')
+        return redirect('appointment_detail', appt_id=appt_id)
+
+    # Best-effort name split for prefill only — receptionist can correct it.
+    name_parts = appointment.walkin_name.split()
+    initial = {'mobile': appointment.phone_number}
+    if name_parts:
+        initial['first_name'] = name_parts[0]
+        if len(name_parts) > 1:
+            initial['last_name'] = name_parts[-1]
+        if len(name_parts) > 2:
+            initial['middle_name'] = ' '.join(name_parts[1:-1])
+
+    if request.method == 'POST':
+        form = PatientForm(request.POST)
+        if form.is_valid():
+            patient = form.save()
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.PATIENT,
+                object_type='Patient', object_id=patient.pk,
+                object_repr=patient.full_name,
+                description=f'New patient registered: {patient.full_name} (card {patient.card_number}) '
+                            f'from walk-in appointment {appointment.appointment_number}',
+                extra_data={'card_number': patient.card_number},
+                request=request,
+            )
+            appointment.patient = patient
+            if not appointment.phone_number:
+                appointment.phone_number = patient.mobile
+            appointment.save(update_fields=['patient', 'phone_number', 'updated_at'])
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+                object_type='Appointment', object_id=appointment.pk,
+                object_repr=appointment.appointment_number,
+                description=f'Walk-in appointment {appointment.appointment_number} linked to newly '
+                            f'registered patient {patient.full_name} ({patient.card_number})',
+                request=request,
+            )
+            messages.success(
+                request,
+                f'{patient.full_name} registered (card {patient.card_number}) and linked to '
+                f'appointment {appointment.appointment_number}.',
+            )
+            next_url = reverse('patient_next_action', kwargs={'patient_id': patient.pk})
+            return redirect(f'{next_url}?appointment_id={appointment.pk}')
+    else:
+        form = PatientForm(initial=initial)
+
+    return render(request, 'receptionist/register_patient_for_appointment.html', {
+        'form': form,
+        'appointment': appointment,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -309,14 +498,16 @@ def appointment_detail(request, appt_id):
 def appointment_edit(request, appt_id):
     """Edit an existing appointment."""
     appointment = get_object_or_404(Appointment, pk=appt_id)
-    doctors = Doctor.objects.filter(active=True).select_related('department').order_by('last_name', 'first_name')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization').order_by('last_name', 'first_name')
     departments = Department.objects.all()
-    patients = Patient.objects.filter(is_active=True).order_by('last_name', 'first_name')
     appointment_types = Appointment.AppointmentType.choices
+    selected_patient = appointment.patient
 
     if request.method == 'POST':
-        patient_id = request.POST.get('patient_id')
-        doctor_id = request.POST.get('doctor_id')
+        # The form's <select> inputs are named "patient"/"doctor"
+        # (see receptionist/appointment_form.html) — not "patient_id"/"doctor_id".
+        patient_id = request.POST.get('patient')
+        doctor_id = request.POST.get('doctor')
         appointment_date = request.POST.get('appointment_date')
         appointment_time = request.POST.get('appointment_time')
         appointment_type = request.POST.get('appointment_type', appointment.appointment_type)
@@ -337,6 +528,11 @@ def appointment_edit(request, appt_id):
         if errors:
             for err in errors:
                 messages.error(request, err)
+            if patient_id:
+                try:
+                    selected_patient = Patient.objects.get(pk=patient_id)
+                except (Patient.DoesNotExist, ValueError, TypeError):
+                    pass
         else:
             try:
                 patient = Patient.objects.get(pk=patient_id)
@@ -355,6 +551,13 @@ def appointment_edit(request, appt_id):
                 appointment.notes = notes
                 appointment.status = status
                 appointment.save()
+                log_action(
+                    request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+                    object_type='Appointment', object_id=appointment.pk,
+                    object_repr=appointment.appointment_number,
+                    description=f'Appointment {appointment.appointment_number} updated',
+                    request=request,
+                )
                 messages.success(
                     request,
                     f'Appointment {appointment.appointment_number} updated successfully.',
@@ -369,12 +572,12 @@ def appointment_edit(request, appt_id):
 
     context = {
         'appointment': appointment,
-        'patients': patients,
         'doctors': doctors,
         'departments': departments,
         'appointment_types': appointment_types,
         'status_choices': Appointment.Status.choices,
         'is_edit': True,
+        'selected_patient': selected_patient,
     }
     return render(request, 'receptionist/appointment_form.html', context)
 
@@ -396,8 +599,24 @@ def appointment_start_visit(request, appt_id):
         )
         return redirect('appointment_detail', appt_id=appt_id)
 
+    if appointment.is_unregistered:
+        messages.info(
+            request,
+            f'{appointment.display_patient_name} has not been registered yet. '
+            f'Please complete registration first.',
+        )
+        return redirect('register_patient_for_appointment', appt_id=appt_id)
+
     appointment.status = Appointment.Status.WAITING
     appointment.save(update_fields=['status', 'updated_at'])
+    log_action(
+        request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+        object_type='Appointment', object_id=appointment.pk,
+        object_repr=appointment.appointment_number,
+        description=f'Patient {appointment.patient.full_name} marked as arrived for appointment '
+                    f'{appointment.appointment_number}',
+        request=request,
+    )
     messages.success(
         request,
         f'Patient {appointment.patient.full_name} marked as arrived. Please create a visit.',
@@ -419,6 +638,13 @@ def appointment_confirm(request, appt_id):
     if appointment.status == Appointment.Status.SCHEDULED:
         appointment.status = Appointment.Status.CONFIRMED
         appointment.save(update_fields=['status', 'updated_at'])
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+            object_type='Appointment', object_id=appointment.pk,
+            object_repr=appointment.appointment_number,
+            description=f'Appointment {appointment.appointment_number} confirmed',
+            request=request,
+        )
         messages.success(
             request,
             f'Appointment {appointment.appointment_number} confirmed successfully.',
@@ -451,6 +677,13 @@ def appointment_cancel(request, appt_id):
     else:
         appointment.status = Appointment.Status.CANCELLED
         appointment.save(update_fields=['status', 'updated_at'])
+        log_action(
+            request.user, AuditLog.Action.CANCEL, AuditLog.Module.APPOINTMENT,
+            object_type='Appointment', object_id=appointment.pk,
+            object_repr=appointment.appointment_number,
+            description=f'Appointment {appointment.appointment_number} cancelled',
+            request=request,
+        )
         messages.success(
             request,
             f'Appointment {appointment.appointment_number} has been cancelled.',
@@ -467,7 +700,9 @@ def appointment_cancel(request, appt_id):
 @require_POST
 @hms_permission_required('core.manage_appointments')
 def appointment_mark_arrived(request, appt_id):
-    """Record patient check-in by setting status to Waiting."""
+    """Check the patient in: verify status, auto-determine card/consultation
+    charges, send them to Billing, and land on a summary screen — see
+    card_utils.perform_checkin_billing for the full decision pipeline."""
     appointment = get_object_or_404(Appointment, pk=appt_id)
 
     if appointment.status in (Appointment.Status.CANCELLED, Appointment.Status.COMPLETED,
@@ -476,17 +711,87 @@ def appointment_mark_arrived(request, appt_id):
             request,
             f'Cannot check in a patient with appointment status "{appointment.status}".',
         )
-    else:
+        return redirect('appointment_detail', appt_id=appt_id)
+
+    if appointment.is_unregistered:
+        messages.info(
+            request,
+            f'{appointment.display_patient_name} has not been registered yet. '
+            f'Please complete registration first.',
+        )
+        return redirect('register_patient_for_appointment', appt_id=appt_id)
+
+    waive_card_fee = (
+        bool(request.POST.get('waive_card_fee'))
+        and request.user.has_perm('core.override_card_expiry')
+    )
+
+    try:
+        result = perform_checkin_billing(appointment, request.user, waive_card_fee=waive_card_fee, request=request)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect('appointment_detail', appt_id=appt_id)
+
+    if appointment.status != Appointment.Status.WAITING:
         appointment.status = Appointment.Status.WAITING
         appointment.save(update_fields=['status', 'updated_at'])
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.APPOINTMENT,
+            object_type='Appointment', object_id=appointment.pk,
+            object_repr=appointment.appointment_number,
+            description=f'Patient {appointment.patient.full_name} checked in for appointment '
+                        f'{appointment.appointment_number}',
+            request=request,
+        )
+
+    if not result.already_checked_in:
         messages.success(
             request,
             f'Patient {appointment.patient.full_name} checked in at '
             f'{timezone.localtime().strftime("%H:%M")}.',
         )
 
-    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER', '')
-    return redirect(next_url) if next_url else redirect('appointment_detail', appt_id=appt_id)
+    return redirect('appointment_checkin_summary', appt_id=appt_id)
+
+
+# ---------------------------------------------------------------------------
+# 9b. Appointment Check-In Summary (billing breakdown)
+# ---------------------------------------------------------------------------
+
+@hms_permission_required('core.manage_appointments')
+def appointment_checkin_summary(request, appt_id):
+    from .models import InvoiceItem
+
+    appointment = get_object_or_404(
+        Appointment.objects.select_related('patient', 'doctor', 'department', 'visit', 'visit__patient_card', 'visit__consultation_type'),
+        pk=appt_id,
+    )
+    visit = appointment.visit
+    invoice = Invoice.objects.filter(visit=visit).first() if visit else None
+    card_fee_item = invoice.items.filter(service_type=InvoiceItem.ServiceType.CARD_FEE).first() if invoice else None
+    consultation_fee_item = invoice.items.filter(service_type=InvoiceItem.ServiceType.CONSULTATION).first() if invoice else None
+
+    card_status_reason = None
+    if visit and visit.patient_card:
+        card = visit.patient_card
+        if card_fee_item:
+            card_status_reason = (
+                f'No valid card was on file (or it had expired), so the {card.card_type.name} '
+                f'fee was generated automatically.'
+            )
+        else:
+            card_status_reason = (
+                f'The patient already had a valid {card.card_type.name}, so no registration/renewal fee was charged.'
+            )
+
+    return render(request, 'receptionist/appointment_checkin_summary.html', {
+        'appointment': appointment,
+        'visit': visit,
+        'invoice': invoice,
+        'card_fee_item': card_fee_item,
+        'consultation_fee_item': consultation_fee_item,
+        'card_status_reason': card_status_reason,
+    })
 
 
 # ---------------------------------------------------------------------------

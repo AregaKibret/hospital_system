@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Tests by Category{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Laboratory Tests by Category</h1>
+    <a href="?export=csv" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">Export CSV</a>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if categories %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">Category</th>
+          <th class="text-right px-4 py-3">Test Count</th>
+          <th class="text-right px-4 py-3">Orders</th>
+          <th class="text-right px-4 py-3">Revenue (ETB)</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for c in categories %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ c.name }}</td>
+          <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ c.test_count }}</td>
+          <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ c.order_count }}</td>
+          <td class="px-4 py-3 text-right text-green-600 dark:text-green-400">{{ c.revenue|default:0|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right"><a href="{% url 'lab_service_list' %}?category={{ c.id }}" class="text-xs text-blue-600 hover:underline">View Tests</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500"><p class="text-sm">No categories found.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

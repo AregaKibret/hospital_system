@@ -6,21 +6,31 @@
     <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Lab Services & Pricing</h1>
     <p class="text-sm text-slate-500">Service catalogue with configurable pricing</p>
   </div>
-  <a href="{% url 'lab_service_create' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">+ Add Service</a>
+  <div class="flex gap-2">
+    <a href="{% url 'lab_category_list' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-lg transition-colors">Categories</a>
+    <a href="{% url 'lab_test_group_list' %}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-lg transition-colors">Groups</a>
+    <a href="{% url 'lab_service_create' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">+ Add Service</a>
+  </div>
 </div>
 
-<!-- Section breakdown -->
+<!-- Category breakdown -->
 <div class="flex flex-wrap gap-2 mb-4">
-  <a href="{% url 'lab_service_list' %}" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if not section_f %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %} transition-colors">All</a>
-  {% for val, lbl in sections %}
-  <a href="?section={{ val }}" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if section_f == val %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %} transition-colors">{{ lbl }}</a>
+  <a href="{% url 'lab_service_list' %}" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if not category_f %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %} transition-colors">All</a>
+  {% for c in category_counts %}
+  <a href="?category={{ c.category__id }}" class="px-3 py-1.5 text-xs font-semibold rounded-full border {% if category_f == c.category__id|stringformat:"s" %}bg-blue-600 text-white border-blue-600{% else %}bg-white dark:bg-slate-800 text-slate-600 border-slate-200 hover:border-blue-400{% endif %} transition-colors">{{ c.category__name|default:"Uncategorised" }} ({{ c.count }})</a>
   {% endfor %}
 </div>
 
 <!-- Search / Filter -->
 <form method="get" class="flex flex-wrap gap-2 mb-4 items-center no-print">
-  {% if section_f %}<input type="hidden" name="section" value="{{ section_f }}">{% endif %}
-  <input type="text" name="q" value="{{ search }}" placeholder="Search by name or code…" class="flex-1 min-w-48 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white">
+  {% if category_f %}<input type="hidden" name="category" value="{{ category_f }}">{% endif %}
+  <input type="text" name="q" value="{{ search }}" placeholder="Search by name, code, or keyword…" class="flex-1 min-w-48 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white">
+  <select name="panel" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+    <option value="">All Panels</option>
+    {% for p in panels %}
+    <option value="{{ p.id }}" {% if panel_f == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+    {% endfor %}
+  </select>
   <select name="active" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">
     <option value="">All Status</option>
     <option value="1" {% if active_f == '1' %}selected{% endif %}>Active Only</option>
@@ -38,7 +48,7 @@
         <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
           <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Code</th>
           <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Name</th>
-          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Section</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Category</th>
           <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden sm:table-cell">Sample</th>
           <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Standard</th>
           <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Insurance</th>
@@ -54,9 +64,9 @@
           <td class="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{{ svc.code }}</td>
           <td class="px-4 py-3">
             <p class="font-medium text-slate-800 dark:text-slate-100">{{ svc.name }}</p>
-            {% if svc.category %}<p class="text-xs text-slate-400">{{ svc.category }}</p>{% endif %}
+            {% if svc.panel %}<p class="text-xs text-slate-400">Panel: {{ svc.panel.name }}</p>{% endif %}
           </td>
-          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ svc.section }}</td>
+          <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hidden md:table-cell">{{ svc.category.name|default:"—" }}</td>
           <td class="px-4 py-3 text-xs text-slate-500 hidden sm:table-cell">{{ svc.sample_type }}</td>
           <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">ETB {{ svc.standard_price|floatformat:2 }}</td>
           <td class="px-4 py-3 text-right text-slate-500 hidden lg:table-cell">{% if svc.insurance_price %}ETB {{ svc.insurance_price|floatformat:2 }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
@@ -83,8 +93,8 @@
   <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between no-print">
     <p class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
     <div class="flex gap-1.5">
-      {% if page_obj.has_previous %}<a href="?section={{ section_f }}&q={{ search }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">← Prev</a>{% endif %}
-      {% if page_obj.has_next %}<a href="?section={{ section_f }}&q={{ search }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">Next →</a>{% endif %}
+      {% if page_obj.has_previous %}<a href="?category={{ category_f }}&q={{ search }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?category={{ category_f }}&q={{ search }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">Next →</a>{% endif %}
     </div>
   </div>
   {% endif %}

@@ -17,7 +17,7 @@ from .decorators import hms_permission_required
 from .models import (
     AuditLog, DepartmentStock, DepartmentStockBatch, DepartmentStore,
     DepartmentTransfer, DepartmentTransferItem, DepartmentUsage,
-    Medication, MedicationBatch, Patient, StockTransaction,
+    InventoryItem, InventoryTransaction, Medication, MedicationBatch, Patient, StockTransaction,
     TransferRequest, TransferRequestItem,
 )
 
@@ -246,6 +246,7 @@ def transfer_request_list(request):
 def transfer_request_create(request):
     stores      = DepartmentStore.objects.filter(is_active=True)
     medications = Medication.objects.filter(is_active=True).order_by('name')
+    consumables = InventoryItem.objects.filter(is_active=True).order_by('name')
 
     if request.method == 'POST':
         p        = request.POST
@@ -254,8 +255,8 @@ def transfer_request_create(request):
         required_by = p.get('required_by') or None
         notes    = p.get('notes', '').strip()
 
-        # Collect items: med_id_X, qty_X fields
-        items = []
+        # Collect medication lines: med_X / qty_X / notes_X
+        med_items = []
         idx = 0
         while True:
             med_id = p.get(f'med_{idx}')
@@ -263,35 +264,68 @@ def transfer_request_create(request):
             if med_id is None:
                 break
             if med_id and qty:
-                items.append((int(med_id), int(qty), p.get(f'notes_{idx}', '').strip()))
+                med_items.append((int(med_id), int(qty), p.get(f'notes_{idx}', '').strip()))
             idx += 1
 
-        if not store_id:
+        # Collect consumable lines: item_X / item_qty_X / item_notes_X
+        consumable_items = []
+        idx = 0
+        while True:
+            item_id = p.get(f'item_{idx}')
+            qty     = p.get(f'item_qty_{idx}')
+            if item_id is None:
+                break
+            if item_id and qty:
+                consumable_items.append((int(item_id), int(qty), p.get(f'item_notes_{idx}', '').strip()))
+            idx += 1
+
+        store = DepartmentStore.objects.filter(id=store_id).first() if store_id else None
+
+        if not store:
             messages.error(request, 'Please select a department.')
-        elif not items:
-            messages.error(request, 'Add at least one medication to the request.')
+        elif not med_items and not consumable_items:
+            messages.error(request, 'Add at least one medication or consumable to the request.')
         else:
+            initial_status = (
+                TransferRequest.Status.PENDING_WARD_APPROVAL if store.requires_ward_supervisor_approval
+                else TransferRequest.Status.PENDING
+            )
             req = TransferRequest.objects.create(
                 request_number=_req_num(),
-                requesting_store_id=store_id,
+                requesting_store=store,
+                status=initial_status,
                 priority=priority,
                 required_by=required_by,
                 notes=notes,
                 requested_by=request.user,
             )
-            for med_id, qty, item_notes in items:
+            for med_id, qty, item_notes in med_items:
                 TransferRequestItem.objects.create(
                     transfer_request=req,
                     medication_id=med_id,
                     quantity_requested=qty,
                     notes=item_notes,
                 )
+            for inv_id, qty, item_notes in consumable_items:
+                TransferRequestItem.objects.create(
+                    transfer_request=req,
+                    inventory_item_id=inv_id,
+                    quantity_requested=qty,
+                    notes=item_notes,
+                )
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.NURSING if store.store_type == DepartmentStore.StoreType.WARD else AuditLog.Module.DEPT_PHARMACY,
+                object_type='TransferRequest', object_id=req.pk, object_repr=req.request_number,
+                description=f'Transfer request {req.request_number} submitted for {store.name}',
+                request=request,
+            )
             messages.success(request, f'Transfer request {req.request_number} submitted.')
             return redirect('transfer_request_detail', req_id=req.id)
 
     return render(request, 'dept_pharmacy/request_form.html', {
         'stores':      stores,
         'medications': medications,
+        'consumables': consumables,
         'priorities':  TransferRequest.Priority.choices,
         'today':       date.today().isoformat(),
     })
@@ -300,17 +334,56 @@ def transfer_request_create(request):
 @hms_permission_required('core.view_dept_inventory')
 def transfer_request_detail(request, req_id):
     req = get_object_or_404(TransferRequest, id=req_id)
-    items = req.items.select_related('medication')
-    transfers = req.transfers.select_related('prepared_by', 'received_by').prefetch_related('items__medication')
+    items = req.items.select_related('medication', 'inventory_item')
+    transfers = req.transfers.select_related('prepared_by', 'received_by').prefetch_related('items__medication', 'items__inventory_item')
     return render(request, 'dept_pharmacy/request_detail.html', {
         'req': req, 'items': items, 'transfers': transfers,
     })
 
 
+@hms_permission_required('core.ward_supervisor_approve')
+def transfer_request_ward_approve(request, req_id):
+    """Optional pre-approval stage — only reachable for requests from a
+    store with requires_ward_supervisor_approval=True. Approving moves the
+    request into the normal PENDING (pharmacy/store review) queue."""
+    req = get_object_or_404(TransferRequest, id=req_id, status=TransferRequest.Status.PENDING_WARD_APPROVAL)
+    items = req.items.select_related('medication', 'inventory_item')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'reject':
+            req.status = TransferRequest.Status.REJECTED
+            req.rejection_reason = request.POST.get('rejection_reason', '').strip()
+            req.save()
+            log_action(
+                request.user, AuditLog.Action.REJECT, AuditLog.Module.NURSING,
+                object_type='TransferRequest', object_id=req.pk, object_repr=req.request_number,
+                description=f'Ward supervisor rejected request {req.request_number}', request=request,
+            )
+            messages.warning(request, f'Request {req.request_number} rejected.')
+            return redirect('transfer_request_list')
+
+        elif action == 'approve':
+            req.status = TransferRequest.Status.PENDING
+            req.ward_supervisor_approved_by = request.user
+            req.ward_supervisor_approved_at = timezone.now()
+            req.save()
+            log_action(
+                request.user, AuditLog.Action.APPROVE, AuditLog.Module.NURSING,
+                object_type='TransferRequest', object_id=req.pk, object_repr=req.request_number,
+                description=f'Ward supervisor approved request {req.request_number} — forwarded to store/pharmacy review',
+                request=request,
+            )
+            messages.success(request, f'Request {req.request_number} approved and forwarded for store/pharmacy review.')
+            return redirect('transfer_request_detail', req_id=req.id)
+
+    return render(request, 'dept_pharmacy/request_ward_approve.html', {'req': req, 'items': items})
+
+
 @hms_permission_required('core.approve_medication_transfer')
 def transfer_request_approve(request, req_id):
     req = get_object_or_404(TransferRequest, id=req_id, status=TransferRequest.Status.PENDING)
-    items = req.items.select_related('medication')
+    items = req.items.select_related('medication', 'inventory_item')
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -330,7 +403,7 @@ def transfer_request_approve(request, req_id):
                 qty_key = f'approved_{item.id}'
                 qty = int(request.POST.get(qty_key, item.quantity_requested) or 0)
                 if qty < 0:
-                    errors.append(f'Approved qty for {item.medication.name} cannot be negative.')
+                    errors.append(f'Approved qty for {item.item_name} cannot be negative.')
                 else:
                     approved_items.append((item, qty))
 
@@ -363,11 +436,15 @@ def transfer_request_approve(request, req_id):
 @db_transaction.atomic
 def transfer_request_fulfill(request, req_id):
     req = get_object_or_404(TransferRequest, id=req_id, status=TransferRequest.Status.APPROVED)
-    items = req.items.filter(quantity_approved__gt=0).select_related('medication')
+    items = req.items.filter(quantity_approved__gt=0).select_related('medication', 'inventory_item')
+    med_items = [i for i in items if i.medication_id]
+    consumable_items = [i for i in items if i.inventory_item_id]
 
-    # Gather available pharmacy batches for each medication
+    # Gather available pharmacy batches for each medication line (consumable
+    # lines are deducted directly from InventoryItem.quantity_in_stock — no
+    # batch tracking, mirroring lab_consumable_use's pattern).
     batch_options = {}
-    for item in items:
+    for item in med_items:
         batches = MedicationBatch.objects.filter(
             medication=item.medication,
             is_active=True,
@@ -378,21 +455,33 @@ def transfer_request_fulfill(request, req_id):
 
     if request.method == 'POST':
         errors = []
-        line_data = []  # (item, batch, qty)
+        med_line_data = []          # (item, batch, qty)
+        consumable_line_data = []   # (item, qty)
 
-        for item in items:
+        for item in med_items:
             batch_id = request.POST.get(f'batch_{item.id}')
             qty = int(request.POST.get(f'fulfill_qty_{item.id}', item.quantity_approved) or 0)
+            if qty <= 0:
+                continue
             if not batch_id:
-                errors.append(f'Select a batch for {item.medication.name}.')
+                errors.append(f'Select a batch for {item.item_name}.')
                 continue
             batch = get_object_or_404(MedicationBatch, id=batch_id)
             if batch.quantity_available < qty:
-                errors.append(f'Not enough stock for {item.medication.name}: available {batch.quantity_available}, requested {qty}.')
-            elif qty > 0:
-                line_data.append((item, batch, qty))
+                errors.append(f'Not enough stock for {item.item_name}: available {batch.quantity_available}, requested {qty}.')
+            else:
+                med_line_data.append((item, batch, qty))
 
-        if not line_data and not errors:
+        for item in consumable_items:
+            qty = int(request.POST.get(f'fulfill_qty_{item.id}', item.quantity_approved) or 0)
+            if qty <= 0:
+                continue
+            if item.inventory_item.quantity_in_stock < qty:
+                errors.append(f'Not enough stock for {item.item_name}: available {item.inventory_item.quantity_in_stock}, requested {qty}.')
+            else:
+                consumable_line_data.append((item, qty))
+
+        if not med_line_data and not consumable_line_data and not errors:
             errors.append('No items to fulfill.')
 
         if errors:
@@ -410,7 +499,7 @@ def transfer_request_fulfill(request, req_id):
                 notes=request.POST.get('notes', '').strip(),
             )
 
-            for item, batch, qty in line_data:
+            for item, batch, qty in med_line_data:
                 DepartmentTransferItem.objects.create(
                     transfer=transfer,
                     medication=item.medication,
@@ -420,6 +509,8 @@ def transfer_request_fulfill(request, req_id):
                     quantity_transferred=qty,
                     unit_cost=item.medication.purchase_price,
                 )
+                item.quantity_issued = qty
+                item.save(update_fields=['quantity_issued'])
                 # Deduct from pharmacy batch
                 batch.quantity_available -= qty
                 batch.save()
@@ -442,9 +533,41 @@ def transfer_request_fulfill(request, req_id):
                     transaction_date=timezone.now(),
                 )
 
-            req.status           = TransferRequest.Status.FULFILLED
+            for item, qty in consumable_line_data:
+                DepartmentTransferItem.objects.create(
+                    transfer=transfer,
+                    inventory_item=item.inventory_item,
+                    quantity_transferred=qty,
+                    unit_cost=item.inventory_item.unit_cost,
+                )
+                item.quantity_issued = qty
+                item.save(update_fields=['quantity_issued'])
+                inv = item.inventory_item
+                inv.quantity_in_stock -= qty
+                inv.save(update_fields=['quantity_in_stock'])
+                InventoryTransaction.objects.create(
+                    inventory_item=inv,
+                    transaction_type=InventoryTransaction.TxType.ISSUE,
+                    quantity_out=qty,
+                    balance_after=inv.quantity_in_stock,
+                    unit_cost=inv.unit_cost,
+                    reference_number=transfer.transfer_number,
+                    notes=f'Transfer to {req.requesting_store.name} — {transfer.transfer_number}',
+                    performed_by=request.user,
+                )
+
+            # Fully issued only if every approved line was issued in full —
+            # this is the fix for the previously dead PARTIAL status.
+            fully_issued = all(i.quantity_issued >= i.quantity_approved for i in items)
+            req.status           = TransferRequest.Status.FULFILLED if fully_issued else TransferRequest.Status.PARTIAL
             req.fulfillment_date = timezone.now()
             req.save()
+            log_action(
+                request.user, AuditLog.Action.ISSUE, AuditLog.Module.DEPT_PHARMACY,
+                object_type='TransferRequest', object_id=req.pk, object_repr=req.request_number,
+                description=f'Request {req.request_number} {"fully" if fully_issued else "partially"} fulfilled via {transfer.transfer_number}',
+                request=request,
+            )
 
             messages.success(request, f'Transfer {transfer.transfer_number} created. Awaiting department receipt.')
             return redirect('dept_transfer_detail', transfer_id=transfer.id)
@@ -614,7 +737,7 @@ def dept_return_create(request, store_id):
                 StockTransaction.objects.create(
                     medication=med,
                     batch=pharm_batch,
-                    transaction_type=StockTransaction.TxType.RETURN_IN,
+                    transaction_type=StockTransaction.TxType.RETURN,
                     quantity_in=qty,
                     quantity_out=0,
                     balance_after=med.current_stock,

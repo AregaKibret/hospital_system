@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Nursing Dashboard — HMS{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Nursing Dashboard</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ today|date:"l, d F Y" }}</p>
+  </div>
+  <div class="flex gap-2 no-print">
+    <a href="{% url 'nursing_patient_list' %}" class="px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Patient List</a>
+    <a href="{% url 'nursing_pending_orders' %}" class="px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Pending Orders</a>
+    <a href="{% url 'nursing_handover_list' %}" class="px-3 py-2 bg-pink-700 hover:bg-pink-800 text-white text-sm font-semibold rounded-lg transition-colors">Shift Handover</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-slate-700 dark:text-slate-200">{{ total_admitted }}</p>
+    <p class="text-xs text-slate-500 mt-1">Admitted Patients</p>
+  </div>
+  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-blue-700 dark:text-blue-300">{{ my_patients.count }}</p>
+    <p class="text-xs text-blue-600 mt-1">My Patients</p>
+  </div>
+  <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{{ new_admissions.count }}</p>
+    <p class="text-xs text-emerald-600 mt-1">New Admissions Today</p>
+  </div>
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-amber-700 dark:text-amber-300">{{ meds_due|length }}</p>
+    <p class="text-xs text-amber-600 mt-1">Meds Due</p>
+  </div>
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-red-700 dark:text-red-300">{{ vitals_due|length }}</p>
+    <p class="text-xs text-red-600 mt-1">Vitals Due</p>
+  </div>
+  <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-3 text-center">
+    <p class="text-2xl font-bold text-purple-700 dark:text-purple-300">{{ pending_requests|length }}</p>
+    <p class="text-xs text-purple-600 mt-1">Pending Requests</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+  <!-- Meds Due -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Awaiting Medication Administration</h3>
+    </div>
+    {% if meds_due %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for entry in meds_due %}
+      <li class="px-5 py-2.5 flex items-center justify-between">
+        <div>
+          <a href="{% url 'mar_list' entry.visit_id %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ entry.prescription_item.drug_name }}</a>
+          <p class="text-xs text-slate-400">{{ entry.visit.patient.full_name }} &middot; {{ entry.scheduled_time|date:"d M H:i" }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">Nothing due right now.</p>{% endif %}
+  </div>
+
+  <!-- Vitals Due -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Vitals Due (&gt; 8h since last)</h3>
+    </div>
+    {% if vitals_due %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for adm in vitals_due %}
+      <li class="px-5 py-2.5 flex items-center justify-between">
+        <div>
+          <a href="{% url 'vital_sign_create' adm.visit_id %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ adm.patient.full_name }}</a>
+          <p class="text-xs text-slate-400">{{ adm.bed.bed_code }} &middot; {{ adm.bed.room.ward.name }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">All caught up.</p>{% endif %}
+  </div>
+
+  <!-- New Admissions -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">New Admissions Today</h3>
+    </div>
+    {% if new_admissions %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for adm in new_admissions %}
+      <li class="px-5 py-2.5">
+        <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ adm.patient.full_name }}</p>
+        <p class="text-xs text-slate-400">{{ adm.bed.bed_code }} &middot; {{ adm.bed.room.ward.name }} &middot; {{ adm.admitted_at|date:"H:i" }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">No new admissions today.</p>{% endif %}
+  </div>
+
+  <!-- Pending Requests -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Pending Medication/Consumable Requests</h3>
+      <a href="{% url 'transfer_request_create' %}" class="text-xs text-blue-600 hover:underline">+ New Request</a>
+    </div>
+    {% if pending_requests %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for req in pending_requests %}
+      <li class="px-5 py-2.5 flex items-center justify-between">
+        <div>
+          <a href="{% url 'transfer_request_detail' req.id %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ req.request_number }}</a>
+          <p class="text-xs text-slate-400">{{ req.requesting_store.name }}</p>
+        </div>
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium {% if req.status == 'pending_ward_approval' %}bg-purple-100 text-purple-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ req.get_status_display }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">No pending requests.</p>{% endif %}
+  </div>
+
+  <!-- Low Stock -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Low Stock Alerts</h3>
+    </div>
+    {% if low_stock %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for s in low_stock %}
+      <li class="px-5 py-2.5 flex items-center justify-between">
+        <span class="text-sm text-slate-700 dark:text-slate-300">{{ s.item_name }}</span>
+        <span class="text-xs text-orange-600 font-semibold">{{ s.quantity_available }} left</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">No low-stock ward items.</p>{% endif %}
+  </div>
+
+  <!-- Shift Handover -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent Handover Notes</h3>
+      <a href="{% url 'nursing_handover_create' %}" class="text-xs text-blue-600 hover:underline">+ New Note</a>
+    </div>
+    {% if handovers %}
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+      {% for h in handovers %}
+      <li class="px-5 py-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ h.ward.name }} &middot; {{ h.get_shift_display }}</span>
+          {% if h.priority_flag %}<span class="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">Priority</span>{% endif %}
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ h.content }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">No handover notes yet.</p>{% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{# Reusable print-friendly signature block. Context: signature, employee_id, display_name, subtitle, label #}
+<div style="min-width:160px;text-align:center">
+  {% if signature %}
+  <img src="{% url 'employee_signature_image' employee_id %}" alt="Signature"
+       style="max-height:48px;max-width:170px;margin:0 auto 4px;display:block;object-fit:contain">
+  {% else %}
+  <div style="height:48px;display:flex;align-items:center;justify-content:center">
+    <span style="font-size:11px;font-style:italic;color:#94a3b8">Signature Not Available</span>
+  </div>
+  {% endif %}
+  <div style="border-top:1px solid #cbd5e1;padding-top:4px;margin-top:2px">
+    <p style="font-size:12px;font-weight:600;color:#334155;margin:0">{{ display_name }}</p>
+    {% if subtitle %}<p style="font-size:11px;color:#64748b;margin:0">{{ subtitle }}</p>{% endif %}
+    <p style="font-size:11px;color:#94a3b8;margin:0">{{ label }}</p>
+  </div>
+</div>

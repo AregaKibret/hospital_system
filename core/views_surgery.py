@@ -1,21 +1,27 @@
-from datetime import date, timedelta
+import copy
+from datetime import date, datetime as dt, timedelta
+
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .audit import log_action
+from .audit import build_changes, log_action
 from .decorators import hms_permission_required
 from .models import (
-    AuditLog, Department, Invoice, InvoiceItem, OperativeNote, ORRoom,
-    Patient, ProcedureCategory, ProcedureMaster, SurgeryAnesthesiaRecord,
-    SurgeryConsumable, SurgeryOrder, SurgerySchedule, Visit,
+    AuditLog, Department, Invoice, InventoryItem, InventoryTransaction, InvoiceItem,
+    OperativeNote, ORRoom, Patient, PeriopNursingAddendum, PostOperativeNote,
+    ProcedureCategory, ProcedureMaster, SurgeryAnesthesiaRecord, SurgeryConsumable,
+    SurgeryOrder, SurgerySchedule, VitalSign, Visit,
 )
+from .report_export import export_excel
 
 User = get_user_model()
 
@@ -34,6 +40,134 @@ def _nurses():
     return User.objects.filter(
         Q(groups__name__in=['OR Nurse', 'Nurse', 'Ward Nurse'])
     ).distinct().order_by('last_name', 'first_name')
+
+
+# ── Perioperative Documentation Helpers ────────────────────────────────────────
+
+def _periop_header_context(order):
+    """Single source of truth for perioperative form/print auto-fill values —
+    called by every create/edit/print view for the three documents so the
+    auto-fill logic exists exactly once."""
+    schedule = getattr(order, 'schedule', None)
+    latest_vitals = None
+    if order.visit_id:
+        latest_vitals = VitalSign.objects.filter(visit_id=order.visit_id).order_by('-recorded_at').first()
+    # A plain dict with guaranteed keys (even if the value is None) — this
+    # lets templates use `header.vitals.bp_systolic` as a filter argument
+    # (e.g. `|default_if_none:header.vitals.bp_systolic`) without Django
+    # raising VariableDoesNotExist, which happens if the base object itself
+    # (latest_vitals) is None rather than just one of its attributes.
+    vitals = {
+        'bp_systolic': latest_vitals.bp_systolic if latest_vitals else None,
+        'bp_diastolic': latest_vitals.bp_diastolic if latest_vitals else None,
+        'pulse': latest_vitals.pulse if latest_vitals else None,
+        'respiratory_rate': latest_vitals.respiratory_rate if latest_vitals else None,
+        'temperature': latest_vitals.temperature if latest_vitals else None,
+        'spo2': latest_vitals.spo2 if latest_vitals else None,
+        'weight': latest_vitals.weight if latest_vitals else None,
+        'height': latest_vitals.height if latest_vitals else None,
+    }
+    return {
+        'patient':            order.patient,
+        'age':                order.patient.age_display,
+        'department':         order.department,
+        'ward_room':          schedule.or_room.name if schedule else (order.department.name if order.department else ''),
+        'surgeon':            order.surgeon,
+        'assistant_surgeon':  order.assistant_surgeon,
+        'planned_procedure':  order.planned_procedure,
+        'scheduled_date':     schedule.scheduled_date if schedule else order.planned_date,
+        'or_room':            schedule.or_room if schedule else None,
+        'scrub_nurse':        schedule.scrub_nurse if schedule else None,
+        'circulating_nurse':  schedule.circulating_nurse if schedule else None,
+        'schedule_anesthesiologist': schedule.anesthesiologist if schedule else None,
+        'latest_vitals':      latest_vitals,
+        'vitals':             vitals,
+        'anesthesia_type':    order.anesthesia_type,
+    }
+
+
+def _revise_periop_document(model_cls, existing, user, reason, field_names, m2m_field_names=()):
+    """Create a new version of a finalized perioperative document, copying its
+    field values as the starting point for further edits. The old row is
+    never mutated again (is_current flips to False) — this is the entire
+    mechanism behind "no finalized documentation is ever deleted or
+    overwritten; corrections create a new revision."""
+    # The old row must stop being "current" BEFORE the new row is saved as
+    # current — both rows briefly having is_current=True at once would
+    # violate the partial unique constraint (one current row per order).
+    existing.is_current = False
+    existing.save(update_fields=['is_current'])
+
+    new_doc = model_cls(surgery_order=existing.surgery_order)
+    for f in field_names:
+        setattr(new_doc, f, getattr(existing, f))
+    new_doc.version          = existing.version + 1
+    new_doc.supersedes       = existing
+    new_doc.is_current       = True
+    new_doc.doc_status       = model_cls.DocStatus.DRAFT
+    new_doc.revision_reason  = reason
+    new_doc.created_by       = user
+    new_doc.finalized_by     = None
+    new_doc.finalized_at     = None
+    new_doc.signature_name   = ''
+    new_doc.save()
+    for m2m_name in m2m_field_names:
+        getattr(new_doc, m2m_name).set(getattr(existing, m2m_name).all())
+    return new_doc
+
+
+def _finalize_periop_document(doc, user):
+    doc.doc_status     = doc.DocStatus.FINALIZED
+    doc.finalized_by   = user
+    doc.finalized_at    = timezone.now()
+    doc.signature_name  = user.get_full_name() or user.username
+    doc.save()
+
+
+def _pstr(post, name):
+    return post.get(name, '').strip()
+
+def _pint(post, name):
+    v = post.get(name, '').strip()
+    if not v:
+        return None
+    try:
+        return int(v)
+    except ValueError:
+        return None
+
+def _pdec(post, name):
+    v = post.get(name, '').strip()
+    if not v:
+        return None
+    try:
+        return Decimal(v)
+    except (InvalidOperation, ValueError):
+        return None
+
+def _pdatetime(post, name):
+    v = post.get(name, '').strip()
+    if not v:
+        return None
+    try:
+        parsed = dt.fromisoformat(v)
+    except ValueError:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+def _pdate(post, name):
+    v = post.get(name, '').strip()
+    if not v:
+        return None
+    try:
+        return date.fromisoformat(v)
+    except ValueError:
+        return None
+
+def _pbool(post, name):
+    return post.get(name) in ('on', 'true', '1', 'True')
 
 
 # ── Surgery Dashboard ─────────────────────────────────────────────────────────
@@ -243,10 +377,12 @@ def surgery_order_detail(request, order_id):
     )
 
     schedule          = getattr(order, 'schedule', None)
-    anesthesia_record = getattr(order, 'surgery_anesthesia_record', None)
-    operative_note    = getattr(order, 'operative_note', None)
+    anesthesia_record = order.current_anesthesia_record
+    operative_note    = order.current_operative_note
+    postop_note       = order.current_postop_note
     consumables       = order.consumables.select_related('recorded_by').all()
     consumable_total  = consumables.aggregate(t=Sum('total_cost'))['t'] or 0
+    nursing_addenda   = order.nursing_addenda.select_related('created_by').all()
 
     log_action(
         request.user, AuditLog.Action.ACCESS, AuditLog.Module.SURGERY,
@@ -256,14 +392,22 @@ def surgery_order_detail(request, order_id):
         request=request,
     )
 
+    or_items = InventoryItem.objects.filter(
+        item_type=InventoryItem.ItemType.SURGICAL, is_active=True,
+    ).order_by('name')
+
     return render(request, 'surgery/order_detail.html', {
         'order':            order,
         'schedule':         schedule,
         'anesthesia_record': anesthesia_record,
         'operative_note':   operative_note,
+        'postop_note':      postop_note,
+        'nursing_addenda':  nursing_addenda,
+        'nursing_doc_types': PeriopNursingAddendum.DocumentType.choices,
         'consumables':      consumables,
         'consumable_total': consumable_total,
         'status_choices':   SurgeryOrder.Status.choices,
+        'or_items':         or_items,
     })
 
 
@@ -393,6 +537,10 @@ def surgery_order_update_status(request, order_id):
             request=request,
         )
         messages.success(request, 'Patient marked as prepared.')
+
+    elif action == 'in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED and not order.payment_cleared:
+        messages.error(request, 'Payment must be cleared (Paid, Credit Approved, or Waived) before starting surgery.')
+        return redirect('surgery_order_detail', order_id=order_id)
 
     elif action == 'in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED:
         order.status = SurgeryOrder.Status.IN_OR
@@ -717,6 +865,16 @@ def or_room_list(request):
     return render(request, 'surgery/or_room_list.html', {'rooms': rooms})
 
 
+def _or_room_facility_context():
+    from .models import Building, Department, Floor
+    return {
+        'departments': Department.objects.filter(is_active=True).order_by('name'),
+        'buildings':   Building.objects.filter(is_active=True).order_by('name'),
+        'floors':      Floor.objects.filter(is_active=True).select_related('building').order_by('building__name', 'level_order'),
+        'availability_choices': ORRoom.Availability.choices,
+    }
+
+
 @hms_permission_required('core.manage_or_schedule')
 def or_room_create(request):
     if request.method == 'POST':
@@ -724,12 +882,24 @@ def or_room_create(request):
         try:
             room = ORRoom.objects.create(
                 name      = p['name'].strip(),
+                code      = p.get('code', '').strip(),
                 room_type = p.get('room_type', ORRoom.RoomType.GENERAL),
+                department_id = p.get('department') or None,
+                building_id   = p.get('building') or None,
+                floor_id      = p.get('floor') or None,
                 location  = p.get('location', '').strip(),
                 capacity  = int(p.get('capacity', 1) or 1),
                 equipment = p.get('equipment', '').strip(),
                 notes     = p.get('notes', '').strip(),
-                is_active = True,
+                availability_status = p.get('availability_status', ORRoom.Availability.AVAILABLE),
+                daily_open_time  = p.get('daily_open_time') or None,
+                daily_close_time = p.get('daily_close_time') or None,
+                max_surgeries_per_day = p.get('max_surgeries_per_day') or None,
+            )
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.FACILITY,
+                object_type='ORRoom', object_id=room.pk, object_repr=room.name,
+                description=f'OR Room "{room.name}" created', request=request,
             )
             messages.success(request, f'OR Room "{room.name}" created.')
             return redirect('or_room_list')
@@ -739,6 +909,7 @@ def or_room_create(request):
     return render(request, 'surgery/or_room_form.html', {
         'room_types': ORRoom.RoomType.choices,
         'action':     'Create',
+        **_or_room_facility_context(),
     })
 
 
@@ -749,13 +920,25 @@ def or_room_edit(request, room_id):
         p = request.POST
         try:
             room.name      = p['name'].strip()
+            room.code      = p.get('code', '').strip()
             room.room_type = p.get('room_type', room.room_type)
+            room.department_id = p.get('department') or None
+            room.building_id   = p.get('building') or None
+            room.floor_id      = p.get('floor') or None
             room.location  = p.get('location', '').strip()
             room.capacity  = int(p.get('capacity', room.capacity) or room.capacity)
             room.equipment = p.get('equipment', '').strip()
             room.notes     = p.get('notes', '').strip()
-            room.is_active = bool(p.get('is_active'))
+            room.availability_status = p.get('availability_status', room.availability_status)
+            room.daily_open_time  = p.get('daily_open_time') or None
+            room.daily_close_time = p.get('daily_close_time') or None
+            room.max_surgeries_per_day = p.get('max_surgeries_per_day') or None
             room.save()
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.FACILITY,
+                object_type='ORRoom', object_id=room.pk, object_repr=room.name,
+                description=f'OR Room "{room.name}" updated', request=request,
+            )
             messages.success(request, f'OR Room "{room.name}" updated.')
             return redirect('or_room_list')
         except Exception as exc:
@@ -765,54 +948,97 @@ def or_room_edit(request, room_id):
         'room':       room,
         'room_types': ORRoom.RoomType.choices,
         'action':     'Edit',
+        **_or_room_facility_context(),
     })
 
 
-# ── Anesthesia Record (Surgery) ───────────────────────────────────────────────
+# ── Anesthesia Record / Pre-Operative Anesthetic Assessment ───────────────────
+
+ANESTHESIA_TEXT_FIELDS = [
+    'present_illness_history', 'past_medical_history', 'previous_surgeries_history',
+    'previous_anesthesia_history', 'previous_anesthesia_complications', 'known_allergies',
+    'current_medications', 'chronic_diseases', 'smoking_status', 'alcohol_use',
+    'alcohol_details', 'pregnancy_status',
+    'general_appearance', 'cvs_exam', 'respiratory_exam', 'neuro_exam',
+    'mallampati_class', 'mouth_opening', 'neck_mobility', 'dentition_notes',
+    'difficult_airway_notes',
+    'asa_classification', 'pre_assessment_notes',
+    'lab_review_cbc', 'lab_review_blood_group', 'lab_review_coagulation',
+    'lab_review_blood_sugar', 'lab_review_rft', 'lab_review_lft', 'lab_review_ecg',
+    'lab_review_cxr', 'lab_review_other',
+    'anesthesia_type_planned', 'anesthesia_technique', 'airway_management',
+    'monitoring_plan', 'blood_products_required', 'special_equipment_needed',
+    'risk_assessment', 'pre_medication', 'npo_fasting_status',
+    'final_assessment', 'fitness_for_surgery', 'recommendations', 'assessment_comments',
+    'induction_agent', 'maintenance_agent', 'monitoring_notes', 'intraop_complications',
+    'post_anesthesia_notes', 'pacu_complications',
+]
+ANESTHESIA_INT_FIELDS = ['pe_bp_systolic', 'pe_bp_diastolic', 'pe_pulse', 'pe_respiratory_rate',
+                         'smoking_pack_years', 'pacu_duration_minutes']
+ANESTHESIA_DEC_FIELDS = ['pe_temperature', 'pe_spo2', 'pe_weight_kg', 'pe_height_cm',
+                         'thyromental_distance_cm']
+ANESTHESIA_DT_FIELDS  = ['induction_time', 'incision_time', 'closure_time', 'extubation_time']
+ANESTHESIA_BOOL_FIELDS = ['difficult_airway_anticipated']
+ANESTHESIA_ALL_FIELDS = (
+    ANESTHESIA_TEXT_FIELDS + ANESTHESIA_INT_FIELDS + ANESTHESIA_DEC_FIELDS
+    + ANESTHESIA_DT_FIELDS + ANESTHESIA_BOOL_FIELDS
+)
+
+
+def _apply_anesthesia_form(rec, post):
+    for f in ANESTHESIA_TEXT_FIELDS:
+        setattr(rec, f, _pstr(post, f))
+    for f in ANESTHESIA_INT_FIELDS:
+        setattr(rec, f, _pint(post, f))
+    for f in ANESTHESIA_DEC_FIELDS:
+        setattr(rec, f, _pdec(post, f))
+    for f in ANESTHESIA_DT_FIELDS:
+        setattr(rec, f, _pdatetime(post, f))
+    for f in ANESTHESIA_BOOL_FIELDS:
+        setattr(rec, f, _pbool(post, f))
+
 
 @hms_permission_required('core.write_surgery_anesthesia')
 def surgery_anesthesia_create(request, order_id):
     order    = get_object_or_404(SurgeryOrder, pk=order_id)
-    existing = getattr(order, 'surgery_anesthesia_record', None)
+    existing = order.current_anesthesia_record
 
     if request.method == 'POST':
         p = request.POST
-        data = dict(
-            surgery_order    = order,
-            anesthesiologist = request.user,
-            asa_classification   = p.get('asa_classification', ''),
-            pre_assessment_notes = p.get('pre_assessment_notes', '').strip(),
-            known_allergies      = p.get('known_allergies', '').strip(),
-            pre_medication       = p.get('pre_medication', '').strip(),
-            anesthesia_technique = p.get('anesthesia_technique', '').strip(),
-            induction_agent      = p.get('induction_agent', '').strip(),
-            maintenance_agent    = p.get('maintenance_agent', '').strip(),
-            airway_management    = p.get('airway_management', '').strip(),
-            monitoring_notes     = p.get('monitoring_notes', '').strip(),
-            intraop_complications = p.get('intraop_complications', '').strip(),
-            post_anesthesia_notes = p.get('post_anesthesia_notes', '').strip(),
-            pacu_duration_minutes = p.get('pacu_duration_minutes') or None,
-            pacu_complications    = p.get('pacu_complications', '').strip(),
-        )
         try:
-            if existing:
-                for k, v in data.items():
-                    if k != 'surgery_order':
-                        setattr(existing, k, v)
-                existing.save()
-                rec = existing
-            else:
-                rec = SurgeryAnesthesiaRecord.objects.create(**data)
+            with transaction.atomic():
+                if existing and existing.is_finalized:
+                    reason = p.get('revision_reason', '').strip()
+                    if not reason:
+                        messages.error(request, 'A reason is required to revise a finalized assessment.')
+                        return redirect('surgery_anesthesia_create', order_id=order_id)
+                    rec = _revise_periop_document(
+                        SurgeryAnesthesiaRecord, existing, request.user, reason, ANESTHESIA_ALL_FIELDS,
+                    )
+                    is_new = True
+                elif existing:
+                    rec = existing
+                    is_new = False
+                else:
+                    rec = SurgeryAnesthesiaRecord(surgery_order=order, created_by=request.user)
+                    is_new = False
 
+                old_snapshot = copy.copy(rec) if rec.pk else None
+                _apply_anesthesia_form(rec, p)
+                rec.updated_by = request.user
+                rec.save()
+
+            changes = build_changes(old_snapshot, rec, ANESTHESIA_ALL_FIELDS) if old_snapshot else None
             log_action(
-                request.user, AuditLog.Action.CREATE if not existing else AuditLog.Action.UPDATE,
+                request.user, AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE,
                 AuditLog.Module.SURGERY,
                 object_type='SurgeryAnesthesiaRecord', object_id=rec.pk,
-                object_repr=order.order_number,
-                description=f'Anesthesia record {"updated" if existing else "created"} for {order.order_number}',
+                object_repr=f'{order.order_number} v{rec.version}',
+                description=f'Pre-operative anesthetic assessment {"revised (new version)" if is_new and existing else "saved"} for {order.order_number}',
+                changes=changes,
                 request=request,
             )
-            messages.success(request, 'Anesthesia record saved.')
+            messages.success(request, 'Anesthesia assessment saved as draft.')
             return redirect('surgery_order_detail', order_id=order_id)
         except Exception as exc:
             messages.error(request, f'Error: {exc}')
@@ -821,59 +1047,142 @@ def surgery_anesthesia_create(request, order_id):
         'order':  order,
         'record': existing,
         'asa_choices': SurgeryAnesthesiaRecord.ASA.choices,
+        'smoking_choices': SurgeryAnesthesiaRecord.Smoking.choices,
+        'alcohol_choices': SurgeryAnesthesiaRecord.Alcohol.choices,
+        'pregnancy_choices': SurgeryAnesthesiaRecord.Pregnancy.choices,
+        'mallampati_choices': SurgeryAnesthesiaRecord.Mallampati.choices,
+        'neck_mobility_choices': SurgeryAnesthesiaRecord.NeckMobility.choices,
+        'fitness_choices': SurgeryAnesthesiaRecord.Fitness.choices,
+        'anesthesia_type_choices': SurgeryOrder.AnesthesiaType.choices,
+        'header': _periop_header_context(order),
     })
 
 
-# ── Operative Note ────────────────────────────────────────────────────────────
+@require_POST
+@hms_permission_required('core.write_surgery_anesthesia')
+def surgery_anesthesia_finalize(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    rec = order.current_anesthesia_record
+    if not rec or rec.is_finalized:
+        messages.error(request, 'No draft anesthesia assessment to finalize.')
+        return redirect('surgery_order_detail', order_id=order_id)
+    if not request.POST.get('certify'):
+        messages.error(request, 'You must certify the record is accurate and complete to finalize.')
+        return redirect('surgery_anesthesia_create', order_id=order_id)
+    _finalize_periop_document(rec, request.user)
+    log_action(
+        request.user, AuditLog.Action.APPROVE, AuditLog.Module.SURGERY,
+        object_type='SurgeryAnesthesiaRecord', object_id=rec.pk,
+        object_repr=f'{order.order_number} v{rec.version}',
+        description=f'Pre-operative anesthetic assessment finalized & signed for {order.order_number}',
+        request=request,
+    )
+    messages.success(request, 'Anesthesia assessment finalized and signed.')
+    return redirect('surgery_order_detail', order_id=order_id)
+
+
+@hms_permission_required('core.read_periop_document_history')
+def surgery_anesthesia_history(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    versions = order.anesthesia_records.select_related('created_by', 'finalized_by').order_by('-version')
+    return render(request, 'surgery/anesthesia_history.html', {'order': order, 'versions': versions})
+
+
+@hms_permission_required('core.read_surgery')
+def surgery_anesthesia_print(request, order_id, version=None):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    if version:
+        doc = get_object_or_404(order.anesthesia_records, version=version)
+    else:
+        doc = order.current_anesthesia_record
+        if not doc:
+            messages.error(request, 'No anesthesia assessment exists yet for this order.')
+            return redirect('surgery_order_detail', order_id=order_id)
+    log_action(
+        request.user, AuditLog.Action.ACCESS, AuditLog.Module.SURGERY,
+        object_type='SurgeryAnesthesiaRecord', object_id=doc.pk,
+        object_repr=f'{order.order_number} v{doc.version}',
+        description=f'Printed anesthesia assessment v{doc.version} for {order.order_number}',
+        request=request,
+    )
+    return render(request, 'surgery/anesthesia_print.html', {
+        'order': order, 'doc': doc, 'header': _periop_header_context(order), 'now': timezone.now(),
+    })
+
+
+# ── OR Operative Note ──────────────────────────────────────────────────────────
+
+OPNOTE_TEXT_FIELDS = [
+    'procedure_performed', 'pre_op_diagnosis', 'post_op_diagnosis', 'anesthesia_type',
+    'incision_type', 'surgical_technique', 'findings', 'procedure_steps', 'complications',
+    'specimens_collected', 'implants_used', 'drains_placed', 'counts_correct',
+    'wound_classification', 'wound_closure', 'dressings_applied',
+    'blood_transfusion_details', 'intraop_events', 'unexpected_findings', 'recommendations',
+    'post_op_instructions',
+]
+OPNOTE_INT_FIELDS  = ['blood_loss_ml', 'urine_output_ml']
+OPNOTE_DT_FIELDS   = ['time_patient_entered_or', 'time_surgery_start', 'time_surgery_end', 'time_patient_left_or']
+OPNOTE_BOOL_FIELDS = ['blood_transfusion_given']
+OPNOTE_ALL_FIELDS  = OPNOTE_TEXT_FIELDS + OPNOTE_INT_FIELDS + OPNOTE_DT_FIELDS + OPNOTE_BOOL_FIELDS
+
+
+def _apply_opnote_form(note, post):
+    for f in OPNOTE_TEXT_FIELDS:
+        setattr(note, f, _pstr(post, f))
+    if not note.procedure_performed:
+        note.procedure_performed = note.surgery_order.planned_procedure
+    for f in OPNOTE_INT_FIELDS:
+        setattr(note, f, _pint(post, f))
+    for f in OPNOTE_DT_FIELDS:
+        setattr(note, f, _pdatetime(post, f))
+    for f in OPNOTE_BOOL_FIELDS:
+        setattr(note, f, _pbool(post, f))
+
 
 @hms_permission_required('core.write_operative_note')
 def operative_note_create(request, order_id):
     order    = get_object_or_404(SurgeryOrder, pk=order_id)
-    existing = getattr(order, 'operative_note', None)
+    existing = order.current_operative_note
 
     if request.method == 'POST':
         p = request.POST
-        data = dict(
-            surgery_order       = order,
-            procedure_performed = p.get('procedure_performed', '').strip() or order.planned_procedure,
-            start_time          = p.get('start_time') or None,
-            end_time            = p.get('end_time') or None,
-            pre_op_diagnosis    = p.get('pre_op_diagnosis', '').strip(),
-            post_op_diagnosis   = p.get('post_op_diagnosis', '').strip(),
-            anesthesia_type     = p.get('anesthesia_type', '').strip(),
-            assistant_surgeons  = p.get('assistant_surgeons', '').strip(),
-            findings            = p.get('findings', '').strip(),
-            procedure_steps     = p.get('procedure_steps', '').strip(),
-            complications       = p.get('complications', '').strip(),
-            blood_loss_ml       = p.get('blood_loss_ml') or None,
-            urine_output_ml     = p.get('urine_output_ml') or None,
-            specimens_collected  = p.get('specimens_collected', '').strip(),
-            implants_used        = p.get('implants_used', '').strip(),
-            drains_placed        = p.get('drains_placed', '').strip(),
-            wound_closure        = p.get('wound_closure', '').strip(),
-            post_op_instructions = p.get('post_op_instructions', '').strip(),
-            authored_by          = request.user,
-        )
+        assistant_ids = [pk for pk in p.getlist('assistant_surgeons') if pk]
         try:
-            if existing:
-                for k, v in data.items():
-                    if k not in ('surgery_order', 'authored_by'):
-                        setattr(existing, k, v)
-                existing.save()
-                note = existing
-            else:
-                note = OperativeNote.objects.create(**data)
+            with transaction.atomic():
+                if existing and existing.is_finalized:
+                    reason = p.get('revision_reason', '').strip()
+                    if not reason:
+                        messages.error(request, 'A reason is required to revise a finalized operative note.')
+                        return redirect('operative_note_create', order_id=order_id)
+                    note = _revise_periop_document(
+                        OperativeNote, existing, request.user, reason, OPNOTE_ALL_FIELDS,
+                        m2m_field_names=['assistant_surgeons'],
+                    )
+                    is_new = True
+                elif existing:
+                    note = existing
+                    is_new = False
+                else:
+                    note = OperativeNote(surgery_order=order, created_by=request.user)
+                    is_new = False
 
+                old_snapshot = copy.copy(note) if note.pk else None
+                _apply_opnote_form(note, p)
+                note.updated_by = request.user
+                note.save()
+                note.assistant_surgeons.set(assistant_ids)
+
+            changes = build_changes(old_snapshot, note, OPNOTE_ALL_FIELDS) if old_snapshot else None
             log_action(
-                request.user,
-                AuditLog.Action.UPDATE if existing else AuditLog.Action.CREATE,
+                request.user, AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE,
                 AuditLog.Module.SURGERY,
                 object_type='OperativeNote', object_id=note.pk,
-                object_repr=order.order_number,
-                description=f'Operative note {"updated" if existing else "created"} for {order.order_number}',
+                object_repr=f'{order.order_number} v{note.version}',
+                description=f'Operative note {"revised (new version)" if is_new and existing else "saved"} for {order.order_number}',
+                changes=changes,
                 request=request,
             )
-            messages.success(request, 'Operative note saved.')
+            messages.success(request, 'Operative note saved as draft.')
             return redirect('surgery_order_detail', order_id=order_id)
         except Exception as exc:
             messages.error(request, f'Error: {exc}')
@@ -881,7 +1190,228 @@ def operative_note_create(request, order_id):
     return render(request, 'surgery/operative_note_form.html', {
         'order':  order,
         'note':   existing,
+        'counts_correct_choices': OperativeNote.CountsCorrect.choices,
+        'wound_class_choices': OperativeNote.WoundClass.choices,
+        'anesthesia_type_choices': SurgeryOrder.AnesthesiaType.choices,
+        'surgeons': _surgeons(),
+        'header': _periop_header_context(order),
     })
+
+
+@require_POST
+@hms_permission_required('core.write_operative_note')
+def operative_note_finalize(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    note = order.current_operative_note
+    if not note or note.is_finalized:
+        messages.error(request, 'No draft operative note to finalize.')
+        return redirect('surgery_order_detail', order_id=order_id)
+    if not request.POST.get('certify'):
+        messages.error(request, 'You must certify the record is accurate and complete to finalize.')
+        return redirect('operative_note_create', order_id=order_id)
+    _finalize_periop_document(note, request.user)
+    log_action(
+        request.user, AuditLog.Action.APPROVE, AuditLog.Module.SURGERY,
+        object_type='OperativeNote', object_id=note.pk,
+        object_repr=f'{order.order_number} v{note.version}',
+        description=f'Operative note finalized & signed for {order.order_number}',
+        request=request,
+    )
+    messages.success(request, 'Operative note finalized and signed.')
+    return redirect('surgery_order_detail', order_id=order_id)
+
+
+@hms_permission_required('core.read_periop_document_history')
+def operative_note_history(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    versions = order.operative_notes.select_related('created_by', 'finalized_by').order_by('-version')
+    return render(request, 'surgery/operative_note_history.html', {'order': order, 'versions': versions})
+
+
+@hms_permission_required('core.read_surgery')
+def operative_note_print(request, order_id, version=None):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    if version:
+        doc = get_object_or_404(order.operative_notes, version=version)
+    else:
+        doc = order.current_operative_note
+        if not doc:
+            messages.error(request, 'No operative note exists yet for this order.')
+            return redirect('surgery_order_detail', order_id=order_id)
+    log_action(
+        request.user, AuditLog.Action.ACCESS, AuditLog.Module.SURGERY,
+        object_type='OperativeNote', object_id=doc.pk,
+        object_repr=f'{order.order_number} v{doc.version}',
+        description=f'Printed operative note v{doc.version} for {order.order_number}',
+        request=request,
+    )
+    return render(request, 'surgery/operative_note_print.html', {
+        'order': order, 'doc': doc, 'header': _periop_header_context(order), 'now': timezone.now(),
+    })
+
+
+# ── Post-Operative Note ────────────────────────────────────────────────────────
+
+POSTOP_TEXT_FIELDS = [
+    'consciousness_level', 'airway_status', 'o2_requirement', 'neuro_status',
+    'wound_condition', 'drain_status', 'catheters_present', 'bleeding_assessment',
+    'post_op_complications', 'immediate_post_op_diagnosis',
+    'diet_orders', 'iv_fluids_orders', 'medication_orders', 'antibiotic_orders',
+    'pain_management_plan', 'dvt_prophylaxis', 'physiotherapy_orders',
+    'nursing_instructions', 'activity_level', 'follow_up_instructions',
+    'lab_orders', 'imaging_orders', 'disposition', 'disposition_notes',
+    'dressing_change_plan', 'drain_removal_plan', 'suture_removal_plan',
+    'additional_procedures_planned', 'outpatient_followup_instructions',
+]
+POSTOP_INT_FIELDS  = ['pain_score', 'po_bp_systolic', 'po_bp_diastolic', 'po_pulse', 'po_respiratory_rate']
+POSTOP_DEC_FIELDS  = ['po_temperature', 'po_spo2']
+POSTOP_DATE_FIELDS = ['review_date']
+POSTOP_ALL_FIELDS  = POSTOP_TEXT_FIELDS + POSTOP_INT_FIELDS + POSTOP_DEC_FIELDS + POSTOP_DATE_FIELDS
+
+
+def _apply_postop_form(note, post):
+    for f in POSTOP_TEXT_FIELDS:
+        setattr(note, f, _pstr(post, f))
+    for f in POSTOP_INT_FIELDS:
+        setattr(note, f, _pint(post, f))
+    for f in POSTOP_DEC_FIELDS:
+        setattr(note, f, _pdec(post, f))
+    for f in POSTOP_DATE_FIELDS:
+        setattr(note, f, _pdate(post, f))
+
+
+@hms_permission_required('core.write_postop_note')
+def postop_note_create(request, order_id):
+    order    = get_object_or_404(SurgeryOrder, pk=order_id)
+    existing = order.current_postop_note
+
+    if request.method == 'POST':
+        p = request.POST
+        try:
+            with transaction.atomic():
+                if existing and existing.is_finalized:
+                    reason = p.get('revision_reason', '').strip()
+                    if not reason:
+                        messages.error(request, 'A reason is required to revise a finalized post-operative note.')
+                        return redirect('postop_note_create', order_id=order_id)
+                    note = _revise_periop_document(
+                        PostOperativeNote, existing, request.user, reason, POSTOP_ALL_FIELDS,
+                    )
+                    is_new = True
+                elif existing:
+                    note = existing
+                    is_new = False
+                else:
+                    note = PostOperativeNote(surgery_order=order, created_by=request.user)
+                    is_new = False
+
+                old_snapshot = copy.copy(note) if note.pk else None
+                _apply_postop_form(note, p)
+                note.updated_by = request.user
+                note.save()
+
+            changes = build_changes(old_snapshot, note, POSTOP_ALL_FIELDS) if old_snapshot else None
+            log_action(
+                request.user, AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE,
+                AuditLog.Module.SURGERY,
+                object_type='PostOperativeNote', object_id=note.pk,
+                object_repr=f'{order.order_number} v{note.version}',
+                description=f'Post-operative note {"revised (new version)" if is_new and existing else "saved"} for {order.order_number}',
+                changes=changes,
+                request=request,
+            )
+            messages.success(request, 'Post-operative note saved as draft.')
+            return redirect('surgery_order_detail', order_id=order_id)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'surgery/postop_note_form.html', {
+        'order':  order,
+        'note':   existing,
+        'consciousness_choices': PostOperativeNote.Consciousness.choices,
+        'disposition_choices': PostOperativeNote.Disposition.choices,
+        'header': _periop_header_context(order),
+    })
+
+
+@require_POST
+@hms_permission_required('core.write_postop_note')
+def postop_note_finalize(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    note = order.current_postop_note
+    if not note or note.is_finalized:
+        messages.error(request, 'No draft post-operative note to finalize.')
+        return redirect('surgery_order_detail', order_id=order_id)
+    if not request.POST.get('certify'):
+        messages.error(request, 'You must certify the record is accurate and complete to finalize.')
+        return redirect('postop_note_create', order_id=order_id)
+    _finalize_periop_document(note, request.user)
+    log_action(
+        request.user, AuditLog.Action.APPROVE, AuditLog.Module.SURGERY,
+        object_type='PostOperativeNote', object_id=note.pk,
+        object_repr=f'{order.order_number} v{note.version}',
+        description=f'Post-operative note finalized & signed for {order.order_number}',
+        request=request,
+    )
+    messages.success(request, 'Post-operative note finalized and signed.')
+    return redirect('surgery_order_detail', order_id=order_id)
+
+
+@hms_permission_required('core.read_periop_document_history')
+def postop_note_history(request, order_id):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    versions = order.postop_notes.select_related('created_by', 'finalized_by').order_by('-version')
+    return render(request, 'surgery/postop_note_history.html', {'order': order, 'versions': versions})
+
+
+@hms_permission_required('core.read_postop_note')
+def postop_note_print(request, order_id, version=None):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    if version:
+        doc = get_object_or_404(order.postop_notes, version=version)
+    else:
+        doc = order.current_postop_note
+        if not doc:
+            messages.error(request, 'No post-operative note exists yet for this order.')
+            return redirect('surgery_order_detail', order_id=order_id)
+    log_action(
+        request.user, AuditLog.Action.ACCESS, AuditLog.Module.SURGERY,
+        object_type='PostOperativeNote', object_id=doc.pk,
+        object_repr=f'{order.order_number} v{doc.version}',
+        description=f'Printed post-operative note v{doc.version} for {order.order_number}',
+        request=request,
+    )
+    return render(request, 'surgery/postop_note_print.html', {
+        'order': order, 'doc': doc, 'header': _periop_header_context(order), 'now': timezone.now(),
+    })
+
+
+# ── Perioperative Nursing Addenda ──────────────────────────────────────────────
+
+@require_POST
+@hms_permission_required('core.add_periop_nursing_note')
+def periop_nursing_addendum_add(request, order_id, document_type):
+    order = get_object_or_404(SurgeryOrder, pk=order_id)
+    valid_types = {c[0] for c in PeriopNursingAddendum.DocumentType.choices}
+    if document_type not in valid_types:
+        messages.error(request, 'Invalid document type.')
+        return redirect('surgery_order_detail', order_id=order_id)
+    note = request.POST.get('note', '').strip()
+    if not note:
+        messages.error(request, 'Nursing note cannot be empty.')
+        return redirect('surgery_order_detail', order_id=order_id)
+    addendum = PeriopNursingAddendum.objects.create(
+        surgery_order=order, document_type=document_type, note=note, created_by=request.user,
+    )
+    log_action(
+        request.user, AuditLog.Action.CREATE, AuditLog.Module.SURGERY,
+        object_type='PeriopNursingAddendum', object_id=addendum.pk,
+        object_repr=f'{order.order_number} ({document_type})',
+        description=f'Nursing addendum added to {document_type} for {order.order_number}',
+        request=request,
+    )
+    messages.success(request, 'Nursing note added.')
+    return redirect('surgery_order_detail', order_id=order_id)
 
 
 # ── Surgery Consumables ───────────────────────────────────────────────────────
@@ -892,27 +1422,65 @@ def surgery_consumable_add(request, order_id):
     order = get_object_or_404(SurgeryOrder, pk=order_id)
     p = request.POST
     try:
-        qty = p.get('quantity', 1) or 1
+        qty = Decimal(str(p.get('quantity', 1) or 1))
         unit_cost = p.get('unit_cost', 0) or 0
-        SurgeryConsumable.objects.create(
-            surgery_order = order,
-            item_type     = p.get('item_type', SurgeryConsumable.ItemType.SUPPLY),
-            item_name     = p['item_name'].strip(),
-            quantity      = qty,
-            unit          = p.get('unit', 'unit').strip() or 'unit',
-            batch_number  = p.get('batch_number', '').strip(),
-            expiry_date   = p.get('expiry_date') or None,
-            unit_cost     = unit_cost,
-            recorded_by   = request.user,
-        )
+        inv_item_id = p.get('inventory_item') or None
+        inv_item = None
+
+        if inv_item_id:
+            inv_item = get_object_or_404(InventoryItem, pk=inv_item_id, item_type=InventoryItem.ItemType.SURGICAL)
+            if inv_item.quantity_in_stock < qty:
+                messages.error(
+                    request,
+                    f'Insufficient stock for "{inv_item.name}". Available: {inv_item.quantity_in_stock} {inv_item.unit}.'
+                )
+                return redirect('surgery_order_detail', order_id=order_id)
+            if not unit_cost:
+                unit_cost = inv_item.unit_cost
+
+        item_name = p.get('item_name', '').strip() or (inv_item.name if inv_item else '')
+        if not item_name:
+            messages.error(request, 'Provide an item name or select a catalogue item.')
+            return redirect('surgery_order_detail', order_id=order_id)
+
+        with transaction.atomic():
+            SurgeryConsumable.objects.create(
+                surgery_order  = order,
+                item_type      = p.get('item_type', SurgeryConsumable.ItemType.SUPPLY),
+                inventory_item = inv_item,
+                item_name      = item_name,
+                quantity       = qty,
+                unit           = p.get('unit', 'unit').strip() or 'unit',
+                batch_number   = p.get('batch_number', '').strip(),
+                expiry_date    = p.get('expiry_date') or None,
+                unit_cost      = unit_cost,
+                recorded_by    = request.user,
+            )
+
+            if inv_item:
+                inv_item.quantity_in_stock -= qty
+                inv_item.save(update_fields=['quantity_in_stock'])
+                or_dept = Department.objects.filter(name__icontains='Operating').first() or Department.objects.filter(name__icontains='Surgery').first()
+                InventoryTransaction.objects.create(
+                    inventory_item=inv_item,
+                    transaction_type=InventoryTransaction.TxType.ISSUE,
+                    quantity_out=qty,
+                    balance_after=inv_item.quantity_in_stock,
+                    unit_cost=inv_item.unit_cost,
+                    reference_number=order.order_number,
+                    department=or_dept,
+                    notes=f'Consumed for surgery {order.order_number} — {order.patient.full_name}.',
+                    performed_by=request.user,
+                )
+
         log_action(
             request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
             object_type='SurgeryConsumable', object_id=order.pk,
             object_repr=order.order_number,
-            description=f'Consumable added: {p["item_name"]} × {qty} for {order.order_number}',
+            description=f'Consumable added: {item_name} × {qty} for {order.order_number}',
             request=request,
         )
-        messages.success(request, f'Consumable "{p["item_name"]}" recorded.')
+        messages.success(request, f'Consumable "{item_name}" recorded.')
     except Exception as exc:
         messages.error(request, f'Error: {exc}')
     return redirect('surgery_order_detail', order_id=order_id)
@@ -951,36 +1519,44 @@ def surgery_billing_generate(request, order_id):
             due_date     = timezone.localdate(),
         )
 
-        items = []
+        # Core procedure charge (procedure/surgeon/anesthesia/facility fees)
+        # is billed as ONE combined line item so the whole "core surgery" is
+        # paid/gated as a single unit, linked back to the order itself.
+        core_fee = Decimal('0')
         if pm:
-            if pm.procedure_price:
-                items.append(('Procedure Fee', 'SURGERY', pm.procedure_price))
-            if pm.surgeon_fee:
-                items.append(('Surgeon Fee', 'SURGERY', pm.surgeon_fee))
-            if pm.anesthesia_fee:
-                items.append(('Anesthesia Fee', 'SURGERY', pm.anesthesia_fee))
-            if pm.facility_fee:
-                items.append(('Facility / OR Fee', 'SURGERY', pm.facility_fee))
-            if pm.consumable_charges:
-                items.append(('Surgical Consumables', 'SURGERY', pm.consumable_charges))
-
-        # Add tracked consumables
-        for con in order.consumables.all():
-            if con.total_cost:
-                items.append((f'Consumable: {con.item_name}', 'SURGERY', con.total_cost))
+            for fee in (pm.procedure_price, pm.surgeon_fee, pm.anesthesia_fee, pm.facility_fee, pm.consumable_charges):
+                if fee:
+                    core_fee += Decimal(str(fee))
 
         total = Decimal('0')
-        for desc, svc, price in items:
-            price = Decimal(str(price))
-            InvoiceItem.objects.create(
+        if core_fee > 0:
+            core_item = InvoiceItem.objects.create(
                 invoice      = invoice,
-                description  = desc,
-                service_type = svc,
+                description  = f'Surgery Charges — {order.planned_procedure}',
+                service_type = 'SURGERY',
                 quantity     = Decimal('1'),
-                unit_price   = price,
-                total        = price,
+                unit_price   = core_fee,
+                total        = core_fee,
             )
-            total += price
+            order.invoice_item = core_item
+            total += core_fee
+
+        # Each tracked consumable is billed — and therefore payment-gated —
+        # as its own separate line item.
+        for con in order.consumables.all():
+            if con.total_cost:
+                price = Decimal(str(con.total_cost))
+                con_item = InvoiceItem.objects.create(
+                    invoice      = invoice,
+                    description  = f'Consumable: {con.item_name}',
+                    service_type = 'SURGERY',
+                    quantity     = Decimal('1'),
+                    unit_price   = price,
+                    total        = price,
+                )
+                con.invoice_item = con_item
+                con.save(update_fields=['invoice_item'])
+                total += price
 
         invoice.total_amount = total
         invoice.save()
@@ -1178,6 +1754,54 @@ def report_or_utilization(request):
         'utilization_data': utilization_data,
         'date_from':  date_from,
         'date_to':    date_to,
+    })
+
+
+@hms_permission_required('core.read_surgery_reports')
+def report_or_inventory(request):
+    """OR Inventory Report — stock on hand + recent consumption for surgical supplies."""
+    items = InventoryItem.objects.filter(
+        item_type=InventoryItem.ItemType.SURGICAL,
+    ).select_related('category').order_by('name')
+
+    status_f = request.GET.get('status', '')
+    if status_f == 'low':
+        items = [i for i in items if i.is_low_stock and not i.is_out_of_stock]
+    elif status_f == 'out':
+        items = [i for i in items if i.is_out_of_stock]
+
+    total_value = sum(i.inventory_value for i in items)
+
+    recent_tx = InventoryTransaction.objects.filter(
+        inventory_item__item_type=InventoryItem.ItemType.SURGICAL,
+    ).select_related('inventory_item', 'performed_by').order_by('-transaction_date')[:50]
+
+    headers = ['Item', 'Category', 'Unit', 'In Stock', 'Reorder Level', 'Unit Cost', 'Value', 'Status']
+    rows = [
+        [item.name, str(item.category or ''), item.unit, item.quantity_in_stock,
+         item.reorder_level, item.unit_cost, item.inventory_value, item.stock_status]
+        for item in items
+    ]
+
+    if request.GET.get('export') == 'csv':
+        import csv
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="or_inventory.csv"'
+        writer = csv.writer(response)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        return response
+
+    if request.GET.get('export') == 'excel':
+        return export_excel('or_inventory.xlsx', headers, rows, title='OR Inventory')
+
+    qp = '&'.join(f'{k}={v}' for k, v in request.GET.items() if k not in ('page', 'export'))
+    return render(request, 'surgery/reports/or_inventory.html', {
+        'items': items,
+        'status_f': status_f,
+        'total_value': total_value,
+        'recent_tx': recent_tx,
+        'qp': qp,
     })
 
 

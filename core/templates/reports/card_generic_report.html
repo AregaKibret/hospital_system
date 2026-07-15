@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — HMS{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+  {% include "reports/_toolbar.html" %}
+
+  <!-- Filters -->
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 flex flex-wrap items-end gap-3 no-print">
+    {% if show_date_filter %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}"
+             class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+    </div>
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}"
+             class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+    </div>
+    {% endif %}
+    {% if departments is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+        <option value="{{ dept.id }}" {% if dept_filter == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if card_types is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Card Type</label>
+      <select name="card_type" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Card Types</option>
+        {% for ct in card_types %}
+        <option value="{{ ct.id }}" {% if card_type_filter == ct.id|stringformat:"s" %}selected{% endif %}>{{ ct.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if consultation_types is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Consultation Type</label>
+      <select name="consultation_type" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Consultation Types</option>
+        {% for ct in consultation_types %}
+        <option value="{{ ct.id }}" {% if consultation_type_filter == ct.id|stringformat:"s" %}selected{% endif %}>{{ ct.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if specializations is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Specialization</label>
+      <select name="specialization" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Specializations</option>
+        {% for s in specializations %}
+        <option value="{{ s.id }}" {% if specialization_filter == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if categories is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Category</label>
+      <select name="category" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if store_locations is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Store / Warehouse</label>
+      <select name="store_location" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Stores</option>
+        {% for ds in store_locations %}
+        <option value="{{ ds.id }}" {% if store_location_filter == ds.id|stringformat:"s" %}selected{% endif %}>{{ ds.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if domains is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Domain</label>
+      <select name="domain" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Domains</option>
+        {% for value, label in domains %}
+        <option value="{{ value }}" {% if domain_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if periods is not None %}
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Inventory Period</label>
+      <select name="period" class="text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        <option value="">All Periods</option>
+        {% for p in periods %}
+        <option value="{{ p.id }}" {% if period_filter == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors">Apply</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-900/30 text-xs uppercase tracking-wide text-slate-400">
+          <tr>
+            {% for h in headers %}<th class="px-4 py-2.5 text-left whitespace-nowrap">{{ h }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for row in rows %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+            {% for cell in row %}<td class="px-4 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ cell }}</td>{% endfor %}
+          </tr>
+          {% empty %}
+          <tr><td colspan="{{ headers|length }}" class="px-4 py-12 text-center text-slate-400">No records found for the selected filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

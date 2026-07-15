@@ -27,29 +27,20 @@
         <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
             <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Patient</h2>
 
-            <!-- Search -->
-            <div class="mb-3">
-                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search Patient</label>
-                <input type="text" id="patient_search" placeholder="Type name or card number..."
+            <!-- Live search -->
+            <div class="mb-3 relative">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search Patient <span class="text-red-500">*</span></label>
+                <input type="text" id="patient_search" placeholder="Type name, card number, or mobile…"
+                       value="{% if pre_patient %}{{ pre_patient.full_name }} ({{ pre_patient.card_number }}){% elif selected_patient %}{{ selected_patient.full_name }} ({{ selected_patient.card_number }}){% endif %}"
                        class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        autocomplete="off">
-                <div id="patient_results" class="hidden absolute z-10 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto"></div>
-            </div>
-
-            <div class="field-wrapper">
-                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Selected Patient <span class="text-red-500">*</span></label>
-                <select name="patient_id" id="patient_id" required
-                        class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
-                    <option value="">-- Select Patient --</option>
-                    {% if pre_patient %}
-                    <option value="{{ pre_patient.pk }}" selected>{{ pre_patient.full_name }} ({{ pre_patient.card_number }})</option>
-                    {% endif %}
-                    {% for p in patients %}
-                    <option value="{{ p.pk }}" {% if post.patient_id == p.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ p.full_name }} ({{ p.card_number }})
-                    </option>
-                    {% endfor %}
-                </select>
+                <div id="patient_results" class="hidden absolute z-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto"></div>
+                <input type="hidden" name="patient_id" id="patient_id" value="{% if pre_patient %}{{ pre_patient.pk }}{% elif post.patient_id %}{{ post.patient_id }}{% endif %}">
+                <p id="patient_selected_note" class="mt-1 text-xs {% if pre_patient or selected_patient %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400{% endif %}">
+                    {% if pre_patient %}Selected: {{ pre_patient.full_name }} ({{ pre_patient.card_number }})
+                    {% elif selected_patient %}Selected: {{ selected_patient.full_name }} ({{ selected_patient.card_number }})
+                    {% else %}Start typing to search — no patient selected yet.{% endif %}
+                </p>
             </div>
         </div>
 
@@ -65,7 +56,7 @@
                         {% for doc in doctors %}
                         <option value="{{ doc.pk }}" data-dept="{{ doc.department.name }}"
                             {% if post.doctor_id == doc.pk|stringformat:"s" %}selected{% endif %}>
-                            Dr. {{ doc.full_name }} — {{ doc.department.name }}
+                            Dr. {{ doc.full_name }}{% if doc.specialization %} — {{ doc.specialization.name }}{% endif %} ({{ doc.department.name }})
                         </option>
                         {% endfor %}
                     </select>
@@ -80,23 +71,12 @@
                 </div>
 
                 <div class="field-wrapper">
-                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time <span class="text-red-500">*</span></label>
-                    <div class="flex gap-2">
-                        <select name="appointment_time" id="appointment_time_select" required
-                                class="flex-1 text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
-                            <option value="">-- Pick doctor & date first --</option>
-                            {% if post.appointment_time %}
-                            <option value="{{ post.appointment_time }}" selected>{{ post.appointment_time }}</option>
-                            {% endif %}
-                        </select>
-                        <button type="button" onclick="loadSlots()" title="Refresh slots"
-                                class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                            </svg>
-                        </button>
-                    </div>
+                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Time <span class="text-slate-400 font-normal">(optional — defaults to 6:00 PM)</span></label>
+                    <input type="time" name="appointment_time" id="appointment_time_input"
+                           value="{{ post.appointment_time|default:'18:00' }}"
+                           class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
                     <p id="slot_info" class="mt-1 text-xs text-slate-400 dark:text-slate-500"></p>
+                    <div id="slot_suggestions" class="mt-1.5 flex flex-wrap gap-1.5"></div>
                 </div>
 
                 <div class="field-wrapper">
@@ -185,71 +165,131 @@
 </div>
 
 <script>
-// AJAX slot loader
+// AJAX slot loader — purely informational. The Time field is a plain
+// <input type="time">, so the user can always type/pick any time directly;
+// this just offers the doctor's actual open slots as convenient one-click
+// suggestions, and never blocks or restricts what can be typed.
 function loadSlots() {
     const doctorId = document.getElementById('doctor_id').value;
     const date = document.getElementById('appointment_date').value;
-    const select = document.getElementById('appointment_time_select');
+    const timeInput = document.getElementById('appointment_time_input');
     const info = document.getElementById('slot_info');
+    const suggestions = document.getElementById('slot_suggestions');
+
+    suggestions.innerHTML = '';
 
     if (!doctorId || !date) {
-        info.textContent = 'Select a doctor and date to see available slots.';
+        info.textContent = '';
         return;
     }
 
-    info.textContent = 'Loading slots...';
-    select.innerHTML = '<option value="">Loading...</option>';
+    info.textContent = 'Loading available slots…';
 
-    fetch(`/appointments/slots/?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`)
+    fetch(`{% url 'get_doctor_slots' %}?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`)
         .then(r => r.json())
         .then(data => {
-            select.innerHTML = '';
             if (data.unavailable) {
-                select.innerHTML = '<option value="">Not available — ' + (data.reason || 'Unavailable') + '</option>';
-                info.textContent = 'Doctor is not available on this date.';
+                info.textContent = 'Doctor is not available on this date — you can still set any time manually.';
                 return;
             }
             if (data.no_schedule) {
-                select.innerHTML = '<option value="">No schedule set for this day</option>';
-                info.textContent = 'No schedule configured for this day.';
+                info.textContent = 'No schedule configured for this day — you can still set any time manually.';
                 return;
             }
             if (!data.slots || data.slots.length === 0) {
-                select.innerHTML = '<option value="">No available slots</option>';
-                info.textContent = 'All slots are booked for this day.';
+                info.textContent = 'All scheduled slots are booked — you can still set any time manually.';
                 return;
             }
-            select.innerHTML = '<option value="">-- Select Time --</option>';
-            data.slots.forEach(function(slot) {
-                const opt = document.createElement('option');
-                opt.value = slot;
-                opt.textContent = slot;
-                select.appendChild(opt);
+            info.textContent = data.slots.length + ' open slot(s)' +
+                (data.schedule ? (' · ' + data.schedule.slot_duration + ' min each · ' +
+                    data.schedule.start + '–' + data.schedule.end) : '') + ' — click to fill in:';
+            data.slots.slice(0, 12).forEach(function(slot) {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.textContent = slot;
+                chip.className = 'px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors';
+                chip.addEventListener('click', function() { timeInput.value = slot; });
+                suggestions.appendChild(chip);
             });
-            if (data.schedule) {
-                info.textContent = data.slots.length + ' slot(s) available · ' +
-                    data.schedule.slot_duration + ' min each · ' +
-                    data.schedule.start + '–' + data.schedule.end;
-            }
         })
         .catch(() => {
-            select.innerHTML = '<option value="">Error loading slots</option>';
-            info.textContent = 'Could not load slots. Try again.';
+            info.textContent = 'Could not load slot suggestions — you can still set any time manually.';
         });
 }
 
-// Auto-load slots when doctor or date changes
+// Auto-load slot suggestions when doctor or date changes
 document.getElementById('doctor_id').addEventListener('change', loadSlots);
 document.getElementById('appointment_date').addEventListener('change', loadSlots);
 
-// Patient search filter on the <select>
-document.getElementById('patient_search').addEventListener('input', function() {
-    const q = this.value.toLowerCase();
-    const sel = document.getElementById('patient_id');
-    Array.from(sel.options).forEach(opt => {
-        if (!opt.value) return;
-        opt.style.display = opt.text.toLowerCase().includes(q) ? '' : 'none';
-    });
+// Live patient search (AJAX)
+let patientSearchTimer = null;
+const patientSearchInput = document.getElementById('patient_search');
+const patientResults = document.getElementById('patient_results');
+const patientIdInput = document.getElementById('patient_id');
+const patientSelectedNote = document.getElementById('patient_selected_note');
+
+patientSearchInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    // Typing again invalidates whatever was previously selected.
+    patientIdInput.value = '';
+    patientSelectedNote.textContent = 'Start typing to search — no patient selected yet.';
+    patientSelectedNote.className = 'mt-1 text-xs text-slate-400';
+
+    clearTimeout(patientSearchTimer);
+    if (q.length < 2) {
+        patientResults.classList.add('hidden');
+        patientResults.innerHTML = '';
+        return;
+    }
+    patientSearchTimer = setTimeout(function() {
+        fetch(`{% url 'appt_patient_search' %}?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                patientResults.innerHTML = '';
+                if (!data.results || data.results.length === 0) {
+                    patientResults.innerHTML = '<div class="px-3 py-2.5 text-sm text-slate-400">No patients found</div>';
+                    patientResults.classList.remove('hidden');
+                    return;
+                }
+                data.results.forEach(function(p) {
+                    const row = document.createElement('div');
+                    row.className = 'px-3 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0';
+                    row.innerHTML = `<p class="font-medium text-slate-800 dark:text-slate-100">${p.name}</p>
+                        <p class="text-xs text-slate-400 font-mono">${p.card_number}${p.mobile ? ' · ' + p.mobile : ''}</p>`;
+                    row.addEventListener('click', function() {
+                        patientIdInput.value = p.id;
+                        patientSearchInput.value = `${p.name} (${p.card_number})`;
+                        patientSelectedNote.textContent = `Selected: ${p.name} (${p.card_number})`;
+                        patientSelectedNote.className = 'mt-1 text-xs text-emerald-600 dark:text-emerald-400';
+                        patientResults.classList.add('hidden');
+                        patientResults.innerHTML = '';
+                    });
+                    patientResults.appendChild(row);
+                });
+                patientResults.classList.remove('hidden');
+            })
+            .catch(() => {
+                patientResults.innerHTML = '<div class="px-3 py-2.5 text-sm text-red-500">Search failed — try again.</div>';
+                patientResults.classList.remove('hidden');
+            });
+    }, 250);
+});
+
+// Hide results dropdown when clicking elsewhere
+document.addEventListener('click', function(e) {
+    if (e.target !== patientSearchInput && !patientResults.contains(e.target)) {
+        patientResults.classList.add('hidden');
+    }
+});
+
+// Block submit if no patient was actually picked from the results list
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (!patientIdInput.value) {
+        e.preventDefault();
+        patientSelectedNote.textContent = 'Please search and select a patient from the list before submitting.';
+        patientSelectedNote.className = 'mt-1 text-xs text-red-500';
+        patientSearchInput.focus();
+    }
 });
 </script>
 {% endblock %}

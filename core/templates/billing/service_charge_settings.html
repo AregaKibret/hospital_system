@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Service Charge Settings — HMS{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'billing_dashboard' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Service Charge Settings</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Controls the optional per-item service charge on the Cashier payment screen.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-xl text-sm font-medium
+      {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+      {% else %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
+      <label class="flex items-center gap-3">
+        <input type="checkbox" name="enabled" {% if sc_settings.enabled %}checked{% endif %}
+               class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Enable Service Charge</span>
+      </label>
+      <p class="text-xs text-slate-400 -mt-2 ml-7">When disabled, no service charge options appear on the payment screen at all.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Default Percentage</label>
+          <div class="relative">
+            <input type="number" name="percentage" step="0.01" min="0" max="100" value="{{ sc_settings.percentage }}"
+                   class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 pr-8 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+          </div>
+        </div>
+        <div class="field-wrapper">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Service Charge Name</label>
+          <input type="text" name="charge_name" value="{{ sc_settings.charge_name }}" placeholder="Service Charge"
+                 class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+        </div>
+      </div>
+
+      <label class="flex items-center gap-3 pt-2">
+        <input type="checkbox" name="allow_cashier_override" {% if sc_settings.allow_cashier_override %}checked{% endif %}
+               class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Cashiers can override the default selection</span>
+      </label>
+      <p class="text-xs text-slate-400 -mt-2 ml-7">
+        If unchecked, the per-item checkboxes on the payment screen are locked to the defaults below — cashiers cannot change them.
+      </p>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Default Behavior by Service Type</h2>
+      <p class="text-xs text-slate-400 mb-3">Check a service type to make it <strong>unchecked (no charge)</strong> by default — e.g. Medication/Pharmacy. Leave unchecked to have the service charge apply by default.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {% for value, label in service_types %}
+        {% if value != 'Service Charge' %}
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input type="checkbox" name="disabled_service_types" value="{{ value }}"
+                 {% if value in sc_settings.default_disabled_service_types %}checked{% endif %}
+                 class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+          {{ label }}
+        </label>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'billing_dashboard' %}" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+      <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save Settings</button>
+    </div>
+  </form>
+
+  {% if sc_settings.updated_by %}
+  <p class="text-xs text-slate-400 mt-4 text-center">Last updated by {{ sc_settings.updated_by.get_full_name|default:sc_settings.updated_by.username }} on {{ sc_settings.updated_at|date:"d M Y H:i" }}</p>
+  {% endif %}
+</div>
+{% endblock %}

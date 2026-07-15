@@ -719,6 +719,60 @@ def supplier_edit(request, supplier_id):
     return render(request, 'med_inventory/supplier_form.html', {'action': 'Edit', 'sup': sup})
 
 
+@hms_permission_required('core.view_inv_reports')
+def report_supplier_performance(request):
+    """Supplier Report — purchase value and batch count supplied per vendor."""
+    from .models import InventoryBatch
+
+    date_from = request.GET.get('from', '')
+    date_to = request.GET.get('to', '')
+
+    med_batches = MedicationBatch.objects.filter(supplier__isnull=False)
+    inv_batches = InventoryBatch.objects.filter(supplier__isnull=False)
+    if date_from:
+        med_batches = med_batches.filter(received_date__gte=date_from)
+        inv_batches = inv_batches.filter(received_date__gte=date_from)
+    if date_to:
+        med_batches = med_batches.filter(received_date__lte=date_to)
+        inv_batches = inv_batches.filter(received_date__lte=date_to)
+
+    rows = []
+    for sup in Supplier.objects.filter(is_active=True).order_by('name'):
+        med_qs = med_batches.filter(supplier=sup)
+        inv_qs = inv_batches.filter(supplier=sup)
+        med_value = sum((b.quantity_received or 0) * (b.purchase_price or 0) for b in med_qs)
+        inv_value = sum((b.quantity_received or 0) * (b.purchase_price or 0) for b in inv_qs)
+        batch_count = med_qs.count() + inv_qs.count()
+        if batch_count == 0:
+            continue
+        rows.append({
+            'supplier': sup,
+            'batch_count': batch_count,
+            'total_value': med_value + inv_value,
+        })
+    rows.sort(key=lambda r: -r['total_value'])
+    grand_total = sum(r['total_value'] for r in rows)
+
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="supplier_report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Supplier', 'Code', 'Contact', 'Phone', 'Batches Supplied', 'Total Purchase Value'])
+        for r in rows:
+            writer.writerow([r['supplier'].name, r['supplier'].code, r['supplier'].contact_person,
+                              r['supplier'].phone, r['batch_count'], r['total_value']])
+        return response
+
+    qp = '&'.join(f'{k}={v}' for k, v in request.GET.items() if k not in ('page', 'export'))
+    return render(request, 'med_inventory/reports/supplier_report.html', {
+        'rows': rows,
+        'grand_total': grand_total,
+        'date_from': date_from,
+        'date_to': date_to,
+        'qp': qp,
+    })
+
+
 # ── Transaction log ───────────────────────────────────────────────────────────
 
 @hms_permission_required('core.read_medication_inventory')

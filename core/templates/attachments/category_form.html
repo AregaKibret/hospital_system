@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Attachment Category — HMS{% endblock %}
+{% block content %}
+
+{% if messages %}
+<div class="mb-4 space-y-2">
+  {% for msg in messages %}
+  <div class="px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'attachment_category_list' %}" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ action }} Attachment Category</h1>
+</div>
+
+<div class="max-w-lg">
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+    <div>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Name <span class="text-red-500">*</span></label>
+      <div class="field-wrapper"><input type="text" name="name" value="{{ category.name|default:'' }}" required></div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Description</label>
+      <div class="field-wrapper"><textarea name="description" rows="2">{{ category.description|default:'' }}</textarea></div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Display Order</label>
+      <div class="field-wrapper"><input type="number" name="display_order" value="{{ category.display_order|default:0 }}"></div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Restrict Upload To Roles</label>
+      <p class="text-xs text-slate-400 mb-1.5">Leave empty to allow any user with upload permission to use this category.</p>
+      <div class="field-wrapper">
+        <select name="restricted_to_roles" multiple size="8">
+          {% for g in groups %}
+          <option value="{{ g.id }}" {% if category and g in category.restricted_to_roles.all %}selected{% endif %}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="is_required_for_admission" id="is_required_for_admission" {% if category.is_required_for_admission %}checked{% endif %} class="rounded">
+      <label for="is_required_for_admission" class="text-sm text-slate-700 dark:text-slate-300">Required for every admitted patient</label>
+    </div>
+    {% if category %}
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="is_active" id="is_active" {% if category.is_active %}checked{% endif %} class="rounded">
+      <label for="is_active" class="text-sm text-slate-700 dark:text-slate-300">Active</label>
+    </div>
+    {% endif %}
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">{{ action }} Category</button>
+      <a href="{% url 'attachment_category_list' %}" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

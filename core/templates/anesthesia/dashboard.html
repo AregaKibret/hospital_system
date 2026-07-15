@@ -88,7 +88,9 @@
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
             <td class="px-6 py-3">
               <p class="font-medium text-slate-900 dark:text-white">{{ record.visit.patient.full_name }}</p>
-              <p class="text-xs font-mono text-slate-400">{{ record.visit.patient.card_number }}</p>
+              <p class="text-xs font-mono text-slate-400">{{ record.visit.patient.card_number }}
+                {% if record.source == 'surgery' %}<span class="ml-1 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 font-sans">{{ record.order_number }}</span>{% endif %}
+              </p>
             </td>
             <td class="px-6 py-3 hidden sm:table-cell">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
@@ -102,10 +104,17 @@
               {% if record.duration_minutes %}{{ record.duration_minutes }} min{% else %}—{% endif %}
             </td>
             <td class="px-6 py-3 text-right">
+              {% if record.source == 'surgery' %}
+              <a href="{% url 'surgery_anesthesia_print' record.surgery_order_id %}"
+                 class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+                View
+              </a>
+              {% else %}
               <a href="{% url 'anesthesia_record_detail' record.id %}"
                  class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
                 View
               </a>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -132,8 +141,25 @@
         <h2 class="text-base font-semibold text-slate-900 dark:text-white">Pending Procedures</h2>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">No anesthesia record yet</p>
       </div>
-      {% if pending_procedures %}
+      {% if pending_procedures or pending_surgery_orders %}
       <ul class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for order in pending_surgery_orders %}
+        <li class="px-5 py-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ order.planned_procedure }} <span class="text-xs text-rose-500">({{ order.order_number }})</span></p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">{{ order.patient.full_name }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">{{ order.department.name|default:"—" }}</p>
+            </div>
+            {% if perms.core.write_surgery_anesthesia %}
+            <a href="{% url 'surgery_anesthesia_create' order.pk %}"
+               class="inline-flex items-center shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors">
+              Add
+            </a>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
         {% for proc in pending_procedures %}
         <li class="px-5 py-3">
           <div class="flex items-start justify-between gap-2">
@@ -176,11 +202,15 @@
         <li class="px-5 py-3">
           <div class="flex items-center justify-between gap-2">
             <div>
-              <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ record.visit.patient.full_name }}</p>
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ record.visit.patient.full_name }}{% if record.source == 'surgery' %} <span class="text-xs text-rose-500">({{ record.order_number }})</span>{% endif %}</p>
               <p class="text-xs text-slate-500 dark:text-slate-400">{{ record.anesthesia_type }} · {{ record.created_at|date:"M j" }}</p>
             </div>
+            {% if record.source == 'surgery' %}
+            <a href="{% url 'surgery_anesthesia_print' record.surgery_order_id %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0">View</a>
+            {% else %}
             <a href="{% url 'anesthesia_record_detail' record.id %}"
                class="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0">View</a>
+            {% endif %}
           </div>
         </li>
         {% endfor %}

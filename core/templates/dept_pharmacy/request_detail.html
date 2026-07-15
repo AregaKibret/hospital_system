@@ -10,6 +10,9 @@
       <p class="text-sm text-slate-500 dark:text-slate-400">{{ req.requesting_store.name }} · {{ req.request_date|date:"M d, Y H:i" }}</p>
     </div>
     <div class="flex gap-2">
+      {% if req.status == 'pending_ward_approval' and perms.core.ward_supervisor_approve %}
+      <a href="{% url 'transfer_request_ward_approve' req.id %}" class="btn-primary text-sm">Ward Supervisor Review</a>
+      {% endif %}
       {% if req.status == 'pending' and perms.core.approve_medication_transfer %}
       <a href="{% url 'transfer_request_approve' req.id %}" class="btn-primary text-sm">Review</a>
       {% endif %}
@@ -24,9 +27,11 @@
     <div>
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</p>
       <span class="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-        {% if req.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+        {% if req.status == 'pending_ward_approval' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300
+        {% elif req.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
         {% elif req.status == 'approved' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
         {% elif req.status == 'fulfilled' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+        {% elif req.status == 'partial' %}bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300
         {% elif req.status == 'rejected' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
         {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
         {{ req.get_status_display }}
@@ -44,6 +49,12 @@
     <div>
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Required By</p>
       <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.required_by|date:"M d, Y" }}</p>
+    </div>
+    {% endif %}
+    {% if req.ward_supervisor_approved_by %}
+    <div>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Ward Supervisor Approved By</p>
+      <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.ward_supervisor_approved_by.get_full_name|default:req.ward_supervisor_approved_by.username }}</p>
     </div>
     {% endif %}
     {% if req.approved_by %}
@@ -74,7 +85,7 @@
     <table class="min-w-full text-sm">
       <thead>
         <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
-          <th class="px-5 py-3 font-medium">Medication</th>
+          <th class="px-5 py-3 font-medium">Item</th>
           <th class="px-5 py-3 font-medium text-right">Requested</th>
           <th class="px-5 py-3 font-medium text-right">Approved</th>
           <th class="px-5 py-3 font-medium">Item Note</th>
@@ -84,13 +95,15 @@
         {% for item in items %}
         <tr>
           <td class="px-5 py-3">
-            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.medication.name }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.item_name }}</p>
+            {% if item.medication %}<p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
+            {% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300">Consumable</span>{% endif %}
           </td>
           <td class="px-5 py-3 text-right text-slate-700 dark:text-slate-300">{{ item.quantity_requested }}</td>
           <td class="px-5 py-3 text-right">
             {% if item.quantity_approved is not None %}
             <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ item.quantity_approved }}</span>
+            {% if item.quantity_issued %} <span class="text-xs text-slate-400">({{ item.quantity_issued }} issued)</span>{% endif %}
             {% else %}<span class="text-slate-400 dark:text-slate-500">—</span>{% endif %}
           </td>
           <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ item.notes|default:"—" }}</td>

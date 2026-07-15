@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Login History — HMS{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Login History</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">View and export user login/logout records</p>
+    </div>
+    <a href="{% url 'session_dashboard' %}"
+       class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+      Active Sessions
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+      <div class="field-wrapper">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ date_from_str }}" class="w-36">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ date_to_str }}" class="w-36">
+      </div>
+      <div class="field-wrapper flex-1 min-w-40">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">User</label>
+        <input type="text" name="user" value="{{ user_q }}" placeholder="Search by name or username...">
+      </div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">
+        Filter
+      </button>
+      <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&user={{ user_q }}&export=csv"
+         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition">
+        Export CSV
+      </a>
+    </form>
+  </div>
+
+  <!-- Results -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h2 class="text-base font-semibold text-slate-800 dark:text-white">
+        Results: {{ date_from|date:"d M Y" }} — {{ date_to|date:"d M Y" }}
+      </h2>
+      <span class="text-xs text-slate-500 dark:text-slate-400">{{ total }} record{{ total|pluralize }}</span>
+    </div>
+
+    {% if sessions %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">User</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Role</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">IP Address</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Browser</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Device</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Login Time</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Logout Time</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for sess in sessions %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+            <td class="px-5 py-3">
+              <p class="font-medium text-slate-900 dark:text-white text-xs">{{ sess.user.get_full_name|default:sess.user.username }}</p>
+              <p class="text-xs text-slate-400">{{ sess.user.username }}</p>
+            </td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">
+              {{ sess.user.groups.first.name|default:"—" }}
+            </td>
+            <td class="px-5 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">{{ sess.ip_address|default:"—" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">{{ sess.browser|default:"—" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">{{ sess.device_type|default:"—" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">{{ sess.login_at|date:"d M Y H:i" }}</td>
+            <td class="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">
+              {% if sess.logout_at %}{{ sess.logout_at|date:"d M Y H:i" }}{% else %}
+              <span class="text-green-600 dark:text-green-400 font-medium">Active</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3">
+              {% if sess.logout_type == 'forced' %}
+              <span class="text-xs font-medium px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">Forced</span>
+              {% elif sess.logout_type == 'timeout' %}
+              <span class="text-xs font-medium px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">Timeout</span>
+              {% elif sess.logout_type == 'manual' %}
+              <span class="text-xs font-medium px-2 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 rounded-full">Manual</span>
+              {% elif sess.is_active %}
+              <span class="text-xs font-medium px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">Active</span>
+              {% else %}
+              <span class="text-xs text-slate-400">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-12 text-center text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No login records found for the selected period.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

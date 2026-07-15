@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Lab Turnaround Time Report{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Turnaround Time Report</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ date_from|date:"d M Y" }} — {{ date_to|date:"d M Y" }}</p>
+    </div>
+    <a href="?date_from={{ date_from_str }}&date_to={{ date_to_str }}&export=csv" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">Export CSV</a>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ date_from_str }}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ date_to_str }}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+      </div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Filter</button>
+    </div>
+  </form>
+
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+      <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ total }}</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Resulted Orders</div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+      <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ within_count }}</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Within Target TAT</div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 sm:col-span-1 col-span-2">
+      <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ pct_within }}%</div>
+      <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compliance Rate</div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if rows %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">Test</th>
+          <th class="text-left px-4 py-3">Patient</th>
+          <th class="text-left px-4 py-3">Ordered</th>
+          <th class="text-left px-4 py-3">Resulted</th>
+          <th class="text-right px-4 py-3">Actual (h)</th>
+          <th class="text-right px-4 py-3">Target (h)</th>
+          <th class="text-center px-4 py-3">Within Target</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for r in rows %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-2.5 font-medium text-gray-900 dark:text-white">{{ r.order.test_name }}</td>
+          <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">{{ r.order.visit.patient.full_name }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ r.order.ordered_at|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{{ r.order.resulted_at|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">{{ r.actual_hours }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">{{ r.target_hours|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-center">
+            {% if r.within_target %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Yes</span>
+            {% else %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">No</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500"><p class="text-sm">No resulted orders in the selected period.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

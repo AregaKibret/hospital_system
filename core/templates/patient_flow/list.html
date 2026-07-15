@@ -51,7 +51,7 @@
             <p class="font-medium text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</p>
             {% if visit.chief_complaint %}<p class="text-xs text-slate-400 truncate max-w-xs">{{ visit.chief_complaint|truncatechars:40 }}</p>{% endif %}
           </td>
-          <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ visit.patient.mrn }}</td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ visit.patient.card_number }}</td>
           <td class="px-4 py-3 text-xs">
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
               {% if visit.visit_type == 'New Visit' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300

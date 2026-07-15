@@ -41,6 +41,42 @@
         </div>
       </div>
 
+      <!-- Generic Name -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Generic Name</label>
+        <div class="field-wrapper">
+          <input type="text" name="generic_name" value="{{ item.generic_name|default:'' }}" placeholder="e.g. Acetylsalicylic Acid 300mg">
+        </div>
+      </div>
+
+      <!-- Item Code -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Item Code</label>
+        <div class="field-wrapper">
+          <input type="text" name="item_code" value="{{ item.item_code|default:'' }}" placeholder="e.g. AA01">
+        </div>
+      </div>
+
+      <!-- SKU -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">SKU / Barcode Alias</label>
+        <div class="field-wrapper">
+          <input type="text" name="sku" value="{{ item.sku|default:'' }}" placeholder="e.g. MED-0042">
+        </div>
+      </div>
+
+      <!-- Item Type -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Item Type</label>
+        <div class="field-wrapper">
+          <select name="item_type">
+            {% for val, label in item_types %}
+            <option value="{{ val }}" {% if item and item.item_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
       <!-- Category -->
       <div>
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Category</label>
@@ -54,21 +90,69 @@
         </div>
       </div>
 
-      <!-- SKU -->
+      <!-- Subcategory -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">SKU / Code</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Subcategory</label>
         <div class="field-wrapper">
-          <input type="text" name="sku" value="{{ item.sku|default:'' }}" placeholder="e.g. MED-0042">
+          <input type="text" name="subcategory" value="{{ item.subcategory|default:'' }}" placeholder="e.g. Anti-Infectives">
+        </div>
+      </div>
+
+      <!-- Item Group -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Item Group</label>
+        <div class="field-wrapper">
+          <select name="item_group">
+            <option value="">— No Group —</option>
+            {% for g in item_groups %}
+            <option value="{{ g.id }}" {% if item and item.item_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Dosage Form -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Dosage Form</label>
+        <div class="field-wrapper">
+          <input type="text" name="dosage_form" value="{{ item.dosage_form|default:'' }}" placeholder="e.g. Tablet, Injection">
+        </div>
+      </div>
+
+      <!-- Strength -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Strength</label>
+        <div class="field-wrapper">
+          <input type="text" name="strength" value="{{ item.strength|default:'' }}" placeholder="e.g. 500mg">
         </div>
       </div>
 
       <!-- Unit -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Unit of Measure</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Storage Unit</label>
         <div class="field-wrapper">
-          <input type="text" name="unit" value="{{ item.unit|default:'units' }}" placeholder="e.g. boxes, pcs, litres">
+          <input type="text" name="unit" value="{{ item.unit|default:'units' }}" list="uom-list" placeholder="e.g. boxes, pcs, litres">
         </div>
       </div>
+
+      <!-- Purchase Unit -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purchase Unit</label>
+        <div class="field-wrapper">
+          <input type="text" name="unit_purchase" value="{{ item.unit_purchase|default:'' }}" list="uom-list" placeholder="e.g. Carton">
+        </div>
+      </div>
+
+      <!-- Dispensing Unit -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Dispensing Unit</label>
+        <div class="field-wrapper">
+          <input type="text" name="dispensing_unit" value="{{ item.dispensing_unit|default:'' }}" list="uom-list" placeholder="e.g. Amp">
+        </div>
+      </div>
+      <datalist id="uom-list">
+        {% for u in units %}<option value="{{ u.name }}">{% endfor %}
+      </datalist>
 
       <!-- Quantity in Stock -->
       <div>
@@ -89,11 +173,51 @@
         </div>
       </div>
 
+      <!-- Selling Price -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Selling Price (ETB)</label>
+        <div class="field-wrapper">
+          <input type="number" name="selling_price" value="{{ item.selling_price|default:0 }}" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <!-- Inpatient Price -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Inpatient Price (ETB)</label>
+        <div class="field-wrapper">
+          <input type="number" name="inpatient_price" value="{{ item.inpatient_price|default:0 }}" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <!-- Tax Type -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tax Type</label>
+        <div class="field-wrapper">
+          <input type="text" name="tax_type" value="{{ item.tax_type|default:'' }}" placeholder="e.g. VAT">
+        </div>
+      </div>
+
       <!-- Reorder Level -->
       <div>
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reorder Level</label>
         <div class="field-wrapper">
           <input type="number" name="reorder_level" value="{{ item.reorder_level|default:10 }}" min="0">
+        </div>
+      </div>
+
+      <!-- Min Stock -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Minimum Stock Level</label>
+        <div class="field-wrapper">
+          <input type="number" name="min_stock" value="{{ item.min_stock|default:0 }}" min="0">
+        </div>
+      </div>
+
+      <!-- Max Stock -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Maximum Stock Level</label>
+        <div class="field-wrapper">
+          <input type="number" name="max_stock" value="{{ item.max_stock|default:'' }}" min="0" placeholder="No cap">
         </div>
       </div>
 
@@ -103,6 +227,16 @@
         <div class="field-wrapper">
           <input type="text" name="supplier_name" value="{{ item.supplier_name|default:'' }}" placeholder="e.g. MedSupply Co.">
         </div>
+      </div>
+
+      <!-- Billable / Active toggles -->
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_billable" id="is_billable" {% if item.is_billable %}checked{% endif %} class="rounded">
+        <label for="is_billable" class="text-sm text-slate-700 dark:text-slate-300">Billable to patient when used</label>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_active" id="is_active" {% if not item or item.is_active %}checked{% endif %} class="rounded">
+        <label for="is_active" class="text-sm text-slate-700 dark:text-slate-300">Active</label>
       </div>
 
       <!-- Notes -->

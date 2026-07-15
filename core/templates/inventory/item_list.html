@@ -26,6 +26,14 @@
        class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">
       Dashboard
     </a>
+    <a href="{% url 'item_group_list' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">
+      Item Groups
+    </a>
+    <a href="{% url 'unit_of_measure_list' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">
+      Units
+    </a>
     {% if perms.core.manage_inventory %}
     <a href="{% url 'inventory_item_create' %}"
        class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
@@ -43,7 +51,7 @@
   <div class="flex-1 min-w-48">
     <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search</label>
     <div class="field-wrapper">
-      <input type="text" name="q" value="{{ query }}" placeholder="Name, SKU, supplier…" class="w-full">
+      <input type="text" name="q" value="{{ query }}" placeholder="Name, generic name, item code, SKU, barcode, supplier…" class="w-full">
     </div>
   </div>
   <div class="w-48">
@@ -57,11 +65,33 @@
       </select>
     </div>
   </div>
+  <div class="w-44">
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Item Group</label>
+    <div class="field-wrapper">
+      <select name="item_group">
+        <option value="">All Groups</option>
+        {% for g in item_groups %}
+        <option value="{{ g.id }}" {% if item_group_id == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="w-44">
+    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Item Type</label>
+    <div class="field-wrapper">
+      <select name="item_type">
+        <option value="">All Types</option>
+        {% for val, label in item_types %}
+        <option value="{{ val }}" {% if item_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
   <button type="submit"
           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
     Filter
   </button>
-  {% if query or category_id %}
+  {% if query or category_id or item_group_id or item_type %}
   <a href="{% url 'inventory_item_list' %}"
      class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
     Clear
@@ -94,9 +124,9 @@
           {% elif item.is_low_stock %}bg-orange-50/30 dark:bg-orange-900/5{% endif %}">
           <td class="px-4 py-3">
             <p class="font-medium text-slate-900 dark:text-white">{{ item.name }}</p>
-            <p class="text-xs text-slate-400">{{ item.unit }}</p>
+            <p class="text-xs text-slate-400">{{ item.item_code|default:item.sku|default:"—" }} · {{ item.unit }}</p>
           </td>
-          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ item.sku|default:"—" }}</td>
+          <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ item.item_code|default:item.sku|default:"—" }}</td>
           <td class="px-4 py-3 hidden sm:table-cell">
             {% if item.category %}
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
@@ -175,11 +205,11 @@
     </p>
     <div class="flex gap-1">
       {% if page_obj.has_previous %}
-      <a href="?q={{ query }}&category={{ category_id }}&page={{ page_obj.previous_page_number }}"
+      <a href="?q={{ query }}&category={{ category_id }}&item_group={{ item_group_id }}&item_type={{ item_type }}&page={{ page_obj.previous_page_number }}"
          class="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors">Prev</a>
       {% endif %}
       {% if page_obj.has_next %}
-      <a href="?q={{ query }}&category={{ category_id }}&page={{ page_obj.next_page_number }}"
+      <a href="?q={{ query }}&category={{ category_id }}&item_group={{ item_group_id }}&item_type={{ item_type }}&page={{ page_obj.next_page_number }}"
          class="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors">Next</a>
       {% endif %}
     </div>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Facility Dashboard{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Facility Dashboard</h1>
+  <div class="flex gap-2 flex-wrap">
+    <a href="{% url 'building_list' %}" class="btn-secondary text-sm">Buildings</a>
+    <a href="{% url 'ward_list' %}" class="btn-secondary text-sm">Wards</a>
+    <a href="{% url 'surgery_or_room_list' %}" class="btn-secondary text-sm">Operating Rooms</a>
+    {% if perms.core.view_facility_reports %}<a href="{% url 'reports_hub' %}" class="btn-secondary text-sm">Reports</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ total_or }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Operating Rooms</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ available_or }}</p>
+    <p class="text-xs text-slate-500 mt-1">Available ORs</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ total_wards }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Wards</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ total_rooms }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Rooms</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ total_beds }}</p>
+    <p class="text-xs text-slate-500 mt-1">Total Beds</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ occupied_beds }}</p>
+    <p class="text-xs text-slate-500 mt-1">Occupied Beds</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ available_beds }}</p>
+    <p class="text-xs text-slate-500 mt-1">Available Beds</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ maintenance_beds }}</p>
+    <p class="text-xs text-slate-500 mt-1">Beds Under Maintenance</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Bed Occupancy Rate</h3>
+    <p class="text-3xl font-bold text-slate-800 dark:text-slate-100">{{ bed_occupancy_rate }}%</p>
+    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mt-3">
+      <div class="bg-blue-600 h-2 rounded-full" style="width: {{ bed_occupancy_rate }}%"></div>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">OR Utilization Rate (Today)</h3>
+    <p class="text-3xl font-bold text-slate-800 dark:text-slate-100">{{ or_utilization_rate }}%</p>
+    <p class="text-xs text-slate-400 mt-1">{{ surgeries_today }} surgeries scheduled today</p>
+    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mt-3">
+      <div class="bg-rose-600 h-2 rounded-full" style="width: {{ or_utilization_rate }}%"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

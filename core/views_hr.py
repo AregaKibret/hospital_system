@@ -6,10 +6,46 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from .audit import log_action
 from .decorators import hms_permission_required
-from .models import Attendance, Department, Employee, LeaveRequest
+from .models import (
+    AuditLog, Attendance, Department, Doctor, Employee, EmployeeSignature,
+    LeaveRequest, Specialization,
+)
 
 User = get_user_model()
+
+# Common HR positions — "Doctor" is handled specially: selecting it requires
+# a Department + Specialization and keeps a linked clinical Doctor record in
+# sync (see _sync_doctor_profile below). Anything else (including "Other",
+# which reveals a free-text box) is stored as plain text, same as before.
+COMMON_POSITIONS = [
+    'Doctor', 'Nurse', 'Pharmacist', 'Lab Technician', 'Radiology Technician',
+    'Receptionist', 'Cashier', 'HR Officer', 'Accountant', 'Store Officer',
+    'Administrator',
+]
+
+
+def _sync_doctor_profile(employee, position, department, specialization, user):
+    """Keep a clinical Doctor record in sync with an Employee whose position
+    is "Doctor" — creating it on first save, updating department/specialization
+    on later edits. Never deletes an existing Doctor row (a position change
+    away from "Doctor" doesn't retroactively remove clinical history)."""
+    if position.strip().lower() != 'doctor':
+        return None
+    names = (employee.user.get_full_name() or employee.user.username).split(maxsplit=1)
+    first_name = names[0] if names else employee.user.username
+    last_name = names[1] if len(names) > 1 else ''
+    doctor, created = Doctor.objects.update_or_create(
+        user=user,
+        defaults={
+            'first_name': first_name,
+            'last_name': last_name,
+            'department': department,
+            'specialization': specialization,
+        },
+    )
+    return doctor, created
 
 
 # ── HR Dashboard ──────────────────────────────────────────────────────────────
@@ -108,28 +144,70 @@ def employee_create(request):
 
     if request.method == 'POST':
         user_id = request.POST.get('user') or None
+        position = request.POST.get('position', '').strip()
+        is_doctor = position.lower() == 'doctor'
+        dept_id = request.POST.get('department') or None
+
+        errors = []
+        user = None
+        department = None
+        specialization = None
+
         if not user_id:
-            messages.error(request, 'Please select a user.')
+            errors.append('Please select a user.')
         else:
             user = get_object_or_404(User, pk=user_id)
             if Employee.objects.filter(user=user).exists():
-                messages.error(request, f'Employee profile already exists for {user.get_full_name()}.')
+                errors.append(f'Employee profile already exists for {user.get_full_name()}.')
+
+        if is_doctor and not dept_id:
+            errors.append('Department is required when the role is Doctor.')
+        elif is_doctor:
+            department = get_object_or_404(Department, pk=dept_id)
+            specialization_id = request.POST.get('specialization') or None
+            if not specialization_id:
+                errors.append('Medical Specialization is required when the role is Doctor.')
             else:
-                dept_id = request.POST.get('department') or None
-                Employee.objects.create(
-                    user=user,
-                    department_id=dept_id,
-                    position=request.POST.get('position', '').strip(),
-                    employment_type=request.POST.get('employment_type', Employee.EmploymentType.PERMANENT),
-                    employment_status=request.POST.get('employment_status', Employee.EmploymentStatus.ACTIVE),
-                    hire_date=request.POST.get('hire_date') or None,
-                    basic_salary=request.POST.get('basic_salary', 0) or 0,
-                    national_id=request.POST.get('national_id', '').strip(),
-                    emergency_contact_name=request.POST.get('emergency_contact_name', '').strip(),
-                    emergency_contact_phone=request.POST.get('emergency_contact_phone', '').strip(),
+                specialization = get_object_or_404(Specialization, pk=specialization_id, is_active=True)
+                if department not in specialization.departments.all():
+                    errors.append(f'"{specialization.name}" is not configured for {department.name}.')
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+        else:
+            employee = Employee.objects.create(
+                user=user,
+                department_id=dept_id,
+                position=position,
+                employment_type=request.POST.get('employment_type', Employee.EmploymentType.PERMANENT),
+                employment_status=request.POST.get('employment_status', Employee.EmploymentStatus.ACTIVE),
+                hire_date=request.POST.get('hire_date') or None,
+                basic_salary=request.POST.get('basic_salary', 0) or 0,
+                national_id=request.POST.get('national_id', '').strip(),
+                emergency_contact_name=request.POST.get('emergency_contact_name', '').strip(),
+                emergency_contact_phone=request.POST.get('emergency_contact_phone', '').strip(),
+            )
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.HR,
+                object_type='Employee', object_id=employee.pk,
+                object_repr=user.get_full_name() or user.username,
+                description=f'Employee profile created for {user.get_full_name() or user.username} ({position or "no position set"})',
+                request=request,
+            )
+            if is_doctor:
+                doctor, doctor_created = _sync_doctor_profile(employee, position, department, specialization, user)
+                log_action(
+                    request.user, AuditLog.Action.CREATE if doctor_created else AuditLog.Action.UPDATE,
+                    AuditLog.Module.CARD_MANAGEMENT,
+                    object_type='Doctor', object_id=doctor.pk, object_repr=str(doctor),
+                    description=f'Doctor profile {"created" if doctor_created else "linked"} for '
+                                f'{user.get_full_name() or user.username} — {department.name} / {specialization.name} '
+                                f'(via Employee creation)',
+                    request=request,
                 )
-                messages.success(request, f'Employee profile created for {user.get_full_name() or user.username}.')
-                return redirect('employee_list')
+            messages.success(request, f'Employee profile created for {user.get_full_name() or user.username}.')
+            return redirect('employee_list')
 
     return render(request, 'hr/employee_form.html', {
         'action': 'Create',
@@ -138,6 +216,7 @@ def employee_create(request):
         'available_users': available_users,
         'employment_type_choices': Employee.EmploymentType.choices,
         'employment_status_choices': Employee.EmploymentStatus.choices,
+        'common_positions': COMMON_POSITIONS,
     })
 
 
@@ -169,6 +248,15 @@ def employee_detail(request, employee_id):
         .order_by('-requested_at')[:10]
     )
 
+    active_signature = EmployeeSignature.objects.filter(employee=employee, is_active=True).select_related('uploaded_by').first()
+    signature_history = (
+        EmployeeSignature.objects.filter(employee=employee)
+        .select_related('uploaded_by', 'deactivated_by')
+        .order_by('-uploaded_at')[:10]
+    )
+    can_manage_signature = request.user.has_perm('core.manage_employee_signatures') or request.user.id == employee.user_id
+    can_remove_signature = request.user.has_perm('core.delete_employee_signature')
+
     return render(request, 'hr/employee_detail.html', {
         'employee': employee,
         'att_present': att_present,
@@ -177,6 +265,11 @@ def employee_detail(request, employee_id):
         'att_half_day': att_half_day,
         'leave_history': leave_history,
         'today': today,
+        'active_signature': active_signature,
+        'signature_history': signature_history,
+        'signature_types': EmployeeSignature.SignatureType.choices,
+        'can_manage_signature': can_manage_signature,
+        'can_remove_signature': can_remove_signature,
     })
 
 
@@ -184,23 +277,67 @@ def employee_detail(request, employee_id):
 
 @hms_permission_required('core.manage_employees')
 def employee_edit(request, employee_id):
-    employee = get_object_or_404(Employee.objects.select_related('user'), pk=employee_id)
+    employee = get_object_or_404(Employee.objects.select_related('user', 'department'), pk=employee_id)
     departments = Department.objects.all()
+    existing_doctor = Doctor.objects.filter(user=employee.user).select_related('specialization').first()
 
     if request.method == 'POST':
         dept_id = request.POST.get('department') or None
-        employee.department_id = dept_id
-        employee.position = request.POST.get('position', '').strip()
-        employee.employment_type = request.POST.get('employment_type', employee.employment_type)
-        employee.employment_status = request.POST.get('employment_status', employee.employment_status)
-        employee.hire_date = request.POST.get('hire_date') or None
-        employee.basic_salary = request.POST.get('basic_salary', 0) or 0
-        employee.national_id = request.POST.get('national_id', '').strip()
-        employee.emergency_contact_name = request.POST.get('emergency_contact_name', '').strip()
-        employee.emergency_contact_phone = request.POST.get('emergency_contact_phone', '').strip()
-        employee.save()
-        messages.success(request, 'Employee profile updated.')
-        return redirect('employee_detail', employee_id=employee_id)
+        position = request.POST.get('position', '').strip()
+        is_doctor = position.lower() == 'doctor'
+
+        errors = []
+        department = None
+        specialization = None
+        if is_doctor:
+            if not dept_id:
+                errors.append('Department is required when the role is Doctor.')
+            else:
+                department = get_object_or_404(Department, pk=dept_id)
+                specialization_id = request.POST.get('specialization') or None
+                if not specialization_id:
+                    errors.append('Medical Specialization is required when the role is Doctor.')
+                else:
+                    specialization = get_object_or_404(Specialization, pk=specialization_id, is_active=True)
+                    if department not in specialization.departments.all():
+                        errors.append(f'"{specialization.name}" is not configured for {department.name}.')
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+        else:
+            old_position = employee.position
+            employee.department_id = dept_id
+            employee.position = position
+            employee.employment_type = request.POST.get('employment_type', employee.employment_type)
+            employee.employment_status = request.POST.get('employment_status', employee.employment_status)
+            employee.hire_date = request.POST.get('hire_date') or None
+            employee.basic_salary = request.POST.get('basic_salary', 0) or 0
+            employee.national_id = request.POST.get('national_id', '').strip()
+            employee.emergency_contact_name = request.POST.get('emergency_contact_name', '').strip()
+            employee.emergency_contact_phone = request.POST.get('emergency_contact_phone', '').strip()
+            employee.save()
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.HR,
+                object_type='Employee', object_id=employee.pk,
+                object_repr=employee.user.get_full_name() or employee.user.username,
+                description=f'Employee profile updated for {employee.user.get_full_name() or employee.user.username}'
+                            + (f' (position: {old_position} → {position})' if old_position != position else ''),
+                request=request,
+            )
+            if is_doctor:
+                doctor, doctor_created = _sync_doctor_profile(employee, position, department, specialization, employee.user)
+                log_action(
+                    request.user, AuditLog.Action.CREATE if doctor_created else AuditLog.Action.UPDATE,
+                    AuditLog.Module.CARD_MANAGEMENT,
+                    object_type='Doctor', object_id=doctor.pk, object_repr=str(doctor),
+                    description=f'Doctor profile {"created" if doctor_created else "updated"} for '
+                                f'{employee.user.get_full_name() or employee.user.username} — '
+                                f'{department.name} / {specialization.name} (via Employee edit)',
+                    request=request,
+                )
+            messages.success(request, 'Employee profile updated.')
+            return redirect('employee_detail', employee_id=employee_id)
 
     return render(request, 'hr/employee_form.html', {
         'action': 'Edit',
@@ -209,6 +346,8 @@ def employee_edit(request, employee_id):
         'available_users': None,
         'employment_type_choices': Employee.EmploymentType.choices,
         'employment_status_choices': Employee.EmploymentStatus.choices,
+        'common_positions': COMMON_POSITIONS,
+        'existing_doctor': existing_doctor,
     })
 
 

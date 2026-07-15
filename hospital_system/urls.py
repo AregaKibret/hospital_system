@@ -3,6 +3,10 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, include
 
 urlpatterns = [
+    # Django's built-in admin at the conventional "admin/" prefix. The HMS
+    # app's own settings/configuration pages (Role/Department/Card-Type/
+    # Specialization management, etc.) live under "settings/..." in
+    # core.urls instead, so the two no longer collide.
     path('admin/', admin.site.urls),
 
     # Built-in auth views (login / logout / password change)

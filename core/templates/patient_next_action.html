@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Patient Registered — {{ patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto">
+
+  <!-- Success banner -->
+  <div class="text-center mb-6">
+    <div class="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+      <svg class="w-7 h-7 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Patient registered successfully.</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">What would you like to do next?</p>
+  </div>
+
+  <!-- Patient summary card -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-6">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
+        <span class="text-lg font-bold text-white">{{ patient.first_name|first|upper }}{{ patient.last_name|first|upper }}</span>
+      </div>
+      <div class="min-w-0">
+        <p class="text-base font-semibold text-slate-900 dark:text-white">{{ patient.full_name }}</p>
+        <p class="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">MRN: {{ patient.card_number }}</p>
+        {% if patient.mobile %}<p class="text-xs text-slate-400 mt-0.5">{{ patient.mobile }}</p>{% endif %}
+      </div>
+    </div>
+    {% if linked_appointment %}
+    <div class="mt-4 px-3 py-2.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 text-xs text-teal-700 dark:text-teal-300">
+      Linked to existing appointment <strong>{{ linked_appointment.appointment_number }}</strong>
+      ({{ linked_appointment.appointment_date|date:"M j, Y" }} at {{ linked_appointment.appointment_time|time:"H:i" }}{% if linked_appointment.doctor %} with Dr. {{ linked_appointment.doctor.full_name }}{% endif %}) —
+      no new appointment is needed.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Next action choices -->
+  <div class="space-y-3">
+
+    <!-- Create Visit — default/highlighted option -->
+    <a href="{% url 'create_visit' patient.id %}{% if linked_appointment %}?appointment_id={{ linked_appointment.id }}{% endif %}"
+       id="default-next-action"
+       class="flex items-center gap-4 w-full p-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors ring-2 ring-blue-300 dark:ring-blue-800">
+      <div class="w-10 h-10 bg-white/15 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+      </div>
+      <div class="text-left flex-1">
+        <p class="font-semibold">Create Visit</p>
+        <p class="text-xs text-blue-100">Walk-in patient — start consultation/billing now (recommended)</p>
+      </div>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </a>
+
+    {% if linked_appointment %}
+    <!-- View Appointment (already exists — no duplicate creation offered) -->
+    <a href="{% url 'appointment_detail' linked_appointment.id %}"
+       class="flex items-center gap-4 w-full p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+      <div class="w-10 h-10 bg-teal-100 dark:bg-teal-900/40 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div class="text-left flex-1">
+        <p class="font-semibold text-slate-800 dark:text-slate-100">View Appointment</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Go to the existing appointment {{ linked_appointment.appointment_number }}</p>
+      </div>
+      <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    {% else %}
+    <!-- Create Appointment -->
+    <a href="{% url 'appointment_create' %}?patient={{ patient.id }}"
+       class="flex items-center gap-4 w-full p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+      <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div class="text-left flex-1">
+        <p class="font-semibold text-slate-800 dark:text-slate-100">Create Appointment</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Schedule a future visit — appears on the Appointment Schedule</p>
+      </div>
+      <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    {% endif %}
+
+    <!-- Return to Patient List -->
+    <a href="{% url 'patient_search' %}"
+       class="flex items-center gap-4 w-full p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+      <div class="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </div>
+      <div class="text-left flex-1">
+        <p class="font-semibold text-slate-800 dark:text-slate-100">Return to Patient List</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Do this later</p>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('default-next-action').focus();
+</script>
+{% endblock %}

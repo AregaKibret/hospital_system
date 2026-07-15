@@ -184,6 +184,9 @@ def appt_list(request):
             Q(patient__first_name__icontains=q)
             | Q(patient__last_name__icontains=q)
             | Q(patient__card_number__icontains=q)
+            | Q(patient__mobile__icontains=q)
+            | Q(walkin_name__icontains=q)
+            | Q(phone_number__icontains=q)
             | Q(appointment_number__icontains=q)
         )
 
@@ -195,7 +198,7 @@ def appt_list(request):
     paginator = Paginator(qs, 20)
     page = paginator.get_page(request.GET.get('page', 1))
 
-    doctors = Doctor.objects.filter(active=True).select_related('department')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
 
     return render(request, 'appointments/appointment_list.html', {
         'page': page,
@@ -259,8 +262,11 @@ def appt_create(request):
 
         if not appt_date_str:
             errors.append('Appointment date is required.')
+
+        # Time is optional — if the doctor has no schedule/slots configured,
+        # default to 6:00 PM rather than blocking appointment creation.
         if not appt_time_str:
-            errors.append('Appointment time is required.')
+            appt_time_str = '18:00'
 
         if not errors:
             try:
@@ -300,12 +306,11 @@ def appt_create(request):
             return redirect('appt_detail', pk=appt.pk)
 
         # Re-render form with errors
-        patients = Patient.objects.filter(is_active=True).order_by('first_name')
-        doctors = Doctor.objects.filter(active=True).select_related('department')
+        doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
         return render(request, 'appointments/appointment_form.html', {
             'errors': errors,
             'post': request.POST,
-            'patients': patients,
+            'selected_patient': patient,
             'doctors': doctors,
             'visit_types': Appointment.VisitType.choices,
             'priorities': Appointment.Priority.choices,
@@ -315,8 +320,7 @@ def appt_create(request):
         })
 
     # GET
-    patients = Patient.objects.filter(is_active=True).order_by('first_name')
-    doctors = Doctor.objects.filter(active=True).select_related('department')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
     # Pre-select patient from query param if provided
     pre_patient_id = request.GET.get('patient_id')
     pre_patient = None
@@ -327,7 +331,6 @@ def appt_create(request):
             pass
 
     return render(request, 'appointments/appointment_form.html', {
-        'patients': patients,
         'doctors': doctors,
         'visit_types': Appointment.VisitType.choices,
         'priorities': Appointment.Priority.choices,
@@ -449,7 +452,7 @@ def appt_edit(request, pk):
         messages.error(request, 'Cannot edit a completed, cancelled, or no-show appointment.')
         return redirect('appt_detail', pk=pk)
 
-    doctors = Doctor.objects.filter(active=True).select_related('department')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
 
     if request.method == 'POST':
         doctor_id = request.POST.get('doctor_id')
@@ -570,7 +573,7 @@ def appt_reschedule(request, pk):
         messages.error(request, 'Cannot reschedule a completed or cancelled appointment.')
         return redirect('appt_detail', pk=pk)
 
-    doctors = Doctor.objects.filter(active=True).select_related('department')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
 
     if request.method == 'POST':
         new_date_str = request.POST.get('appointment_date')
@@ -654,7 +657,7 @@ def appt_reschedule(request, pk):
 
 @hms_permission_required('core.read_appointment')
 def doctor_availability_list(request):
-    doctors = Doctor.objects.filter(active=True).select_related('department').prefetch_related('schedules')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization').prefetch_related('schedules')
     days = dict(DoctorSchedule.DAY_CHOICES)
 
     doctor_data = []
@@ -809,6 +812,33 @@ def doctor_availability_exception(request, doctor_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 10b. AJAX: LIVE PATIENT SEARCH
+# ─────────────────────────────────────────────────────────────────────────────
+
+@hms_permission_required('core.manage_appointments')
+def appt_patient_search(request):
+    q = request.GET.get('q', '').strip()
+    results = []
+    if len(q) >= 2:
+        patients = Patient.objects.filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(card_number__icontains=q)
+            | Q(mobile__icontains=q),
+            is_active=True,
+        ).order_by('first_name')[:10]
+        for p in patients:
+            results.append({
+                'id': p.pk,
+                'name': p.full_name,
+                'card_number': p.card_number,
+                'mobile': p.mobile or '',
+                'sex': p.sex,
+            })
+    return JsonResponse({'results': results})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 11. AJAX: GET DOCTOR SLOTS
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -927,6 +957,19 @@ def appt_no_show(request, pk):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 13. PRINTABLE APPOINTMENT SLIP
+# ─────────────────────────────────────────────────────────────────────────────
+
+@hms_permission_required('core.read_appointment')
+def appt_slip(request, pk):
+    appt = get_object_or_404(
+        Appointment.objects.select_related('patient', 'doctor', 'department', 'visit'),
+        pk=pk,
+    )
+    return render(request, 'appointments/appointment_slip.html', {'appt': appt})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # REPORTS
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -968,8 +1011,9 @@ def report_appt_daily_schedule(request):
         for a in qs:
             writer.writerow([
                 a.appointment_number, a.appointment_time.strftime('%H:%M'),
-                a.patient.full_name, a.patient.card_number,
-                f'Dr. {a.doctor.full_name}', a.department.name,
+                a.display_patient_name, a.display_identifier,
+                f'Dr. {a.doctor.full_name}' if a.doctor else 'Not assigned',
+                a.department.name if a.department else '—',
                 a.visit_type, a.priority, a.status, a.chief_complaint,
             ])
         return response
@@ -1014,10 +1058,11 @@ def report_appt_dept_schedule(request):
         ])
         for a in qs:
             writer.writerow([
-                a.department.name, a.appointment_number,
+                a.department.name if a.department else '—', a.appointment_number,
                 a.appointment_time.strftime('%H:%M'),
-                a.patient.full_name, a.patient.card_number,
-                f'Dr. {a.doctor.full_name}', a.visit_type, a.priority, a.status,
+                a.display_patient_name, a.display_identifier,
+                f'Dr. {a.doctor.full_name}' if a.doctor else 'Not assigned',
+                a.visit_type, a.priority, a.status,
             ])
         return response
 
@@ -1074,8 +1119,9 @@ def report_appt_list(request):
                 a.appointment_number,
                 a.appointment_date.strftime('%Y-%m-%d'),
                 a.appointment_time.strftime('%H:%M'),
-                a.patient.full_name, a.patient.card_number,
-                f'Dr. {a.doctor.full_name}', a.department.name,
+                a.display_patient_name, a.display_identifier,
+                f'Dr. {a.doctor.full_name}' if a.doctor else 'Not assigned',
+                a.department.name if a.department else '—',
                 a.visit_type, a.priority, a.referral_source, a.status,
             ])
         return response
@@ -1128,8 +1174,8 @@ def report_appt_cancelled(request):
             writer.writerow([
                 a.appointment_number,
                 a.appointment_date.strftime('%Y-%m-%d'),
-                a.patient.full_name, a.patient.card_number,
-                f'Dr. {a.doctor.full_name}',
+                a.display_patient_name, a.display_identifier,
+                f'Dr. {a.doctor.full_name}' if a.doctor else 'Not assigned',
                 a.cancelled_by.get_full_name() if a.cancelled_by else '',
                 a.cancelled_at.strftime('%Y-%m-%d %H:%M') if a.cancelled_at else '',
                 a.cancellation_reason,
@@ -1184,8 +1230,8 @@ def report_appt_no_show(request):
                 a.appointment_number,
                 a.appointment_date.strftime('%Y-%m-%d'),
                 a.appointment_time.strftime('%H:%M'),
-                a.patient.full_name, a.patient.card_number,
-                f'Dr. {a.doctor.full_name}', a.phone_number,
+                a.display_patient_name, a.display_identifier,
+                f'Dr. {a.doctor.full_name}' if a.doctor else 'Not assigned', a.phone_number,
             ])
         return response
 
@@ -1223,7 +1269,7 @@ def report_appt_workload(request):
         appointment_date__lte=date_to,
     )
 
-    doctors = Doctor.objects.filter(active=True).select_related('department')
+    doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
     workload = []
     for doc in doctors:
         doc_qs = base_qs.filter(doctor=doc)

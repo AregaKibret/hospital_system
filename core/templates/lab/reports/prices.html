@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Lab Price List{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Lab Test Price List</h1>
+    <a href="?category={{ category_f }}&export=csv"
+       class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      Export CSV
+    </a>
+  </div>
+
+  <!-- Filter -->
+  <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
+        <select name="category"
+                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <option value="">All Categories</option>
+          {% for c in categories %}
+          <option value="{{ c.id }}" {% if category_f == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+        Filter
+      </button>
+    </div>
+  </form>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% if services %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <tr>
+          <th class="text-left px-4 py-3">Test</th>
+          <th class="text-left px-4 py-3">Code</th>
+          <th class="text-left px-4 py-3">Category</th>
+          <th class="text-right px-4 py-3">Standard</th>
+          <th class="text-right px-4 py-3">Insurance</th>
+          <th class="text-right px-4 py-3">Corporate</th>
+          <th class="text-right px-4 py-3">Emergency</th>
+          <th class="text-center px-4 py-3">Status</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for svc in services %}
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+          <td class="px-4 py-3">
+            <div class="font-medium text-gray-900 dark:text-white">{{ svc.name }}</div>
+            {% if svc.short_name %}
+            <div class="text-xs text-gray-400">{{ svc.short_name }}</div>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{{ svc.code }}</td>
+          <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ svc.category.name|default:"—" }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ svc.standard_price }}</td>
+          <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{{ svc.insurance_price|default:"—" }}</td>
+          <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{{ svc.corporate_price|default:"—" }}</td>
+          <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{{ svc.emergency_price|default:"—" }}</td>
+          <td class="px-4 py-3 text-center">
+            {% if svc.is_active %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'lab_service_detail' pk=svc.pk %}"
+               class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">
+              History
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+      <p class="text-sm">No lab services found.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Record Consumable Usage — {{ order.test_name }}{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Record Consumable Usage</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+        {{ order.test_name }} · {{ order.visit.patient.full_name }}
+      </p>
+    </div>
+    <a href="{% url 'lab_order_detail' order.pk %}"
+       class="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Back to Order
+    </a>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+          Reagent / Consumable <span class="text-red-500">*</span>
+        </label>
+        <select name="inventory_item" required
+                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white">
+          <option value="">— Select item —</option>
+          {% for item in lab_items %}
+          <option value="{{ item.pk }}">{{ item.name }} ({{ item.quantity_in_stock }} {{ item.unit }} available)</option>
+          {% endfor %}
+        </select>
+        {% if not lab_items %}
+        <p class="text-xs text-amber-600 mt-1">No lab supply items found in the inventory catalogue yet.</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+          Quantity Used <span class="text-red-500">*</span>
+        </label>
+        <input type="number" name="quantity" step="0.01" min="0.01" required
+               class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white">
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Remarks</label>
+        <textarea name="notes" rows="2"
+                  class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"></textarea>
+      </div>
+
+      <div class="flex gap-3 justify-end">
+        <a href="{% url 'lab_order_detail' order.pk %}"
+           class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+        <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Record Usage</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

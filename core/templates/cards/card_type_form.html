@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit Card Type{% else %}New Card Type{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'card_type_list' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{% if is_edit %}Edit Card Type{% else %}New Card Type{% endif %}</h1>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for msg in messages %}
+    <div class="px-4 py-3 rounded-xl text-sm font-medium
+      {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800
+      {% else %}bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Card Type Name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required value="{% if post %}{{ post.name }}{% elif card_type %}{{ card_type.name }}{% endif %}"
+               placeholder="e.g. General OPD Card"
+               class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Card Code <span class="text-red-500">*</span></label>
+        <input type="text" name="code" required value="{% if post %}{{ post.code }}{% elif card_type %}{{ card_type.code }}{% endif %}"
+               placeholder="e.g. OPD"
+               class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-mono uppercase">
+      </div>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Description</label>
+      <textarea name="description" rows="2" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{% if post %}{{ post.description }}{% elif card_type %}{{ card_type.description }}{% endif %}</textarea>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Registration / Card Fee (ETB) <span class="text-red-500">*</span></label>
+        <input type="number" name="fee" step="0.01" min="0" required value="{% if post %}{{ post.fee }}{% elif card_type %}{{ card_type.fee }}{% else %}0{% endif %}"
+               class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Renewal Fee (ETB) <span class="text-slate-400 font-normal">(optional — defaults to same as fee)</span></label>
+        <input type="number" name="renewal_fee" step="0.01" min="0" value="{% if post %}{{ post.renewal_fee }}{% elif card_type.renewal_fee is not None %}{{ card_type.renewal_fee }}{% endif %}"
+               class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Validity Period <span class="text-slate-400 font-normal">(ignored for Lifetime / One Visit)</span></label>
+        <input type="number" name="validity_value" min="1" value="{% if post %}{{ post.validity_value }}{% elif card_type %}{{ card_type.validity_value }}{% else %}1{% endif %}"
+               class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Validity Unit</label>
+        <select name="validity_unit" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+          {% for value, label in validity_units %}
+          <option value="{{ value }}" {% if post.validity_unit == value or not post and card_type.validity_unit == value or not post and not card_type and value == 'years' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="is_hospital_wide" id="is_hospital_wide"
+               {% if post %}{% if post.is_hospital_wide %}checked{% endif %}{% elif not card_type or card_type.is_hospital_wide %}checked{% endif %}
+               class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        Available hospital-wide
+      </label>
+    </div>
+
+    <div class="field-wrapper" id="departments-field">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Applicable Departments <span class="text-slate-400 font-normal">(used only when not hospital-wide)</span></label>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg max-h-40 overflow-y-auto">
+        {% for dept in departments %}
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <input type="checkbox" name="departments" value="{{ dept.id }}"
+                 {% if card_type and dept in card_type.departments.all %}checked{% endif %}
+                 class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+          {{ dept.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mt-6">
+          <input type="checkbox" name="is_active"
+                 {% if post %}{% if post.is_active %}checked{% endif %}{% elif not card_type or card_type.is_active %}checked{% endif %}
+                 class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+          Active
+        </label>
+      </div>
+      <div class="field-wrapper">
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mt-6">
+          <input type="checkbox" name="is_default"
+                 {% if post %}{% if post.is_default %}checked{% endif %}{% elif card_type.is_default %}checked{% endif %}
+                 class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          Default card type <span class="text-xs text-slate-400 font-normal">(used automatically at appointment check-in)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field-wrapper">
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Notes</label>
+      <textarea name="notes" rows="2" class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 resize-none">{% if post %}{{ post.notes }}{% elif card_type %}{{ card_type.notes }}{% endif %}</textarea>
+    </div>
+
+    <div class="flex justify-end gap-3 pt-2">
+      <a href="{% url 'card_type_list' %}" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+      <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">{% if is_edit %}Save Changes{% else %}Create Card Type{% endif %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var checkbox = document.getElementById('is_hospital_wide');
+  var deptField = document.getElementById('departments-field');
+  function sync() { deptField.style.display = checkbox.checked ? 'none' : ''; }
+  checkbox.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}
