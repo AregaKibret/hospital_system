@@ -1,0 +1,21 @@
+# Development-only dependencies — not required in production.
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+#
+# NOTE: none of these are wired into the project yet (no pytest.ini, no CI config,
+# no pre-commit config exist today). This file is a recommended starting point per
+# docs/TESTING.md — see that file before assuming these are already in active use.
+
+-r requirements.txt
+
+# Testing (Django's built-in test runner works out of the box with no extra
+# dependencies at all — these are only needed if you adopt pytest instead)
+pytest>=8.0
+pytest-django>=4.8
+coverage>=7.4
+
+# Linting / formatting
+flake8>=7.0
+black>=24.0
+
+# Convenience
+django-extensions>=3.2   # adds `shell_plus`, `show_urls`, etc.
