@@ -30,6 +30,9 @@ env/
 *.swp
 *.swo
 
+# Agent worktrees (ephemeral, not part of the project)
+.claude/worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
