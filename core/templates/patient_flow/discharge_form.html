@@ -17,6 +17,13 @@
   <span class="text-slate-500">Doctor: Dr. {{ visit.doctor.get_full_name }}</span>
 </div>
 
+{% if ds.discharge_type == 'death' and perms.core.write_death_certificate %}
+<div class="bg-slate-100 dark:bg-slate-700/40 border border-slate-300 dark:border-slate-600 rounded-xl p-4 mb-5 text-sm flex items-center justify-between flex-wrap gap-2">
+  <span class="text-slate-700 dark:text-slate-200">This discharge is recorded as a death. Don't forget to complete the official Death Certificate.</span>
+  <a href="{% url 'death_certificate_create' visit.pk %}" class="btn-secondary text-sm shrink-0">Death Certificate →</a>
+</div>
+{% endif %}
+
 <form method="post">{% csrf_token %}
 
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">

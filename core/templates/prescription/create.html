@@ -279,7 +279,9 @@ function selectDrug(el, row) {
   const stockStatus = el.dataset.status === 'available'
     ? `<span class="text-emerald-600 font-semibold">${el.dataset.stock} ${el.dataset.unit} in stock</span>`
     : `<span class="text-red-600 font-semibold">Out of stock</span>`;
-  infoText.innerHTML = `${el.dataset.generic} &middot; ${el.dataset.form} &middot; ETB ${el.dataset.price}/${el.dataset.unit} &middot; ${stockStatus}`;
+  const priceHtml = {% if perms.core.read_billing %}true{% else %}false{% endif %}
+    ? ` &middot; ETB ${el.dataset.price}/${el.dataset.unit}` : '';
+  infoText.innerHTML = `${el.dataset.generic} &middot; ${el.dataset.form}${priceHtml} &middot; ${stockStatus}`;
   drugInfo.classList.remove('hidden');
 }
 

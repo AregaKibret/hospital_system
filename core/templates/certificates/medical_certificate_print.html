@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Medical Certificate — {{ cert.patient.full_name }}{% endblock %}
+{% block content %}
+
+{% url 'visit_detail' cert.visit.pk as back_url %}
+{% include "certificates/_print_style.html" with back_url=back_url %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-8 max-w-3xl mx-auto" style="color:#111">
+  {% include "certificates/_print_header.html" with title="MEDICAL CERTIFICATE" cert=cert patient=cert.patient %}
+
+  <div style="font-size:13px;line-height:1.7">
+    <p>This is to certify that I examined <strong>{{ cert.patient.full_name }}</strong>
+      (Card No. {{ cert.patient.card_number }}) on <strong>{{ cert.date_of_examination|date:"d M Y" }}</strong>
+      at {{ cert.visit.department.name }}, under the care of Dr. {{ cert.visit.doctor.first_name }} {{ cert.visit.doctor.last_name }}.</p>
+
+    {% if cert.medical_findings %}<p style="margin-top:10px"><strong>Medical Findings:</strong> {{ cert.medical_findings|linebreaksbr }}</p>{% endif %}
+    {% if cert.diagnosis %}<p style="margin-top:10px"><strong>Diagnosis:</strong> {{ cert.diagnosis|linebreaksbr }}</p>{% endif %}
+
+    {% if cert.rest_from or cert.rest_to %}
+    <p style="margin-top:10px"><strong>Recommended Rest Period:</strong>
+      {{ cert.rest_from|date:"d M Y"|default:"—" }} to {{ cert.rest_to|date:"d M Y"|default:"—" }}
+      {% if cert.days_off %}({{ cert.days_off }} day{{ cert.days_off|pluralize }}){% endif %}
+    </p>
+    {% endif %}
+
+    <p style="margin-top:10px"><strong>Fitness Status:</strong> {{ cert.get_fitness_status_display }}</p>
+    {% if cert.work_restrictions %}<p style="margin-top:10px"><strong>Work / School Restrictions:</strong> {{ cert.work_restrictions|linebreaksbr }}</p>{% endif %}
+    {% if cert.follow_up_date %}<p style="margin-top:10px"><strong>Follow-up Date:</strong> {{ cert.follow_up_date|date:"d M Y" }}</p>{% endif %}
+    {% if cert.remarks %}<p style="margin-top:10px"><strong>Remarks:</strong> {{ cert.remarks|linebreaksbr }}</p>{% endif %}
+  </div>
+
+  {% include "certificates/_signature_block.html" with cert=cert signature_label="Treating Doctor's Signature" %}
+</div>
+
+{% endblock %}

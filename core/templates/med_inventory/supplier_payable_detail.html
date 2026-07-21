@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Payable — {{ payable.supplier.name }}{% endblock %}
+{% block content %}
+<div class="mb-5 flex items-center gap-3">
+  <a href="{% url 'supplier_payable_list' %}" class="text-sm text-slate-500 hover:text-blue-600 flex items-center gap-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Payables
+  </a>
+  <span class="text-slate-300">/</span>
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ payable.supplier.name }} — {{ payable.goods_receipt.goods_receipt_number }}</h1>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total</p>
+    <p class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">ETB {{ payable.total_amount }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Paid</p>
+    <p class="text-xl font-bold text-emerald-600 mt-1">ETB {{ payable.amount_paid }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Outstanding</p>
+    <p class="text-xl font-bold text-amber-600 mt-1">ETB {{ payable.outstanding_balance }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Status</p>
+    <p class="text-xl font-bold mt-1 {% if payable.status == 'Overdue' %}text-red-600{% elif payable.status == 'Fully Paid' %}text-emerald-600{% else %}text-slate-800 dark:text-slate-100{% endif %}">{{ payable.status }}</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-5">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Receipt Details</p>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-3 text-sm">
+        <div><p class="text-xs text-slate-400">Invoice #</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.goods_receipt.supplier_invoice_number }}</p></div>
+        <div><p class="text-xs text-slate-400">Invoice Date</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.goods_receipt.supplier_invoice_date|default:"—" }}</p></div>
+        <div><p class="text-xs text-slate-400">Payment Method</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.goods_receipt.get_payment_method_display }}</p></div>
+        <div><p class="text-xs text-slate-400">Due Date</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.due_date|default:"—" }}</p></div>
+        {% if payable.consignment_agreement_number %}
+        <div><p class="text-xs text-slate-400">Consignment Agreement #</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.consignment_agreement_number }}</p></div>
+        {% endif %}
+        <div><p class="text-xs text-slate-400">Received By</p><p class="font-medium text-slate-800 dark:text-slate-100">{{ payable.goods_receipt.received_by.get_full_name|default:payable.goods_receipt.received_by.username }}</p></div>
+      </div>
+      <div class="px-5 pb-5">
+        <a href="{% url 'goods_receipt_detail' payable.goods_receipt.id %}" class="text-xs text-blue-600 hover:underline">View full goods receipt →</a>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Payment History</p>
+      </div>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for pay in payments %}
+        <div class="px-5 py-3 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-200">ETB {{ pay.amount }}</p>
+            <p class="text-xs text-slate-400">{{ pay.payment_date }} {% if pay.payment_reference %}· Ref: {{ pay.payment_reference }}{% endif %} · by {{ pay.recorded_by.get_full_name|default:pay.recorded_by.username }}</p>
+          </div>
+        </div>
+        {% empty %}
+        <div class="px-5 py-8 text-center text-sm text-slate-400">No payments recorded yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    {% if perms.core.manage_supplier_payments and payable.outstanding_balance > 0 %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <a href="{% url 'supplier_payment_record' payable.id %}" class="block text-center px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Record Payment</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

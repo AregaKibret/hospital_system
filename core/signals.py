@@ -8,7 +8,10 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import ImagingOrder, InvoiceItem, LabOrder, MedicationOrder, SurgeryOrder, UserProfile
+from .models import (
+    Admission, AdmissionRequest, DepositTransaction, ImagingOrder,
+    InpatientDepositAccount, InvoiceItem, LabOrder, MedicationOrder, SurgeryOrder, UserProfile,
+)
 
 User = get_user_model()
 
@@ -180,5 +183,82 @@ def _sync_linked_order_from_item(item):
 def sync_order_payment_on_item_save(sender, instance, **kwargs):
     try:
         _sync_linked_order_from_item(instance)
+    except Exception:
+        pass
+
+
+# ── Inpatient Deposit Auto-Deduction ─────────────────────────────────────────
+
+# Service types that should NOT trigger a deposit deduction
+_DEPOSIT_EXEMPT_SERVICE_TYPES = {
+    InvoiceItem.ServiceType.DEPOSIT,
+    InvoiceItem.ServiceType.SERVICE_CHARGE,
+    InvoiceItem.ServiceType.SURGERY_BOOKING,
+}
+
+
+@receiver(post_save, sender=InvoiceItem)
+def auto_deduct_inpatient_charge(sender, instance, created, **kwargs):
+    """When a new billable InvoiceItem is created for a patient with an active
+    inpatient deposit account, record the charge as a CHARGE_DEDUCTION and
+    reduce the available balance immediately."""
+    if not created:
+        return
+    if instance.service_type in _DEPOSIT_EXEMPT_SERVICE_TYPES:
+        return
+    try:
+        invoice = instance.invoice
+        if invoice is None:
+            return
+        patient = invoice.patient
+        if patient is None:
+            return
+        # Find an active admission with a deposit account for this patient
+        admission = (
+            Admission.objects.filter(patient=patient, status=Admission.Status.ADMITTED)
+            .select_related('deposit_account')
+            .first()
+        )
+        if admission is None:
+            return
+        account = getattr(admission, 'deposit_account', None)
+        if account is None or account.status != InpatientDepositAccount.Status.ACTIVE:
+            return
+        amount = instance.total or instance.unit_price or 0
+        if amount <= 0:
+            return
+        from decimal import Decimal
+        amount = Decimal(str(amount))
+        account.total_charges = account.total_charges + amount
+        account.save(update_fields=['total_charges', 'updated_at'])
+        DepositTransaction.objects.create(
+            account=account,
+            tx_type=DepositTransaction.TxType.CHARGE_DEDUCTION,
+            amount=amount,
+            description=instance.description or instance.get_service_type_display(),
+            invoice_item=instance,
+            invoice=invoice,
+            balance_after=account.available_balance,
+            performed_by=invoice.created_by if invoice.created_by_id else User.objects.filter(is_superuser=True).first(),
+        )
+    except Exception:
+        pass
+
+
+@receiver(post_save, sender=InvoiceItem)
+def advance_admission_status_on_deposit_paid(sender, instance, **kwargs):
+    """When a DEPOSIT invoice item is fully paid, advance the linked
+    AdmissionRequest from AWAITING_DEPOSIT to AWAITING_BED."""
+    if instance.service_type != InvoiceItem.ServiceType.DEPOSIT:
+        return
+    if instance.payment_status != InvoiceItem.PaymentStatus.PAID:
+        return
+    try:
+        req = instance.deposit_for_requests.select_related('patient').first()
+        if req is None:
+            return
+        if req.status == AdmissionRequest.Status.AWAITING_DEPOSIT:
+            req.status = AdmissionRequest.Status.AWAITING_BED
+            req.save(update_fields=['status', 'updated_at'])
     except Exception:
         pass

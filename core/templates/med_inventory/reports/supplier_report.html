@@ -24,6 +24,9 @@
           <th class="text-left px-4 py-3">Supplier</th>
           <th class="text-left px-4 py-3 hidden md:table-cell">Contact</th>
           <th class="text-right px-4 py-3">Batches Supplied</th>
+          <th class="text-right px-4 py-3">Cash</th>
+          <th class="text-right px-4 py-3">Credit</th>
+          <th class="text-right px-4 py-3">Consignment</th>
           <th class="text-right px-4 py-3">Total Purchase Value</th>
         </tr>
       </thead>
@@ -38,6 +41,9 @@
             {{ row.supplier.contact_person|default:"—" }}{% if row.supplier.phone %} &middot; {{ row.supplier.phone }}{% endif %}
           </td>
           <td class="px-4 py-3 text-right text-slate-700 dark:text-slate-300">{{ row.batch_count }}</td>
+          <td class="px-4 py-3 text-right text-emerald-600">ETB {{ row.cash_value|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right text-amber-600">ETB {{ row.credit_value|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right text-violet-600">ETB {{ row.consignment_value|floatformat:2 }}</td>
           <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">ETB {{ row.total_value|floatformat:2 }}</td>
         </tr>
         {% endfor %}

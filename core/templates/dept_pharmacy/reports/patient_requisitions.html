@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Patient-Specific Requisitions{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Patient-Specific Requisitions</h1>
+    <p class="text-xs text-slate-400 mt-0.5">{{ date_from }} — {{ date_to }} &middot; {{ total_reqs }} record{{ total_reqs|pluralize }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="?{{ request.GET.urlencode }}&export=csv" class="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">CSV</a>
+    <button onclick="window.print()" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Print</button>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Patient (Name/MRN)</label>
+      <input type="text" name="patient" value="{{ patient_q }}" placeholder="Search patient..." class="field-input text-sm py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Department</label>
+      <select name="store" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for s in stores %}<option value="{{ s.id }}" {% if store_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
+      <select name="status" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for val, label in statuses %}<option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Priority</label>
+      <select name="priority" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for val, label in priorities %}<option value="{{ val }}" {% if priority == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">From</label>
+      <input type="date" name="from" value="{{ date_from }}" class="field-input text-sm py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">To</label>
+      <input type="date" name="to" value="{{ date_to }}" class="field-input text-sm py-1.5">
+    </div>
+    <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex gap-2 justify-end">
+      <a href="{% url 'report_patient_requisitions' %}" class="btn-secondary text-sm py-1.5 px-3">Clear</a>
+      <button type="submit" class="btn-primary text-sm py-1.5 px-4">Apply</button>
+    </div>
+  </form>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400">
+          <th class="px-4 py-3 font-semibold uppercase">Req #</th>
+          <th class="px-4 py-3 font-semibold uppercase">Date</th>
+          <th class="px-4 py-3 font-semibold uppercase">Patient</th>
+          <th class="px-4 py-3 font-semibold uppercase">MRN</th>
+          <th class="px-4 py-3 font-semibold uppercase">Department</th>
+          <th class="px-4 py-3 font-semibold uppercase">Items</th>
+          <th class="px-4 py-3 font-semibold uppercase">Priority</th>
+          <th class="px-4 py-3 font-semibold uppercase">Status</th>
+          <th class="px-4 py-3 font-semibold uppercase">Invoice</th>
+          <th class="px-4 py-3 font-semibold uppercase text-right">Total (ETB)</th>
+          <th class="px-4 py-3 font-semibold uppercase hidden lg:table-cell">Doctor</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for r in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <td class="px-4 py-3 font-mono text-xs">
+            <a href="{% url 'transfer_request_detail' r.id %}" class="text-indigo-600 hover:underline">{{ r.request_number }}</a>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ r.request_date|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
+            {% if r.patient %}{{ r.patient.first_name }} {{ r.patient.last_name }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ r.patient.card_number|default:"—" }}</td>
+          <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ r.requesting_store.name }}</td>
+          <td class="px-4 py-3 text-center text-slate-600 dark:text-slate-400">{{ r.calc_item_count }}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+              {% if r.priority == 'emergency' %}bg-red-100 text-red-700
+              {% elif r.priority == 'urgent' %}bg-amber-100 text-amber-700
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ r.get_priority_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+              {% if r.status == 'fulfilled' %}bg-emerald-100 text-emerald-700
+              {% elif r.status == 'approved' %}bg-blue-100 text-blue-700
+              {% elif r.status == 'pending' %}bg-amber-100 text-amber-700
+              {% elif r.status == 'rejected' %}bg-red-100 text-red-700
+              {% elif r.status == 'partial' %}bg-cyan-100 text-cyan-700
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ r.get_status_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-xs">
+            {% if r.invoice %}
+            <a href="{% url 'invoice_detail' r.invoice.id %}" class="text-indigo-600 hover:underline font-mono">{{ r.invoice.invoice_number }}</a>
+            <span class="block text-slate-400">{{ r.invoice.status }}</span>
+            {% else %}<span class="text-slate-400">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+            {{ r.calc_total_value|floatformat:2 }}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">
+            {{ r.requesting_doctor.get_full_name|default:"—" }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="py-16 text-center text-slate-400">No patient-specific requisitions found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between print:hidden">
+    <p class="text-sm text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary text-xs py-1 px-3">Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary text-xs py-1 px-3">Next</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

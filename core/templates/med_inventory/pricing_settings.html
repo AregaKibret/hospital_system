@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Pricing Settings{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  <div class="mb-5">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Pricing Settings</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Default markup used to auto-calculate Selling Price from Purchase Price, across Pharmacy and Inventory.</p>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-900/10">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Default Markup</h2>
+    </div>
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="form_action" value="save_markup">
+      <div class="field-wrapper max-w-xs">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Default Markup Percentage (%)</label>
+        <input type="number" name="default_markup_percent" step="0.01" min="0" max="1000" value="{{ pricing.default_markup_percent }}" required>
+        <p class="text-xs text-slate-400 mt-1">Selling Price = Purchase Price + this % markup. Applies automatically whenever a Purchase Price is entered or updated, unless the Selling Price is manually overridden.</p>
+      </div>
+      <p class="text-xs text-slate-400">
+        Last updated {{ pricing.updated_at|date:"M d, Y H:i" }}{% if pricing.updated_by %} by {{ pricing.updated_by.get_full_name|default:pricing.updated_by.username }}{% endif %}.
+      </p>
+      <div class="flex justify-end">
+        <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">Save Default Markup</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-900/10">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Recalculate Existing Prices</h2>
+    </div>
+    <div class="p-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+        Changing the markup above only affects <strong>new</strong> stock entries. To apply the current
+        {{ pricing.default_markup_percent }}% markup to prices already in the system, choose which records to recalculate below.
+        <strong>Records with a manually-set Selling Price are never touched</strong> by this action.
+      </p>
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="recalculate">
+        <div class="space-y-2">
+          <label class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" name="scope" value="medication" checked>
+              Medication Catalog
+            </span>
+            <span class="text-xs text-slate-400">{{ medication_count }} auto-priced · {{ medication_manual_count }} manually-priced (skipped)</span>
+          </label>
+          <label class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" name="scope" value="batch" checked>
+              Medication Batches (active stock)
+            </span>
+            <span class="text-xs text-slate-400">{{ batch_count }} auto-priced · {{ batch_manual_count }} manually-priced (skipped)</span>
+          </label>
+          <label class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <input type="checkbox" name="scope" value="inventory" checked>
+              Inventory Items
+            </span>
+            <span class="text-xs text-slate-400">{{ item_count }} auto-priced · {{ item_manual_count }} manually-priced (skipped)</span>
+          </label>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition-colors shadow-sm"
+                  onclick="return confirm('Recalculate selling prices for the selected scopes using the current markup? Manually-priced records will be skipped.');">
+            Recalculate Now
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

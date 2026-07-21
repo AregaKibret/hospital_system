@@ -112,7 +112,7 @@
                 </span>
               </td>
               <td class="px-4 py-2.5 text-right text-sm text-gray-600 dark:text-gray-400">
-                ETB {{ order.unit_price|floatformat:2 }}
+                {% if perms.core.read_billing %}ETB {{ order.unit_price|floatformat:2 }}{% else %}—{% endif %}
               </td>
               <td class="px-4 py-2.5 text-right">
                 <a href="{% url 'imaging_order_detail' order.pk %}"

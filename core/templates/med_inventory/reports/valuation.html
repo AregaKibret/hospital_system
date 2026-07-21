@@ -15,10 +15,18 @@
 </div>
 
 <!-- Summary cards -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+<div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-5">
   <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
     <p class="text-xs text-slate-400 mb-1">Total Active Stock Value</p>
     <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">ETB {{ total_value|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <p class="text-xs text-slate-400 mb-1">Purchased Stock Value</p>
+    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">ETB {{ purchased_value|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <p class="text-xs text-slate-400 mb-1">Consignment Stock Value</p>
+    <p class="text-2xl font-bold text-violet-600 dark:text-violet-400">ETB {{ consignment_value|floatformat:2 }}</p>
   </div>
   <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
     <p class="text-xs text-slate-400 mb-1">Expired Stock Value</p>
@@ -54,11 +62,11 @@
             <p class="text-xs text-slate-400">{{ m.generic_name }} · {{ m.strength }}</p>
           </td>
           <td class="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">{{ m.category.name|default:"—" }}</td>
-          <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">{{ m._stock }}<span class="text-xs font-normal text-slate-400 ml-1">{{ m.unit_of_measure }}</span></td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">{{ m.calc_stock }}<span class="text-xs font-normal text-slate-400 ml-1">{{ m.unit_of_measure }}</span></td>
           <td class="px-4 py-3 text-right text-slate-500">{{ m.purchase_price }}</td>
-          <td class="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-400">{{ m._value|floatformat:2 }}</td>
-          <td class="px-4 py-3 text-right {% if m._expired_qty %}text-red-600{% else %}text-slate-400{% endif %} hidden lg:table-cell">{{ m._expired_qty }}</td>
-          <td class="px-4 py-3 text-right {% if m._expired_value %}text-red-600{% else %}text-slate-400{% endif %} hidden lg:table-cell">{{ m._expired_value|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-400">{{ m.calc_value|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right {% if m.calc_expired_qty %}text-red-600{% else %}text-slate-400{% endif %} hidden lg:table-cell">{{ m.calc_expired_qty }}</td>
+          <td class="px-4 py-3 text-right {% if m.calc_expired_value %}text-red-600{% else %}text-slate-400{% endif %} hidden lg:table-cell">{{ m.calc_expired_value|floatformat:2 }}</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -1,21 +1,44 @@
 {% extends "base.html" %}
-{% block title %}New Transfer Request{% endblock %}
+{% block title %}New Requisition{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
   <div>
-    <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Transfer Requests</a>
-    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">New Transfer Request</h1>
-    <p class="text-sm text-slate-500 dark:text-slate-400">Request medication stock from the main pharmacy</p>
+    <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Requisitions</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">New Requisition</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400">Request medications or supplies from the main pharmacy</p>
   </div>
 
   <form method="post" class="space-y-5" id="req-form">
     {% csrf_token %}
+
+    <!-- Request Type -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Request Type</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="type-card cursor-pointer" id="lbl-dept">
+          <input type="radio" name="request_type" value="dept_stock" checked class="sr-only" id="type-dept">
+          <div class="rounded-xl border-2 border-slate-200 dark:border-slate-600 p-4 hover:border-blue-400 transition-all selected-type">
+            <p class="font-semibold text-slate-800 dark:text-slate-100">Department Stock Request</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Replenish department inventory — no patient billing generated</p>
+          </div>
+        </label>
+        <label class="type-card cursor-pointer" id="lbl-patient">
+          <input type="radio" name="request_type" value="patient_specific" class="sr-only" id="type-patient">
+          <div class="rounded-xl border-2 border-slate-200 dark:border-slate-600 p-4 hover:border-indigo-400 transition-all">
+            <p class="font-semibold text-slate-800 dark:text-slate-100">Patient-Specific Request</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Items for an identified patient — billing invoice auto-generated on dispensing</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Request Details -->
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
       <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Request Details</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="field-wrapper">
-          <label class="field-label">Department *</label>
+          <label class="field-label">Requesting Department *</label>
           <select name="store" required class="field-input">
             <option value="">Select department</option>
             {% for s in stores %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
@@ -34,6 +57,44 @@
         <div class="field-wrapper">
           <label class="field-label">Notes</label>
           <input type="text" name="notes" class="field-input" placeholder="Optional notes for pharmacy">
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient Section (shown only for patient_specific) -->
+    <div id="patient-section" class="bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800 shadow-sm p-6 space-y-4 hidden">
+      <h2 class="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Patient Information</h2>
+
+      <!-- Patient search -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="field-label">Patient Search *</label>
+          <input type="text" id="patient-search" autocomplete="off"
+                 placeholder="Type name or MRN to search..."
+                 class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-400 transition-all">
+          <div id="patient-dropdown" class="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg mt-1 w-80 hidden"></div>
+          <input type="hidden" name="patient_id" id="patient-id-input">
+          <div id="patient-selected" class="mt-2 hidden text-sm text-indigo-700 dark:text-indigo-300 font-medium"></div>
+        </div>
+
+        <div class="field-wrapper">
+          <label class="field-label">Visit / Admission</label>
+          <select name="visit_id" id="visit-select" class="field-input">
+            <option value="">— Select patient first —</option>
+          </select>
+        </div>
+
+        <div class="field-wrapper">
+          <label class="field-label">Requesting Doctor</label>
+          <select name="requesting_doctor" class="field-input">
+            <option value="">— Optional —</option>
+            {% for d in doctors %}<option value="{{ d.id }}">{{ d.get_full_name }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div class="sm:col-span-2 field-wrapper">
+          <label class="field-label">Clinical Reason / Remarks</label>
+          <input type="text" name="clinical_reason" class="field-input" placeholder="e.g. Post-operative pain management, wound dressing...">
         </div>
       </div>
     </div>
@@ -76,7 +137,7 @@
     </div>
 
     <div class="flex gap-3">
-      <button type="submit" class="btn-primary">Submit Request</button>
+      <button type="submit" class="btn-primary">Submit Requisition</button>
       <a href="{% url 'transfer_request_list' %}" class="btn-secondary">Cancel</a>
     </div>
   </form>
@@ -87,6 +148,79 @@
 <script>
 let lineIndex = 1;
 const medOptions = `{% for m in medications %}<option value="{{ m.id }}">{{ m.name }} — {{ m.generic_name }}</option>{% endfor %}`;
+const itemOptions = `{% for c in consumables %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}`;
+
+// ── Request type toggle ───────────────────────────────────────────────────────
+const typeDept    = document.getElementById('type-dept');
+const typePatient = document.getElementById('type-patient');
+const patientSection = document.getElementById('patient-section');
+
+function updateTypeCards() {
+  document.querySelectorAll('.type-card > div').forEach(d => {
+    d.classList.remove('border-blue-500', 'border-indigo-500', 'bg-blue-50', 'dark:bg-blue-950/20', 'bg-indigo-50', 'dark:bg-indigo-950/20');
+  });
+  if (typeDept.checked) {
+    document.querySelector('#lbl-dept > div').classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-950/20');
+    patientSection.classList.add('hidden');
+  } else {
+    document.querySelector('#lbl-patient > div').classList.add('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-950/20');
+    patientSection.classList.remove('hidden');
+  }
+}
+typeDept.addEventListener('change', updateTypeCards);
+typePatient.addEventListener('change', updateTypeCards);
+updateTypeCards();
+
+// ── Patient search ────────────────────────────────────────────────────────────
+const patientSearch = document.getElementById('patient-search');
+const patientDropdown = document.getElementById('patient-dropdown');
+const patientIdInput  = document.getElementById('patient-id-input');
+const patientSelected = document.getElementById('patient-selected');
+const visitSelect     = document.getElementById('visit-select');
+let searchTimer;
+
+patientSearch.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = patientSearch.value.trim();
+  if (q.length < 2) { patientDropdown.classList.add('hidden'); return; }
+  searchTimer = setTimeout(() => {
+    fetch(`{% url 'patient_search_api' %}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.results.length) { patientDropdown.classList.add('hidden'); return; }
+        patientDropdown.innerHTML = data.results.map(p =>
+          `<div class="px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                onclick="selectPatient(${p.id}, '${p.text.replace(/'/g,"\\'")}', '${p.card}')">
+            <span class="font-medium text-slate-800 dark:text-slate-100">${p.text}</span>
+            <span class="text-xs text-slate-400 ml-2">MRN: ${p.card}</span>
+           </div>`
+        ).join('');
+        patientDropdown.classList.remove('hidden');
+      });
+  }, 300);
+});
+
+function selectPatient(id, name, card) {
+  patientIdInput.value = id;
+  patientSearch.value  = `${name} (${card})`;
+  patientDropdown.classList.add('hidden');
+  patientSelected.textContent = `Selected: ${name} — MRN: ${card}`;
+  patientSelected.classList.remove('hidden');
+  // Load visits
+  fetch(`{% url 'patient_visits_api' 0 %}`.replace('/0/', `/${id}/`))
+    .then(r => r.json())
+    .then(data => {
+      visitSelect.innerHTML = '<option value="">— Select visit (optional) —</option>'
+        + data.visits.map(v => `<option value="${v.id}">${v.text}</option>`).join('');
+    });
+}
+
+document.addEventListener('click', e => {
+  if (!patientDropdown.contains(e.target) && e.target !== patientSearch)
+    patientDropdown.classList.add('hidden');
+});
+
+// ── Medication lines ──────────────────────────────────────────────────────────
 document.getElementById('add-line').addEventListener('click', () => {
   const idx = lineIndex++;
   const div = document.createElement('div');
@@ -94,9 +228,7 @@ document.getElementById('add-line').addEventListener('click', () => {
   div.innerHTML = `
     <div class="col-span-6">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Medication</label>
-      <select name="med_${idx}" class="field-input text-sm">
-        <option value="">Select medication</option>${medOptions}
-      </select>
+      <select name="med_${idx}" class="field-input text-sm"><option value="">Select</option>${medOptions}</select>
     </div>
     <div class="col-span-3">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
@@ -113,7 +245,6 @@ document.getElementById('add-line').addEventListener('click', () => {
 });
 
 let itemLineIndex = 0;
-const itemOptions = `{% for c in consumables %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}`;
 document.getElementById('add-item-line').addEventListener('click', () => {
   const idx = itemLineIndex++;
   const div = document.createElement('div');
@@ -121,9 +252,7 @@ document.getElementById('add-item-line').addEventListener('click', () => {
   div.innerHTML = `
     <div class="col-span-6">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Consumable</label>
-      <select name="item_${idx}" class="field-input text-sm">
-        <option value="">Select item</option>${itemOptions}
-      </select>
+      <select name="item_${idx}" class="field-input text-sm"><option value="">Select</option>${itemOptions}</select>
     </div>
     <div class="col-span-3">
       <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Qty</label>
@@ -139,15 +268,12 @@ document.getElementById('add-item-line').addEventListener('click', () => {
   document.getElementById('item-lines-container').appendChild(div);
 });
 
-// Sentinels so the view's while-loops know where the submitted lines end.
 document.getElementById('req-form').addEventListener('submit', () => {
-  const medSentinel = document.createElement('input');
-  medSentinel.type = 'hidden'; medSentinel.name = 'med_' + lineIndex; medSentinel.value = '';
-  document.getElementById('req-form').appendChild(medSentinel);
-
-  const itemSentinel = document.createElement('input');
-  itemSentinel.type = 'hidden'; itemSentinel.name = 'item_' + itemLineIndex; itemSentinel.value = '';
-  document.getElementById('req-form').appendChild(itemSentinel);
+  const f = document.getElementById('req-form');
+  const ms = document.createElement('input');
+  ms.type='hidden'; ms.name='med_'+lineIndex; ms.value=''; f.appendChild(ms);
+  const is = document.createElement('input');
+  is.type='hidden'; is.name='item_'+itemLineIndex; is.value=''; f.appendChild(is);
 });
 </script>
 {% endblock %}

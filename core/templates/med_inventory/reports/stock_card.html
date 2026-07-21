@@ -5,94 +5,188 @@
 <div class="flex items-center justify-between mb-5 print:hidden">
   <div>
     <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Stock Card</h1>
-    {% if med %}<p class="text-xs text-slate-400 mt-0.5">{{ med.name }} · {{ date_from }} to {{ date_to }}</p>{% endif %}
+    <p class="text-xs text-slate-400 mt-0.5">
+      {% if med %}{{ med.name }} ({{ med.code }}){% elif has_filter %}All Items{% else %}Select filters to view movement history{% endif %}
+      {% if has_filter %} &middot; {{ date_from }} to {{ date_to }}{% endif %}
+    </p>
   </div>
-  {% if med %}
+  {% if has_filter %}
   <div class="flex gap-2">
-    <a href="?med={{ med.id }}&from={{ date_from }}&to={{ date_to }}&export=csv" class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">CSV</a>
-    <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Print</button>
+    <a href="?{{ request.GET.urlencode }}&export=csv"
+       class="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+      CSV
+    </a>
+    <a href="?{{ request.GET.urlencode }}&export=excel"
+       class="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+      Excel
+    </a>
+    <button onclick="window.print()"
+            class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">
+      Print
+    </button>
   </div>
   {% endif %}
 </div>
 
-<!-- Medication selector -->
+<!-- Filters -->
 <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
-  <form method="get" class="flex flex-wrap gap-3 items-end">
-    <div class="flex-1 min-w-56">
+  <form method="get" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+    <div>
       <label class="block text-xs font-medium text-slate-500 mb-1">Medication</label>
-      <select name="med" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
-        <option value="">— Select Medication —</option>
-        {% for m in medications %}<option value="{{ m.id }}" {% if med and med.id == m.id %}selected{% endif %}>{{ m.name }} ({{ m.code }})</option>{% endfor %}
+      <select name="med" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Medications</option>
+        {% for m in medications %}<option value="{{ m.id }}" {% if med and med.id == m.id %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
       </select>
     </div>
     <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Category</label>
+      <select name="category" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Categories</option>
+        {% for cat in categories %}<option value="{{ cat.id }}" {% if cat_id == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Location / Area</label>
+      <select name="location" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+        <option value="">All Locations</option>
+        {% for loc in locations %}<option value="{{ loc.id }}" {% if loc_id == loc.id|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Batch #</label>
+      <input type="text" name="batch" value="{{ batch_no }}" placeholder="Search batch..." class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+    </div>
+    <div>
       <label class="block text-xs font-medium text-slate-500 mb-1">From</label>
-      <input type="date" name="from" value="{{ date_from }}" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+      <input type="date" name="from" value="{{ date_from }}" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
     </div>
     <div>
       <label class="block text-xs font-medium text-slate-500 mb-1">To</label>
-      <input type="date" name="to" value="{{ date_to }}" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
+      <input type="date" name="to" value="{{ date_to }}" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-400 transition-all">
     </div>
-    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">View Card</button>
+    <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex gap-2 justify-end pt-1">
+      <a href="{% url 'report_stock_card' %}" class="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Clear</a>
+      <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors">Apply Filters</button>
+    </div>
   </form>
 </div>
 
-{% if med %}
-<!-- Medication header card -->
+{% if med and has_filter %}
+<!-- Single-item header -->
 <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-5">
-  <div><p class="text-xs text-slate-400">Medication</p><p class="font-bold text-slate-800 dark:text-slate-200">{{ med.name }}</p></div>
-  <div><p class="text-xs text-slate-400">Code</p><p class="font-mono font-medium text-slate-700 dark:text-slate-300">{{ med.code }}</p></div>
-  <div><p class="text-xs text-slate-400">Generic Name</p><p class="font-medium text-slate-700 dark:text-slate-300">{{ med.generic_name }}</p></div>
-  <div><p class="text-xs text-slate-400">Current Balance</p><p class="text-xl font-bold text-blue-600 dark:text-blue-400">{{ med.current_stock }} {{ med.unit_of_measure }}</p></div>
+  <div>
+    <p class="text-xs text-slate-400">Medication</p>
+    <p class="font-bold text-slate-800 dark:text-slate-200">{{ med.name }}</p>
+  </div>
+  <div>
+    <p class="text-xs text-slate-400">Item Code</p>
+    <p class="font-mono font-medium text-slate-700 dark:text-slate-300">{{ med.code }}</p>
+  </div>
+  <div>
+    <p class="text-xs text-slate-400">Generic Name</p>
+    <p class="font-medium text-slate-700 dark:text-slate-300">{{ med.generic_name }}</p>
+  </div>
+  <div>
+    <p class="text-xs text-slate-400">Current Balance</p>
+    <p class="text-xl font-bold text-blue-600 dark:text-blue-400">{{ med.current_stock }} {{ med.unit_of_measure }}</p>
+  </div>
 </div>
+{% endif %}
 
+{% if has_filter %}
 <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  {% if transactions %}
+  <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <p class="text-sm text-slate-500 dark:text-slate-400">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</p>
+    <p class="text-xs text-slate-400">{{ date_from }} — {{ date_to }}</p>
+  </div>
+  {% endif %}
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
         <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
-          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Date</th>
-          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden md:table-cell">Batch</th>
-          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Transaction Type</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">In</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Out</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Balance</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">Unit Cost</th>
-          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase hidden lg:table-cell">By</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Date</th>
+          {% if multi_item %}
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Item Code</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Item Name</th>
+          {% endif %}
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Batch #</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden md:table-cell">Expiry</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Transaction Type</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden lg:table-cell">Description</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">In</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Out</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">Balance</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden xl:table-cell">Unit Cost</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden xl:table-cell">Total Value</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden lg:table-cell">Area</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden lg:table-cell">Ref #</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase whitespace-nowrap hidden md:table-cell">Performed By</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
         {% for tx in transactions %}
         <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40">
-          <td class="px-4 py-3 text-xs text-slate-500">{{ tx.transaction_date|date:"d M Y" }}</td>
-          <td class="px-4 py-3 font-mono text-xs text-slate-400 hidden md:table-cell">{{ tx.batch.batch_number|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+            {{ tx.transaction_date|date:"d M Y" }}
+            <span class="block text-slate-400">{{ tx.transaction_date|date:"H:i" }}</span>
+          </td>
+          {% if multi_item %}
+          <td class="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">{{ tx.medication.code }}</td>
+          <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ tx.medication.name }}</td>
+          {% endif %}
+          <td class="px-4 py-3 font-mono text-xs text-slate-400">{{ tx.batch.batch_number|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden md:table-cell whitespace-nowrap">
+            {% if tx.batch %}{{ tx.batch.expiration_date }}{% else %}—{% endif %}
+          </td>
           <td class="px-4 py-3">
-            <span class="text-xs px-2 py-0.5 rounded-full
-              {% if tx.transaction_type == 'purchase' %}bg-green-100 text-green-700
-              {% elif tx.transaction_type == 'dispense' %}bg-blue-100 text-blue-700
-              {% elif 'adjustment' in tx.transaction_type %}bg-amber-100 text-amber-700
-              {% else %}bg-red-100 text-red-700{% endif %}">
+            <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap
+              {% if tx.transaction_type == 'purchase' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+              {% elif tx.transaction_type == 'opening' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400
+              {% elif tx.transaction_type == 'dispense' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+              {% elif 'adjustment' in tx.transaction_type %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+              {% elif 'transfer' in tx.transaction_type %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
+              {% elif tx.transaction_type == 'return_in' %}bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400
+              {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
               {{ tx.get_transaction_type_display }}
             </span>
-            {% if tx.notes %}<p class="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{{ tx.notes }}</p>{% endif %}
           </td>
-          <td class="px-4 py-3 text-right font-medium text-emerald-600">{% if tx.quantity_in %}+{{ tx.quantity_in }}{% else %}—{% endif %}</td>
-          <td class="px-4 py-3 text-right font-medium text-red-500">{% if tx.quantity_out %}-{{ tx.quantity_out }}{% else %}—{% endif %}</td>
-          <td class="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300">{{ tx.balance_after }}</td>
-          <td class="px-4 py-3 text-right text-slate-500 hidden lg:table-cell">{{ tx.unit_cost|floatformat:2 }}</td>
-          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{{ tx.performed_by.get_full_name|default:tx.performed_by.username }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell max-w-xs truncate">{{ tx.calc_description }}</td>
+          <td class="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+            {% if tx.quantity_in %}+{{ tx.quantity_in }}{% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right font-medium text-red-500 dark:text-red-400 tabular-nums">
+            {% if tx.quantity_out %}-{{ tx.quantity_out }}{% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right font-bold text-slate-700 dark:text-slate-300 tabular-nums">{{ tx.balance_after }}</td>
+          <td class="px-4 py-3 text-right text-xs text-slate-500 hidden xl:table-cell tabular-nums">{{ tx.unit_cost|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right text-xs text-slate-500 hidden xl:table-cell tabular-nums">{{ tx.total_value|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell max-w-[140px] truncate">{{ tx.calc_area }}</td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-400 hidden lg:table-cell">{{ tx.reference_number|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500 hidden md:table-cell whitespace-nowrap">{{ tx.performed_by.get_full_name|default:tx.performed_by.username }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="py-16 text-center text-slate-400">No transactions found for this period.</td></tr>
+        <tr>
+          <td colspan="15" class="py-16 text-center text-slate-400">
+            <svg class="w-10 h-10 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            No transactions found for the selected filters.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
 {% else %}
-<div class="py-16 text-center text-slate-400">
-  <svg class="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-  <p class="font-medium">Select a medication to view its stock card</p>
+<div class="py-20 text-center text-slate-400">
+  <svg class="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+  </svg>
+  <p class="font-medium text-slate-500 dark:text-slate-400">Select at least one filter to view stock movement history</p>
+  <p class="text-sm mt-1">Choose a medication, category, location, or batch number above</p>
 </div>
 {% endif %}
 

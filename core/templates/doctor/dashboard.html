@@ -16,7 +16,7 @@
 {% endif %}
 
 <!-- Header -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
   <div>
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Doctor Dashboard</h1>
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
@@ -32,47 +32,61 @@
   </a>
 </div>
 
-<!-- Stats row -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
-    <div class="w-11 h-11 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
+<!-- KPI row -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
       <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
       </svg>
     </div>
     <div>
-      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ today_visits.count }}</p>
-      <p class="text-xs text-slate-500 dark:text-slate-400">Today's Visits</p>
+      <p class="text-xl font-bold text-slate-900 dark:text-white" id="kpiQueue">{{ queue_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">In Queue</p>
     </div>
   </div>
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
-    <div class="w-11 h-11 bg-yellow-100 dark:bg-yellow-900/40 rounded-xl flex items-center justify-center shrink-0">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
+      <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-xl font-bold text-slate-900 dark:text-white" id="kpiWaiting">{{ waiting_count }}</p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Waiting</p>
+    </div>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/40 rounded-xl flex items-center justify-center shrink-0">
       <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
       </svg>
     </div>
     <div>
-      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ pending_labs }}</p>
+      <p class="text-xl font-bold text-slate-900 dark:text-white">{{ pending_labs }}</p>
       <p class="text-xs text-slate-500 dark:text-slate-400">Pending Labs</p>
     </div>
   </div>
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
-    <div class="w-11 h-11 bg-cyan-100 dark:bg-cyan-900/40 rounded-xl flex items-center justify-center shrink-0">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/40 rounded-xl flex items-center justify-center shrink-0">
       <svg class="w-5 h-5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
       </svg>
     </div>
     <div>
-      <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ pending_imaging }}</p>
+      <p class="text-xl font-bold text-slate-900 dark:text-white">{{ pending_imaging }}</p>
       <p class="text-xs text-slate-500 dark:text-slate-400">Pending Imaging</p>
     </div>
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main layout: left content + right queue panel -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-  <!-- Today's patients -->
-  <div class="lg:col-span-2">
+  <!-- LEFT: Today's patients + Recent notes -->
+  <div class="xl:col-span-2 space-y-5">
+
+    <!-- Today's patients -->
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
         <h2 class="font-semibold text-slate-900 dark:text-white">Today's Patients</h2>
@@ -84,10 +98,10 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-slate-100 dark:border-slate-700">
-              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Queue</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Q#</th>
               <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Patient</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Type</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Department</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Status</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Type</th>
               <th class="text-right px-5 py-3"></th>
             </tr>
           </thead>
@@ -105,13 +119,21 @@
               </td>
               <td class="px-5 py-3 hidden sm:table-cell">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if visit.status == 'waiting_doctor' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+                  {% elif visit.status == 'consultation_started' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                  {% elif visit.status == 'investigation_ordered' or visit.status == 'investigation_completed' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                  {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400{% endif %}">
+                  {{ visit.get_status_display }}
+                </span>
+              </td>
+              <td class="px-5 py-3 hidden md:table-cell">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                   {% if visit.visit_type == 'Emergency' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
                   {% elif visit.visit_type == 'Inpatient' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
                   {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400{% endif %}">
                   {{ visit.visit_type }}
                 </span>
               </td>
-              <td class="px-5 py-3 text-slate-500 dark:text-slate-400 text-xs hidden md:table-cell">{{ visit.department.name }}</td>
               <td class="px-5 py-3 text-right">
                 <a href="{% url 'visit_detail' visit.id %}"
                    class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
@@ -130,15 +152,11 @@
           <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
-          <p class="text-sm text-slate-400 dark:text-slate-500">No visits recorded today</p>
+          <p class="text-sm text-slate-400 dark:text-slate-500">No visits assigned today</p>
         </div>
         {% endif %}
       </div>
     </div>
-  </div>
-
-  <!-- Right column -->
-  <div class="space-y-4">
 
     <!-- Recent notes -->
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -165,32 +183,249 @@
       </div>
     </div>
 
-    <!-- Quick actions -->
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
-      <h2 class="font-semibold text-slate-900 dark:text-white text-sm mb-3">Quick Actions</h2>
-      <div class="space-y-2">
-        <a href="{% url 'doctor_patient_list' %}"
-           class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
-          <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+  </div>
+
+  <!-- RIGHT: Assigned Patient Queue Panel -->
+  {% if doctor %}
+  <div class="xl:col-span-1">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm sticky top-4">
+
+      <!-- Queue panel header -->
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="font-semibold text-slate-900 dark:text-white text-sm">My Patient Queue</h2>
+          <span id="queueBadge"
+                class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full">
+            {{ queue_count }}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="pollDot" class="w-2 h-2 rounded-full bg-green-400 animate-pulse" title="Live updates active"></span>
+          <button onclick="refreshQueue()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition" title="Refresh now">
+            <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
-          </div>
-          <span class="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Search Patients</span>
-        </a>
-        <a href="{% url 'patient_search' %}"
-           class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
-          <div class="w-8 h-8 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-          </div>
-          <span class="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-green-600 dark:group-hover:text-green-400">Patient Records</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search + filters -->
+      <div class="px-4 py-3 space-y-2 border-b border-slate-100 dark:border-slate-700">
+        <input id="queueSearch" type="text" placeholder="Search patient name or MRN…"
+               class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+        <div class="flex items-center gap-2">
+          <select id="queueStatusFilter"
+                  class="flex-1 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="">All statuses</option>
+            <option value="waiting_doctor">Waiting</option>
+            <option value="consultation_started">In Consultation</option>
+            <option value="investigation_ordered">Investigation Ordered</option>
+            <option value="investigation_completed">Results Ready</option>
+            <option value="treatment_started">Treatment Started</option>
+            <option value="payment_completed">Payment Done</option>
+          </select>
+          <select id="queueSort"
+                  class="flex-1 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="queue">By queue #</option>
+            <option value="waiting">Longest wait</option>
+            <option value="checkin">Check-in time</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Next Patient button -->
+      <div id="nextPatientBar" class="hidden px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800">
+        <a id="nextPatientBtn" href="#"
+           class="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Next Patient
         </a>
       </div>
-    </div>
 
+      <!-- Queue list -->
+      <div id="queueList" class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-[calc(100vh-22rem)] overflow-y-auto">
+        <div class="px-4 py-10 text-center">
+          <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p class="text-sm text-slate-400">Loading queue…</p>
+        </div>
+      </div>
+
+    </div>
   </div>
+  {% else %}
+  <!-- No doctor profile linked -->
+  <div class="xl:col-span-1">
+    <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800 p-5 text-center">
+      <svg class="w-8 h-8 text-amber-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <p class="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-1">No doctor profile linked</p>
+      <p class="text-xs text-amber-600 dark:text-amber-500">Ask an admin to link your user account to a Doctor record to see your patient queue.</p>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
+
+<script>
+(function () {
+  const QUEUE_API   = '{% url "doctor_queue_api" %}';
+  const searchEl    = document.getElementById('queueSearch');
+  const statusEl    = document.getElementById('queueStatusFilter');
+  const sortEl      = document.getElementById('queueSort');
+  const listEl      = document.getElementById('queueList');
+  const badgeEl     = document.getElementById('queueBadge');
+  const kpiQueue    = document.getElementById('kpiQueue');
+  const kpiWait     = document.getElementById('kpiWaiting');
+  const nextBar     = document.getElementById('nextPatientBar');
+  const nextBtn     = document.getElementById('nextPatientBtn');
+  const refreshIcon = document.getElementById('refreshIcon');
+
+  if (!listEl) return; // no doctor profile — skip
+
+  let pollTimer;
+
+  function fetchQueue() {
+    const params = new URLSearchParams();
+    const q = searchEl ? searchEl.value.trim() : '';
+    if (q) params.set('q', q);
+    const st = statusEl ? statusEl.value : '';
+    if (st) params.set('status', st);
+    const so = sortEl ? sortEl.value : 'queue';
+    params.set('sort', so);
+
+    fetch(`${QUEUE_API}?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => renderQueue(data))
+      .catch(() => {
+        listEl.innerHTML = '<p class="px-4 py-8 text-center text-sm text-slate-400">Could not load queue.</p>';
+      });
+  }
+
+  function renderQueue(data) {
+    if (badgeEl) badgeEl.textContent = data.total;
+    if (kpiQueue) kpiQueue.textContent = data.total;
+
+    const waitingCount = (data.visits || []).filter(v =>
+      v.visit_status === 'waiting_doctor' || v.visit_status === 'payment_completed'
+    ).length;
+    if (kpiWait) kpiWait.textContent = waitingCount;
+
+    if (data.next_visit_id && nextBar && nextBtn) {
+      nextBtn.href = `/doctor/visit/${data.next_visit_id}/`;
+      nextBar.classList.remove('hidden');
+    } else if (nextBar) {
+      nextBar.classList.add('hidden');
+    }
+
+    if (!data.visits || !data.visits.length) {
+      listEl.innerHTML = `
+        <div class="px-4 py-12 text-center">
+          <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <p class="text-sm text-slate-400 dark:text-slate-500">No patients in queue</p>
+        </div>`;
+      return;
+    }
+
+    listEl.innerHTML = '';
+    data.visits.forEach(v => {
+      const card = document.createElement('a');
+      card.href = v.url;
+      card.className = 'block px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors';
+
+      const qNumHtml = v.queue_number != null
+        ? `<span class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold shrink-0 ${queueNumColor(v.queue_status)}">${v.queue_number}</span>`
+        : '';
+      const priorityHtml = v.priority && v.priority !== 'Normal'
+        ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${priorityColor(v.priority)}">${escHtml(v.priority)}</span>`
+        : '';
+      const statusHtml = `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${statusColor(v.visit_status)}">${escHtml(v.visit_status_display)}</span>`;
+      const waitHtml   = v.waiting_minutes != null ? `<span class="text-xs text-slate-400">${formatWait(v.waiting_minutes)}</span>` : '';
+      const apptHtml   = v.appointment_time ? `<span class="text-xs text-slate-400">Appt: ${escHtml(v.appointment_time)}</span>` : '';
+      const ageGender  = [v.age != null ? `${v.age}y` : '', v.sex ? v.sex[0] : ''].filter(Boolean).join(' ');
+
+      card.innerHTML = `
+        <div class="flex items-start gap-2">
+          ${qNumHtml}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
+              <span class="text-sm font-semibold text-slate-900 dark:text-white truncate">${escHtml(v.patient_name)}</span>
+              ${priorityHtml}
+            </div>
+            <div class="text-xs text-slate-400 mb-1.5">${escHtml(v.mrn)}${ageGender ? ' &middot; ' + ageGender : ''}</div>
+            <div class="flex items-center gap-2 flex-wrap">
+              ${statusHtml}
+              ${waitHtml}
+              ${apptHtml}
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>`;
+      listEl.appendChild(card);
+    });
+  }
+
+  function queueNumColor(qs) {
+    if (qs === 'In Progress') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+    if (qs === 'Called')      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+    if (qs === 'Completed')   return 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400';
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+  }
+
+  function priorityColor(p) {
+    if (p === 'Emergency') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    if (p === 'Urgent')    return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+    return '';
+  }
+
+  function statusColor(s) {
+    const m = {
+      'waiting_doctor':         'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      'payment_completed':      'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      'consultation_started':   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      'investigation_ordered':  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      'investigation_completed':'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+      'treatment_started':      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    };
+    return m[s] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400';
+  }
+
+  function formatWait(mins) {
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  window.refreshQueue = function () {
+    if (refreshIcon) {
+      refreshIcon.classList.add('animate-spin');
+      setTimeout(() => refreshIcon.classList.remove('animate-spin'), 600);
+    }
+    fetchQueue();
+  };
+
+  function scheduleNextPoll() {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(() => { fetchQueue(); scheduleNextPoll(); }, 30000);
+  }
+
+  let searchDebounce;
+  if (searchEl)  searchEl.addEventListener('input', () => { clearTimeout(searchDebounce); searchDebounce = setTimeout(fetchQueue, 300); });
+  if (statusEl)  statusEl.addEventListener('change', fetchQueue);
+  if (sortEl)    sortEl.addEventListener('change', fetchQueue);
+
+  fetchQueue();
+  scheduleNextPoll();
+})();
+</script>
 
 {% endblock %}

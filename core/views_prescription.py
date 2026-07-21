@@ -59,14 +59,14 @@ def medication_search_api(request):
 
     meds = (
         Medication.objects
-        .filter(is_active=True)
+        .filter(inventory_item__is_active=True)
         .filter(
-            Q(name__icontains=q)
+            Q(brand_name__icontains=q)
             | Q(generic_name__icontains=q)
-            | Q(code__icontains=q)
+            | Q(inventory_item__item_code__icontains=q)
         )
-        .select_related('category')
-        .order_by('name')[:20]
+        .select_related('inventory_item', 'inventory_item__category')
+        .order_by('brand_name')[:20]
     )
 
     # Pre-compute stock per medication
@@ -74,7 +74,8 @@ def medication_search_api(request):
     med_ids = [m.pk for m in meds]
     for row in (
         MedicationBatch.objects
-        .filter(medication_id__in=med_ids, is_active=True, quantity_available__gt=0)
+        .filter(medication_id__in=med_ids, is_active=True, quantity_available__gt=0,
+                status=MedicationBatch.BatchStatus.ACTIVE)
         .values('medication_id')
         .annotate(total=Sum('quantity_available'))
     ):
@@ -150,7 +151,7 @@ def prescription_create(request, visit_id):
                     med_obj = None
                     if med_id:
                         try:
-                            med_obj = Medication.objects.get(pk=med_id, is_active=True)
+                            med_obj = Medication.objects.get(pk=med_id, inventory_item__is_active=True)
                         except Medication.DoesNotExist:
                             pass
 
@@ -216,7 +217,8 @@ def prescription_detail(request, rx_id):
     med_ids = [item.medication_id for item in rx.items.all() if item.medication_id]
     if med_ids:
         for b in (MedicationBatch.objects
-                  .filter(medication_id__in=med_ids, is_active=True, quantity_available__gt=0)
+                  .filter(medication_id__in=med_ids, is_active=True, quantity_available__gt=0,
+                          status=MedicationBatch.BatchStatus.ACTIVE)
                   .select_related('medication')
                   .order_by('expiration_date')):
             batch_map.setdefault(b.medication_id, []).append(b)
@@ -378,7 +380,8 @@ def rx_detail(request, rx_id):
         if item.medication_id:
             batches = (
                 MedicationBatch.objects
-                .filter(medication_id=item.medication_id, is_active=True, quantity_available__gt=0)
+                .filter(medication_id=item.medication_id, is_active=True, quantity_available__gt=0,
+                        status=MedicationBatch.BatchStatus.ACTIVE)
                 .order_by('expiration_date')
             )
             info['batches'] = list(batches)
@@ -491,7 +494,8 @@ def rx_dispense(request, rx_id):
         if item.medication_id:
             batches = list(
                 MedicationBatch.objects
-                .filter(medication_id=item.medication_id, is_active=True, quantity_available__gt=0)
+                .filter(medication_id=item.medication_id, is_active=True, quantity_available__gt=0,
+                        status=MedicationBatch.BatchStatus.ACTIVE)
                 .order_by('expiration_date')
             )
         ps_list = list(

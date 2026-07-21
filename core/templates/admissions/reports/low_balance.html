@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Low Balance Alert Report{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Low Balance Alert</h1>
+    <p class="text-xs text-slate-400 mt-0.5">Active inpatient deposit accounts requiring attention</p>
+  </div>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Department</label>
+      <select name="department" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Custom Threshold (ETB)</label>
+      <input type="number" name="threshold" value="{{ threshold_override }}" min="0" step="0.01" class="field-input text-sm py-1.5" placeholder="use account default">
+    </div>
+    <button type="submit" class="btn-primary text-sm py-1.5 px-4">Apply</button>
+    <a href="{% url 'report_low_balance' %}" class="btn-secondary text-sm py-1.5 px-3">Clear</a>
+  </form>
+</div>
+
+{% if exhausted_accounts %}
+<div class="mb-5">
+  <h2 class="text-base font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold">{{ exhausted_accounts|length }}</span>
+    Exhausted Balances — Immediate Action Required
+  </h2>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="bg-red-50 dark:bg-red-900/20 text-left text-xs text-red-500 uppercase border-b border-red-200 dark:border-red-700">
+          <th class="px-4 py-3 font-semibold">Patient</th>
+          <th class="px-4 py-3 font-semibold">Bed / Ward</th>
+          <th class="px-4 py-3 font-semibold">Admitted</th>
+          <th class="px-4 py-3 font-semibold text-right">Total Deposited</th>
+          <th class="px-4 py-3 font-semibold text-right">Total Charges</th>
+          <th class="px-4 py-3 font-semibold text-right">Outstanding</th>
+          <th class="px-4 py-3 font-semibold print:hidden">Action</th>
+        </tr></thead>
+        <tbody class="divide-y divide-red-100 dark:divide-red-900/30">
+          {% for acc in exhausted_accounts %}
+          <tr class="bg-red-50/30 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+            <td class="px-4 py-3"><span class="font-semibold text-slate-800 dark:text-slate-100">{{ acc.patient.full_name }}</span><span class="block text-xs text-slate-400">{{ acc.patient.card_number }}</span></td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ acc.admission.bed.bed_code|default:"—" }} / {{ acc.admission.bed.room.ward.name|default:"—" }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ acc.created_at|date:"d M Y" }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ acc.total_deposited|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums text-red-600">{{ acc.total_charges|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums font-bold text-red-700 dark:text-red-400">{{ acc.outstanding_balance|floatformat:2 }}</td>
+            <td class="px-4 py-3 print:hidden">
+              <a href="{% url 'deposit_add' admission_id=acc.admission.pk %}" class="text-xs font-medium text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg transition-colors">Add Deposit</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if low_accounts %}
+<div>
+  <h2 class="text-base font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{{ low_accounts|length }}</span>
+    Low Balance — Additional Deposit Recommended
+  </h2>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-amber-200 dark:border-amber-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="bg-amber-50 dark:bg-amber-900/20 text-left text-xs text-amber-600 uppercase border-b border-amber-200 dark:border-amber-700">
+          <th class="px-4 py-3 font-semibold">Patient</th>
+          <th class="px-4 py-3 font-semibold">Bed / Ward</th>
+          <th class="px-4 py-3 font-semibold">Admitted</th>
+          <th class="px-4 py-3 font-semibold text-right">Total Deposited</th>
+          <th class="px-4 py-3 font-semibold text-right">Total Charges</th>
+          <th class="px-4 py-3 font-semibold text-right">Available</th>
+          <th class="px-4 py-3 font-semibold text-right">Threshold</th>
+          <th class="px-4 py-3 font-semibold print:hidden">Action</th>
+        </tr></thead>
+        <tbody class="divide-y divide-amber-100 dark:divide-amber-900/20">
+          {% for acc in low_accounts %}
+          <tr class="bg-amber-50/20 dark:bg-amber-900/5 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition">
+            <td class="px-4 py-3"><span class="font-medium text-slate-800 dark:text-slate-100">{{ acc.patient.full_name }}</span><span class="block text-xs text-slate-400">{{ acc.patient.card_number }}</span></td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ acc.admission.bed.bed_code|default:"—" }} / {{ acc.admission.bed.room.ward.name|default:"—" }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ acc.created_at|date:"d M Y" }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ acc.total_deposited|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums text-red-500">{{ acc.total_charges|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums font-semibold text-amber-600 dark:text-amber-400">{{ acc.available_balance|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums text-slate-400">{{ acc.low_balance_threshold|floatformat:2 }}</td>
+            <td class="px-4 py-3 print:hidden">
+              <a href="{% url 'deposit_add' admission_id=acc.admission.pk %}" class="text-xs font-medium text-amber-700 border border-amber-300 hover:bg-amber-50 px-3 py-1 rounded-lg transition-colors">Add Deposit</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not exhausted_accounts and not low_accounts %}
+<div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-2xl p-10 text-center">
+  <p class="text-emerald-700 dark:text-emerald-400 font-semibold">All Clear</p>
+  <p class="text-sm text-emerald-600 dark:text-emerald-300 mt-1">No accounts have low or exhausted balances at this time.</p>
+</div>
+{% endif %}
+{% endblock %}

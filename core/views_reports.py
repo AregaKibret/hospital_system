@@ -208,6 +208,14 @@ def reports_hub(request):
         ('report_attachment_activity_log', 'Attachment Activity Log', 'Full upload/replace/delete/restore audit trail'),
     ]
 
+    deposit_reports = [
+        ('report_deposit_collection',    'Deposit Collection',       'All admission deposits collected in a period'),
+        ('report_deposit_balance',       'Deposit Balance Report',   'Current balance for each inpatient account'),
+        ('report_low_balance',           'Low Balance Alert',        'Accounts with low or exhausted deposit balances'),
+        ('report_deposit_transactions',  'Deposit Transaction History', 'Full ledger of every deposit transaction'),
+        ('report_discharge_settlement',  'Discharge Settlement',     'Final reconciliation summaries at discharge'),
+    ]
+
     return render(request, 'reports/hub.html', {
         'today': today,
         'stats': stats,
@@ -219,6 +227,7 @@ def reports_hub(request):
         'facility_reports': facility_reports,
         'can_admission': can_admission,
         'admission_reports': admission_reports,
+        'deposit_reports': deposit_reports,
         'can_cards': can_cards,
         'card_reports': card_reports,
         'can_specializations': can_specializations,
@@ -482,46 +491,153 @@ def report_patient_visits(request):
     })
 
 
+# ── Doctor Activity / Income Report ──────────────────────────────────────────
+
+@hms_permission_required('core.read_department_reports')
+def report_doctor_activity(request):
+    from_date, to_date, from_str, to_str = _parse_date_range(request)
+    doctor_id   = request.GET.get('doctor', '')
+    dept_filter = request.GET.get('department', '')
+    export      = request.GET.get('export', '')
+
+    all_doctors = Doctor.objects.filter(active=True).select_related('department').order_by('first_name', 'last_name')
+    departments = Department.objects.filter(is_active=True).order_by('name')
+
+    date_range = Q(
+        invoice__visit__created_at__date__gte=from_date,
+        invoice__visit__created_at__date__lte=to_date,
+    )
+    exclude_statuses = [InvoiceItem.PaymentStatus.CANCELLED, InvoiceItem.PaymentStatus.REFUNDED]
+
+    # Resolve which doctors to show
+    doctors_qs = Doctor.objects.filter(active=True).select_related('department')
+    if dept_filter:
+        doctors_qs = doctors_qs.filter(department__id=dept_filter)
+    if doctor_id:
+        doctors_qs = doctors_qs.filter(id=doctor_id)
+
+    # Service type choices for display
+    service_types = [st.value for st in InvoiceItem.ServiceType]
+
+    rows = []
+    for doc in doctors_qs.order_by('first_name', 'last_name'):
+        items_qs = InvoiceItem.objects.filter(
+            date_range,
+            invoice__visit__doctor=doc,
+        ).exclude(payment_status__in=exclude_statuses)
+
+        if not items_qs.exists():
+            continue
+
+        # Aggregate total and per-service-type
+        totals = items_qs.aggregate(
+            grand_total=Sum('total'),
+            paid=Sum('paid_amount'),
+        )
+
+        by_type = {}
+        for st in InvoiceItem.ServiceType:
+            agg = items_qs.filter(service_type=st.value).aggregate(
+                amount=Sum('total'), count=Count('id')
+            )
+            if agg['amount']:
+                by_type[st.label] = {'amount': agg['amount'], 'count': agg['count']}
+
+        rows.append({
+            'doctor': doc,
+            'grand_total': totals['grand_total'] or 0,
+            'paid': totals['paid'] or 0,
+            'by_type': by_type,
+            'visit_count': items_qs.values('invoice__visit').distinct().count(),
+        })
+
+    rows.sort(key=lambda r: r['grand_total'], reverse=True)
+
+    if export in ('excel', 'csv'):
+        headers = ['Doctor', 'Department', 'Visits', 'Grand Total (ETB)', 'Paid (ETB)',
+                   'Consultation', 'Laboratory', 'Imaging', 'Medication',
+                   'Procedure', 'Surgery', 'Bed/Room', 'Nursing', 'Other']
+
+        def _get(r, label):
+            return r['by_type'].get(label, {}).get('amount') or 0
+
+        export_rows = [
+            [
+                f"Dr. {r['doctor'].first_name} {r['doctor'].last_name}",
+                r['doctor'].department.name if r['doctor'].department else '—',
+                r['visit_count'],
+                r['grand_total'], r['paid'],
+                _get(r, 'Consultation'), _get(r, 'Laboratory'), _get(r, 'Imaging'),
+                _get(r, 'Medication'), _get(r, 'Procedure'),
+                _get(r, 'Surgery Booking Deposit') + _get(r, 'Surgery Pre-Deposit'),
+                _get(r, 'Bed / Room'), _get(r, 'Nursing Care'), _get(r, 'Other'),
+            ]
+            for r in rows
+        ]
+        period = _period_label(from_date, to_date)
+        if export == 'excel':
+            r = excel_response(f'doctor_activity_{from_str}_{to_str}.xlsx')
+            wb = build_workbook('Doctor Activity Report', period, _generated_by(request), headers, export_rows)
+            return send_workbook(wb, r)
+        r = csv_response(f'doctor_activity_{from_str}_{to_str}.csv')
+        return write_csv(r, headers, export_rows)
+
+    # Summary totals
+    grand_total = sum(r['grand_total'] for r in rows)
+    grand_paid  = sum(r['paid'] for r in rows)
+
+    return render(request, 'reports/doctor_activity.html', {
+        'from_date': from_date, 'to_date': to_date,
+        'from_date_str': from_str, 'to_date_str': to_str,
+        'doctor_id': doctor_id, 'dept_filter': dept_filter,
+        'all_doctors': all_doctors, 'departments': departments,
+        'rows': rows,
+        'grand_total': grand_total, 'grand_paid': grand_paid,
+        'qp': _qp(request),
+    })
+
+
 # ── Doctor Performance Report ─────────────────────────────────────────────────
 
 @hms_permission_required('core.read_department_reports')
 def report_doctor_performance(request):
     from_date, to_date, from_str, to_str = _parse_date_range(request)
     dept_filter = request.GET.get('department', '')
-    q           = request.GET.get('q', '').strip()
+    doctor_id   = request.GET.get('doctor', '')
     export      = request.GET.get('export', '')
 
-    doctors_qs = Doctor.objects.select_related('department').filter(
-        visits__created_at__date__gte=from_date,
-        visits__created_at__date__lte=to_date,
-    ).distinct()
+    # Base queryset — no date filter here; dates go into annotations only
+    doctors_qs = Doctor.objects.select_related('department').filter(active=True)
 
     if dept_filter:
         doctors_qs = doctors_qs.filter(department__id=dept_filter)
-    if q:
-        doctors_qs = doctors_qs.filter(
-            Q(first_name__icontains=q) | Q(last_name__icontains=q)
-        )
+    if doctor_id:
+        doctors_qs = doctors_qs.filter(id=doctor_id)
+
+    date_q = Q(visits__created_at__date__gte=from_date,
+                visits__created_at__date__lte=to_date)
 
     doctors_qs = doctors_qs.annotate(
-        total_visits=Count('visits', distinct=True,
-                           filter=Q(visits__created_at__date__gte=from_date,
-                                    visits__created_at__date__lte=to_date)),
+        total_visits=Count('visits', distinct=True, filter=date_q),
         new_patients=Count('visits__patient', distinct=True,
-                           filter=Q(visits__visit_type=Visit.VisitType.NEW_VISIT,
-                                    visits__created_at__date__gte=from_date,
-                                    visits__created_at__date__lte=to_date)),
+                           filter=date_q & Q(visits__visit_type=Visit.VisitType.NEW_VISIT)),
         revisits=Count('visits', distinct=True,
-                       filter=Q(visits__visit_type=Visit.VisitType.REVISIT,
-                                visits__created_at__date__gte=from_date,
-                                visits__created_at__date__lte=to_date)),
-        notes_written=Count('visits__clinical_notes', distinct=True,
-                            filter=Q(visits__created_at__date__gte=from_date,
-                                     visits__created_at__date__lte=to_date)),
-        diagnoses_made=Count('visits__diagnoses', distinct=True,
-                             filter=Q(visits__created_at__date__gte=from_date,
-                                      visits__created_at__date__lte=to_date)),
-    ).order_by('-total_visits')
+                       filter=date_q & Q(visits__visit_type=Visit.VisitType.REVISIT)),
+        notes_written=Count('visits__clinical_notes', distinct=True, filter=date_q),
+        diagnoses_made=Count('visits__diagnoses', distinct=True, filter=date_q),
+    ).filter(total_visits__gt=0).order_by('-total_visits')
+
+    # If a specific doctor is selected, show them even with 0 visits
+    if doctor_id:
+        doctors_qs = Doctor.objects.select_related('department').filter(id=doctor_id).annotate(
+            total_visits=Count('visits', distinct=True, filter=date_q),
+            new_patients=Count('visits__patient', distinct=True,
+                               filter=date_q & Q(visits__visit_type=Visit.VisitType.NEW_VISIT)),
+            revisits=Count('visits', distinct=True,
+                           filter=date_q & Q(visits__visit_type=Visit.VisitType.REVISIT)),
+            notes_written=Count('visits__clinical_notes', distinct=True, filter=date_q),
+            diagnoses_made=Count('visits__diagnoses', distinct=True, filter=date_q),
+        ).order_by('-total_visits')
 
     if export in ('excel', 'csv'):
         headers = ['Doctor', 'Department', 'Total Visits', 'New Patients',
@@ -539,15 +655,17 @@ def report_doctor_performance(request):
         r = csv_response(f'doctor_performance_{from_str}_{to_str}.csv')
         return write_csv(r, headers, rows)
 
-    paginator = Paginator(list(doctors_qs), 30)
-    page_obj  = paginator.get_page(request.GET.get('page', 1))
+    paginator   = Paginator(list(doctors_qs), 30)
+    page_obj    = paginator.get_page(request.GET.get('page', 1))
     departments = Department.objects.filter(is_active=True).order_by('name')
+    all_doctors = Doctor.objects.filter(active=True).order_by('first_name', 'last_name')
 
     return render(request, 'reports/doctor_performance.html', {
         'from_date': from_date, 'to_date': to_date,
         'from_date_str': from_str, 'to_date_str': to_str,
-        'dept_filter': dept_filter, 'q': q,
+        'dept_filter': dept_filter, 'doctor_id': doctor_id,
         'page_obj': page_obj, 'departments': departments,
+        'all_doctors': all_doctors,
         'total_doctors': doctors_qs.count(),
         'qp': _qp(request),
     })
@@ -2516,9 +2634,9 @@ def report_inventory_valuation_combined(request):
                 item.quantity_in_stock, f"ETB {item.unit_cost:,.2f}", f"ETB {item.inventory_value:,.2f}",
             ])
     if not domain_filter or domain_filter == PhysicalCount.Domain.MEDICATION:
-        med_qs = Medication.objects.filter(is_active=True).select_related('category')
+        med_qs = Medication.objects.filter(inventory_item__is_active=True).select_related('inventory_item__category')
         if category_filter:
-            med_qs = med_qs.filter(category_id=category_filter)
+            med_qs = med_qs.filter(inventory_item__category_id=category_filter)
         for med in med_qs:
             rows.append([
                 'Medication', med.name, med.code, med.category.name if med.category else '—',

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Complete Medication Details{% endblock %}
+{% block content %}
+
+<div class="mb-5">
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Complete Medication Details</h1>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+    "{{ item.name }}" ({{ item.item_code }}) was created as a <strong>Medication</strong> item in the Inventory module.
+    It won't be available for prescribing, dispensing, or billing until its clinical details are filled in below.
+  </p>
+</div>
+
+<div class="flex items-center gap-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-5 py-3.5 mb-5">
+  <div class="flex-1">
+    <p class="font-semibold text-slate-800 dark:text-slate-200">{{ item.name }}</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400">Code: {{ item.item_code }} · Category: {{ item.category.name|default:"—" }} · Unit Cost: ETB {{ item.unit_cost }}</p>
+  </div>
+</div>
+
+<form method="post" class="space-y-5 max-w-3xl">
+  {% csrf_token %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-violet-50/50 dark:bg-violet-900/10">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Medication Details</h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Generic Name <span class="text-red-500">*</span></label>
+        <input type="text" name="generic_name" required>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Strength <span class="text-red-500">*</span></label>
+        <input type="text" name="strength" value="{{ item.strength }}" placeholder="e.g. 500 mg" required>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Scientific Name</label>
+        <input type="text" name="scientific_name">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Therapeutic Class</label>
+        <input type="text" name="therapeutic_class">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Drug Type</label>
+        <select name="drug_type">
+          {% for val, label in drug_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Dosage Form</label>
+        <input type="text" name="dosage_form" value="{{ item.dosage_form }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Route of Administration</label>
+        <select name="route">
+          {% for val, label in routes %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Country of Origin</label>
+        <input type="text" name="country_of_origin">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">ATC Code <span class="text-xs text-slate-400 font-normal">(optional)</span></label>
+        <input type="text" name="atc_code" placeholder="e.g. N02BE01">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Storage Condition</label>
+        <select name="storage_condition">
+          {% for val, label in conditions %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end gap-6">
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input type="checkbox" name="controlled_substance" class="w-4 h-4 rounded border-slate-300 text-blue-600">
+          Controlled Substance
+        </label>
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input type="checkbox" name="prescription_required" checked class="w-4 h-4 rounded border-slate-300 text-blue-600">
+          Prescription Required
+        </label>
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Clinical Notes</label>
+        <textarea name="notes" rows="2"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="flex justify-end gap-3 max-w-3xl">
+    <a href="{% url 'inventory_item_list' %}" class="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">
+      Skip for now
+    </a>
+    <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">
+      Save Medication Details
+    </button>
+  </div>
+</form>
+{% endblock %}

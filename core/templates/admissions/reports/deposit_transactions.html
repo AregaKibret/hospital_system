@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Deposit Transaction History{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Deposit Transaction History</h1>
+    <p class="text-xs text-slate-400 mt-0.5">{{ date_from }} — {{ date_to }} &middot; {{ total_records }} record{{ total_records|pluralize }}</p>
+  </div>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Patient (Name/MRN)</label>
+      <input type="text" name="patient" value="{{ patient_q }}" class="field-input text-sm py-1.5" placeholder="Search...">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Transaction Type</label>
+      <select name="tx_type" class="field-input text-sm py-1.5">
+        <option value="">All Types</option>
+        {% for val, label in tx_types %}<option value="{{ val }}" {% if tx_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">From</label>
+      <input type="date" name="from" value="{{ date_from }}" class="field-input text-sm py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">To</label>
+      <input type="date" name="to" value="{{ date_to }}" class="field-input text-sm py-1.5">
+    </div>
+    <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end">
+      <a href="{% url 'report_deposit_transactions' %}" class="btn-secondary text-sm py-1.5 px-3">Clear</a>
+      <button type="submit" class="btn-primary text-sm py-1.5 px-4">Apply</button>
+    </div>
+  </form>
+</div>
+
+<!-- Totals -->
+<div class="grid grid-cols-3 gap-3 mb-5">
+  <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-2xl p-4">
+    <p class="text-xs text-emerald-500 uppercase tracking-wide">Total Credits</p>
+    <p class="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">ETB {{ total_in|floatformat:2 }}</p>
+  </div>
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-4">
+    <p class="text-xs text-red-500 uppercase tracking-wide">Total Debits</p>
+    <p class="text-xl font-bold text-red-700 dark:text-red-300 mt-1">ETB {{ total_out|floatformat:2 }}</p>
+  </div>
+  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl p-4">
+    <p class="text-xs text-blue-500 uppercase tracking-wide">Net Movement</p>
+    <p class="text-xl font-bold text-blue-700 dark:text-blue-300 mt-1">ETB {{ total_in|floatformat:2 }}</p>
+  </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 uppercase">
+        <th class="px-4 py-3 font-semibold">Date</th>
+        <th class="px-4 py-3 font-semibold">Patient</th>
+        <th class="px-4 py-3 font-semibold">Type</th>
+        <th class="px-4 py-3 font-semibold">Description</th>
+        <th class="px-4 py-3 font-semibold text-right">Credit</th>
+        <th class="px-4 py-3 font-semibold text-right">Debit</th>
+        <th class="px-4 py-3 font-semibold text-right">Balance After</th>
+        <th class="px-4 py-3 font-semibold">By</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for tx in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+          <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ tx.created_at|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-3">
+            <span class="font-medium text-slate-800 dark:text-slate-100 text-sm">{{ tx.account.patient.full_name }}</span>
+            <span class="block text-xs text-slate-400">{{ tx.account.patient.card_number }}</span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+              {% if tx.is_credit %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">
+              {{ tx.get_tx_type_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{{ tx.description }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{% if tx.is_credit %}{{ tx.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{% if tx.is_debit %}{{ tx.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-3 text-right tabular-nums font-medium text-slate-700 dark:text-slate-300">{{ tx.balance_after|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ tx.performed_by.get_full_name|default:tx.performed_by.username }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="py-16 text-center text-slate-400">No transactions found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="px-5 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between print:hidden">
+    <p class="text-sm text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary text-xs py-1 px-3">Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary text-xs py-1 px-3">Next</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

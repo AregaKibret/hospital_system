@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Hospital Profile — Settings{% endblock %}
+{% block content %}
+
+<div class="max-w-4xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Hospital Profile</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Configure your hospital identity, contact info, and document settings.</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="space-y-5">
+    {% csrf_token %}
+
+    <!-- Identity -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Identity</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Hospital Name <span class="text-red-500">*</span></label>
+          <input type="text" name="name" value="{{ profile.name }}" required
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Short Name</label>
+          <input type="text" name="short_name" value="{{ profile.short_name }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="Abbreviated name">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Tagline</label>
+          <input type="text" name="tagline" value="{{ profile.tagline }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="e.g. Quality Healthcare for All">
+        </div>
+
+        <!-- Logo -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Logo</label>
+          {% if profile.logo %}
+          <div class="flex items-center gap-3 mb-2">
+            <img src="{{ profile.logo.url }}" alt="Logo" class="h-12 w-auto rounded border border-slate-200 dark:border-slate-600 bg-white p-1">
+            <label class="flex items-center gap-1.5 text-xs text-red-600 cursor-pointer">
+              <input type="checkbox" name="clear_logo" class="rounded"> Remove logo
+            </label>
+          </div>
+          {% endif %}
+          <input type="file" name="logo" accept="image/*"
+                 class="w-full text-sm text-slate-600 dark:text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100">
+          <p class="text-xs text-slate-400 mt-1">PNG, JPG, SVG. Shown on login page, nav bar, and documents.</p>
+        </div>
+
+        <!-- Stamp -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Official Stamp / Seal</label>
+          {% if profile.stamp %}
+          <div class="flex items-center gap-3 mb-2">
+            <img src="{{ profile.stamp.url }}" alt="Stamp" class="h-12 w-auto rounded border border-slate-200 dark:border-slate-600 bg-white p-1">
+            <label class="flex items-center gap-1.5 text-xs text-red-600 cursor-pointer">
+              <input type="checkbox" name="clear_stamp" class="rounded"> Remove stamp
+            </label>
+          </div>
+          {% endif %}
+          <input type="file" name="stamp" accept="image/*"
+                 class="w-full text-sm text-slate-600 dark:text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100">
+          <p class="text-xs text-slate-400 mt-1">Used on certificates, letters, and legal documents.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Contact &amp; Location</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Address</label>
+          <textarea name="address" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none">{{ profile.address }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">City</label>
+          <input type="text" name="city" value="{{ profile.city }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Region / State</label>
+          <input type="text" name="region" value="{{ profile.region }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Country</label>
+          <input type="text" name="country" value="{{ profile.country }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Primary Phone</label>
+          <input type="text" name="phone" value="{{ profile.phone }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Alternate Phone</label>
+          <input type="text" name="phone_alt" value="{{ profile.phone_alt }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Email</label>
+          <input type="email" name="email" value="{{ profile.email }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Website</label>
+          <input type="url" name="website" value="{{ profile.website }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="https://...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Legal & Financial -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Legal &amp; Financial</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">License Number</label>
+          <input type="text" name="license_number" value="{{ profile.license_number }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">TIN (Tax Identification Number)</label>
+          <input type="text" name="tin" value="{{ profile.tin }}"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Currency Code</label>
+          <input type="text" name="currency" value="{{ profile.currency }}" maxlength="10"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="ETB">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Currency Symbol</label>
+          <input type="text" name="currency_symbol" value="{{ profile.currency_symbol }}" maxlength="5"
+                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="ETB">
+        </div>
+      </div>
+    </div>
+
+    <!-- Locale -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Locale &amp; Appearance</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Timezone</label>
+          <select name="timezone" class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+            {% for tz in timezones %}
+            <option value="{{ tz }}" {% if tz == profile.timezone %}selected{% endif %}>{{ tz }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">UI Accent Color</label>
+          <div class="flex items-center gap-2">
+            <input type="color" name="primary_color" value="{{ profile.primary_color }}"
+                   class="h-9 w-16 rounded border border-slate-300 dark:border-slate-600 cursor-pointer">
+            <input type="text" id="colorText" value="{{ profile.primary_color }}" maxlength="7"
+                   class="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                   placeholder="#2563eb" readonly>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document headers -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Document Header &amp; Footer</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Appears on printed invoices, receipts, reports, certificates, and lab results.</p>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Report Header Text</label>
+          <textarea name="report_header" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    placeholder="e.g. Accredited by the Ethiopian Ministry of Health">{{ profile.report_header }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Report Footer Text</label>
+          <textarea name="report_footer" rows="2"
+                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    placeholder="e.g. Thank you for choosing our hospital. For enquiries call...">{{ profile.report_footer }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 justify-end pb-8">
+      <button type="submit" class="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save Changes</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const colorPicker = document.querySelector('input[type="color"]');
+const colorText = document.getElementById('colorText');
+colorPicker.addEventListener('input', () => { colorText.value = colorPicker.value; });
+</script>
+{% endblock %}

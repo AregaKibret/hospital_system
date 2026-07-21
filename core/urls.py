@@ -1,13 +1,14 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import (
     views, views_admin, views_admissions, views_anesthesia, views_appointments, views_attachments,
     views_audit, views_billing,
-    views_cards, views_dept_pharmacy, views_doctor, views_facility, views_hr, views_inventory,
+    views_cards, views_certificates, views_dept_pharmacy, views_doctor, views_facility, views_hr, views_inventory,
     views_lab, views_med_inventory, views_nursing, views_or, views_patient_flow, views_pharmacy,
-    views_pharmacy_pos, views_physical_count, views_prescription, views_queue, views_radiology,
+    views_pharmacy_pos, views_physical_count, views_physical_exam, views_prescription, views_queue, views_radiology,
     views_receptionist, views_reports, views_session, views_signatures, views_specialization,
-    views_store, views_surgery,
+    views_store, views_surgery, views_config,
 )
 
 urlpatterns = [
@@ -26,6 +27,9 @@ urlpatterns = [
     path('users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
     path('users/<int:user_id>/reset-password/', views.user_reset_password, name='user_reset_password'),
     path('users/<int:user_id>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),
+
+    # ── Settings hub ──────────────────────────────────────────────────────
+    path('settings/', views_admin.settings_hub, name='settings_hub'),
 
     # ── RBAC — Role management ─────────────────────────────────────────────
     path('settings/roles/', views_admin.role_list, name='role_list'),
@@ -93,6 +97,33 @@ urlpatterns = [
     path('attachment-categories/new/', views_attachments.attachment_category_create, name='attachment_category_create'),
     path('attachment-categories/<int:category_id>/edit/', views_attachments.attachment_category_edit, name='attachment_category_edit'),
     path('doctor/visit/<int:visit_id>/schedule-followup/', views_doctor.schedule_followup, name='schedule_followup'),
+    path('doctor/queue/api/', views_doctor.doctor_queue_api, name='doctor_queue_api'),
+
+    # ── Physical Examination module ───────────────────────────────────────────
+    path('doctor/visit/<int:visit_id>/physical-exam/new/', views_physical_exam.physical_exam_create, name='physical_exam_create'),
+    path('doctor/visit/<int:visit_id>/physical-exam/<int:exam_id>/', views_physical_exam.physical_exam_detail, name='physical_exam_detail'),
+    path('doctor/visit/<int:visit_id>/physical-exam/<int:exam_id>/edit/', views_physical_exam.physical_exam_edit, name='physical_exam_edit'),
+    path('doctor/visit/<int:visit_id>/physical-exam/<int:exam_id>/autosave/', views_physical_exam.physical_exam_autosave, name='physical_exam_autosave'),
+    path('doctor/visit/<int:visit_id>/physical-exam/<int:exam_id>/print/', views_physical_exam.physical_exam_print, name='physical_exam_print'),
+    path('settings/exam-templates/', views_physical_exam.exam_template_list, name='exam_template_list'),
+    path('settings/exam-templates/new/', views_physical_exam.exam_template_create, name='exam_template_create'),
+    path('settings/exam-templates/<int:pk>/edit/', views_physical_exam.exam_template_edit, name='exam_template_edit'),
+
+    # ── Medical Certificate module ──────────────────────────────────────────
+    path('certificates/', views_certificates.certificate_dashboard, name='certificate_dashboard'),
+    path('certificates/verify/', views_certificates.certificate_verify, name='certificate_verify'),
+    path('doctor/visit/<int:visit_id>/medical-certificate/new/', views_certificates.medical_certificate_create, name='medical_certificate_create'),
+    path('doctor/visit/<int:visit_id>/medical-certificate/history/', views_certificates.medical_certificate_history, name='medical_certificate_history'),
+    path('medical-certificates/<int:certificate_id>/finalize/', views_certificates.medical_certificate_finalize, name='medical_certificate_finalize'),
+    path('medical-certificates/<int:certificate_id>/void/', views_certificates.medical_certificate_void, name='medical_certificate_void'),
+    path('medical-certificates/<int:certificate_id>/print/', views_certificates.medical_certificate_print, name='medical_certificate_print'),
+
+    # ── Death Certificate module ────────────────────────────────────────────
+    path('doctor/visit/<int:visit_id>/death-certificate/new/', views_certificates.death_certificate_create, name='death_certificate_create'),
+    path('doctor/visit/<int:visit_id>/death-certificate/history/', views_certificates.death_certificate_history, name='death_certificate_history'),
+    path('death-certificates/<int:certificate_id>/finalize/', views_certificates.death_certificate_finalize, name='death_certificate_finalize'),
+    path('death-certificates/<int:certificate_id>/void/', views_certificates.death_certificate_void, name='death_certificate_void'),
+    path('death-certificates/<int:certificate_id>/print/', views_certificates.death_certificate_print, name='death_certificate_print'),
 
     # ── Electronic Prescriptions (Doctor side) ──────────────────────────────
     path('prescriptions/visit/<int:visit_id>/new/', views_prescription.prescription_create, name='prescription_create'),
@@ -371,19 +402,28 @@ urlpatterns = [
 
     # ── Medication Inventory module ───────────────────────────────────────────
     path('med-inventory/', views_med_inventory.med_inventory_dashboard, name='med_inventory_dashboard'),
+    path('med-inventory/pricing-settings/', views_med_inventory.pricing_settings_edit, name='pricing_settings_edit'),
     path('med-inventory/medications/', views_med_inventory.medication_list, name='medication_list'),
     path('med-inventory/medications/new/', views_med_inventory.medication_create, name='medication_create'),
     path('med-inventory/medications/<int:med_id>/', views_med_inventory.medication_detail, name='medication_detail'),
     path('med-inventory/medications/<int:med_id>/edit/', views_med_inventory.medication_edit, name='medication_edit'),
     path('med-inventory/medications/<int:med_id>/deactivate/', views_med_inventory.medication_deactivate, name='medication_deactivate'),
+    path('med-inventory/items/<int:item_id>/complete-details/', views_med_inventory.medication_details_complete, name='medication_details_complete'),
     path('med-inventory/batches/', views_med_inventory.batch_list, name='batch_list'),
+    path('med-inventory/search-api/', views_med_inventory.med_inventory_search_api, name='med_inventory_search_api'),
     path('med-inventory/receive/', views_med_inventory.batch_receive_select, name='batch_receive_select'),
     path('med-inventory/medications/<int:med_id>/receive/', views_med_inventory.batch_receive, name='batch_receive'),
+    path('med-inventory/goods-receipts/new/', views_med_inventory.goods_receipt_create, name='goods_receipt_create'),
+    path('med-inventory/goods-receipts/<int:receipt_id>/', views_med_inventory.goods_receipt_detail, name='goods_receipt_detail'),
+    path('med-inventory/goods-receipts/<int:receipt_id>/print/', views_med_inventory.goods_receipt_print, name='goods_receipt_print'),
     path('med-inventory/batches/<int:batch_id>/dispose/', views_med_inventory.batch_dispose, name='batch_dispose'),
     path('med-inventory/adjustment/', views_med_inventory.stock_adjustment, name='stock_adjustment'),
     path('med-inventory/suppliers/', views_med_inventory.supplier_list, name='supplier_list'),
     path('med-inventory/suppliers/new/', views_med_inventory.supplier_create, name='supplier_create'),
     path('med-inventory/suppliers/<int:supplier_id>/edit/', views_med_inventory.supplier_edit, name='supplier_edit'),
+    path('med-inventory/payables/', views_med_inventory.supplier_payable_list, name='supplier_payable_list'),
+    path('med-inventory/payables/<int:payable_id>/', views_med_inventory.supplier_payable_detail, name='supplier_payable_detail'),
+    path('med-inventory/payables/<int:payable_id>/pay/', views_med_inventory.supplier_payment_record, name='supplier_payment_record'),
     path('med-inventory/reports/suppliers/', views_med_inventory.report_supplier_performance, name='report_supplier_performance'),
     path('med-inventory/transactions/', views_med_inventory.transaction_list, name='transaction_list'),
     path('med-inventory/reports/stock-on-hand/', views_med_inventory.report_stock_on_hand, name='report_stock_on_hand'),
@@ -392,6 +432,15 @@ urlpatterns = [
     path('med-inventory/reports/low-stock/', views_med_inventory.report_low_stock, name='report_low_stock'),
     path('med-inventory/reports/stock-card/', views_med_inventory.report_stock_card, name='report_stock_card'),
     path('med-inventory/reports/valuation/', views_med_inventory.report_valuation, name='report_valuation'),
+    path('med-inventory/reports/stock-receiving/', views_med_inventory.report_stock_receiving, name='report_stock_receiving'),
+    path('med-inventory/reports/cash-purchases/', views_med_inventory.report_cash_purchases, name='report_cash_purchases'),
+    path('med-inventory/reports/credit-purchases/', views_med_inventory.report_credit_purchases, name='report_credit_purchases'),
+    path('med-inventory/reports/consignment-purchases/', views_med_inventory.report_consignment_purchases, name='report_consignment_purchases'),
+    path('med-inventory/reports/outstanding-credit/', views_med_inventory.report_outstanding_credit, name='report_outstanding_credit'),
+    path('med-inventory/reports/credit-due/', views_med_inventory.report_credit_due, name='report_credit_due'),
+    path('med-inventory/reports/overdue-supplier-payments/', views_med_inventory.report_overdue_supplier_payments, name='report_overdue_supplier_payments'),
+    path('med-inventory/reports/supplier-invoice-register/', views_med_inventory.report_supplier_invoice_register, name='report_supplier_invoice_register'),
+    path('med-inventory/reports/batch-tracking/', views_med_inventory.report_batch_tracking, name='report_batch_tracking'),
 
     # ── Department Pharmacy module ────────────────────────────────────────────
     path('dept-pharmacy/', views_dept_pharmacy.dept_pharmacy_dashboard, name='dept_pharmacy_dashboard'),
@@ -427,6 +476,11 @@ urlpatterns = [
     path('dept-pharmacy/reports/stock-card/', views_dept_pharmacy.report_dept_stock_card, name='dept_report_stock_card'),
     path('dept-pharmacy/reports/consumption/', views_dept_pharmacy.report_dept_consumption, name='dept_report_consumption'),
     path('dept-pharmacy/reports/transfers/', views_dept_pharmacy.report_transfer_history, name='dept_report_transfer_history'),
+    path('dept-pharmacy/reports/requisitions/', views_dept_pharmacy.report_dept_requisitions, name='dept_report_requisitions'),
+    path('dept-pharmacy/reports/patient-requisitions/', views_dept_pharmacy.report_patient_requisitions, name='report_patient_requisitions'),
+    path('dept-pharmacy/reports/outstanding-billing/', views_dept_pharmacy.report_outstanding_billing, name='report_outstanding_billing'),
+    path('dept-pharmacy/api/patient-search/', views_dept_pharmacy.patient_search_api, name='patient_search_api'),
+    path('dept-pharmacy/api/patient/<int:patient_id>/visits/', views_dept_pharmacy.patient_visits_api, name='patient_visits_api'),
 
     # ── Reports & Analytics module ────────────────────────────────────────────
     path('reports/', views_reports.reports_hub, name='reports_hub'),
@@ -444,6 +498,7 @@ urlpatterns = [
 
     # Clinical reports
     path('reports/clinical/doctor-performance/', views_reports.report_doctor_performance, name='report_doctor_performance'),
+    path('reports/clinical/doctor-activity/',    views_reports.report_doctor_activity,     name='report_doctor_activity'),
     path('reports/clinical/diagnosis/', views_reports.report_diagnosis, name='report_diagnosis'),
     path('reports/clinical/lab/', views_reports.report_lab_activity, name='report_lab_activity'),
     path('reports/clinical/radiology/', views_reports.report_radiology_activity, name='report_radiology_activity'),
@@ -471,7 +526,7 @@ urlpatterns = [
     path('reports/admissions/register/', views_reports.report_admission_register, name='report_admission_register'),
     path('reports/admissions/daily/', views_reports.report_daily_admissions, name='report_daily_admissions'),
     path('reports/admissions/length-of-stay/', views_reports.report_length_of_stay, name='report_length_of_stay'),
-    path('reports/admissions/deposit-collection/', views_reports.report_deposit_collection, name='report_deposit_collection'),
+    # report_deposit_collection moved to views_admissions (see below)
     path('reports/admissions/revenue/', views_reports.report_admission_revenue, name='report_admission_revenue'),
     path('reports/admissions/department-stats/', views_reports.report_department_admission_stats, name='report_department_admission_stats'),
     path('reports/admissions/readmissions/', views_reports.report_readmissions, name='report_readmissions'),
@@ -543,6 +598,16 @@ urlpatterns = [
     path('surgery/orders/<int:order_id>/nursing-addendum/<str:document_type>/', views_surgery.periop_nursing_addendum_add, name='periop_nursing_addendum_add'),
     path('surgery/orders/<int:order_id>/consumable/', views_surgery.surgery_consumable_add, name='surgery_consumable_add'),
     path('surgery/orders/<int:order_id>/billing/', views_surgery.surgery_billing_generate, name='surgery_billing_generate'),
+    # Surgery Booking Workflow
+    path('surgery/orders/<int:order_id>/counsel/', views_surgery.surgery_counsel, name='surgery_counsel'),
+    path('surgery/orders/<int:order_id>/patient-decision/', views_surgery.surgery_patient_decision, name='surgery_patient_decision'),
+    path('surgery/orders/<int:order_id>/booking-deposit/', views_surgery.surgery_booking_deposit, name='surgery_booking_deposit'),
+    path('surgery/orders/<int:order_id>/booking-deposit/receipt/', views_surgery.surgery_booking_deposit_receipt, name='surgery_booking_deposit_receipt'),
+    path('surgery/orders/<int:order_id>/initiate-admission/', views_surgery.surgery_initiate_admission, name='surgery_initiate_admission'),
+    path('surgery/orders/<int:order_id>/pre-deposit/',         views_surgery.surgery_pre_deposit,                  name='surgery_pre_deposit'),
+    path('surgery/orders/<int:order_id>/pre-deposit/receipt/', views_surgery.surgery_pre_deposit_receipt,           name='surgery_pre_deposit_receipt'),
+    path('surgery/orders/<int:order_id>/settlement/',          views_surgery.surgery_deposit_settlement,            name='surgery_deposit_settlement'),
+    path('surgery/orders/<int:order_id>/settlement/receipt/',  views_surgery.surgery_deposit_settlement_receipt,    name='surgery_deposit_settlement_receipt'),
     # OR Management (surgery module — legacy; use /or/ for full OR scheduling)
     path('surgery/or/', views_surgery.or_dashboard, name='surgery_or_dashboard'),
     path('surgery/or/rooms/', views_surgery.or_room_list, name='surgery_or_room_list'),
@@ -550,6 +615,7 @@ urlpatterns = [
     path('surgery/or/rooms/<int:room_id>/edit/', views_surgery.or_room_edit, name='surgery_or_room_edit'),
 
     # ── Facility & Hospital Location Management ──────────────────────────────
+    path('facility/', RedirectView.as_view(pattern_name='facility_dashboard', permanent=False)),
     path('facility/dashboard/', views_facility.facility_dashboard, name='facility_dashboard'),
 
     path('facility/buildings/', views_facility.building_list, name='building_list'),
@@ -594,6 +660,17 @@ urlpatterns = [
     path('admissions/deposit-rules/', views_admissions.deposit_rule_list, name='deposit_rule_list'),
     path('admissions/deposit-rules/new/', views_admissions.deposit_rule_create, name='deposit_rule_create'),
     path('admissions/deposit-rules/<int:rule_id>/edit/', views_admissions.deposit_rule_edit, name='deposit_rule_edit'),
+    # Inpatient Deposit Account
+    path('admissions/<int:admission_id>/deposit/', views_admissions.deposit_account_detail, name='deposit_account_detail'),
+    path('admissions/<int:admission_id>/deposit/add/', views_admissions.deposit_add, name='deposit_add'),
+    path('admissions/<int:admission_id>/deposit/adjust/', views_admissions.deposit_adjustment, name='deposit_adjustment'),
+    path('admissions/<int:admission_id>/deposit/reconcile/', views_admissions.deposit_reconcile, name='deposit_reconcile'),
+    # Deposit Reports
+    path('reports/admissions/deposit-transactions/', views_admissions.report_deposit_transactions, name='report_deposit_transactions'),
+    path('reports/admissions/deposit-balance/', views_admissions.report_deposit_balance, name='report_deposit_balance'),
+    path('reports/admissions/low-balance/', views_admissions.report_low_balance, name='report_low_balance'),
+    path('reports/admissions/discharge-settlement/', views_admissions.report_discharge_settlement, name='report_discharge_settlement'),
+    path('reports/admissions/deposit-collection/', views_admissions.report_deposit_collection, name='report_deposit_collection'),
 
     # ── Nursing Module ─────────────────────────────────────────────────────────
     path('nursing/dashboard/', views_nursing.nursing_dashboard, name='nursing_dashboard'),
@@ -632,6 +709,7 @@ urlpatterns = [
     path('flow/', views_patient_flow.patient_flow_dashboard, name='patient_flow_dashboard'),
     path('flow/visits/', views_patient_flow.patient_flow_list, name='patient_flow_list'),
     path('flow/visits/<int:visit_id>/', views_patient_flow.patient_journey_detail, name='patient_journey_detail'),
+    path('flow/admitted/', views_patient_flow.admitted_patient_list, name='admitted_patient_list'),
     path('flow/visits/<int:visit_id>/status/', views_patient_flow.visit_status_update, name='visit_status_update'),
     path('flow/visits/<int:visit_id>/discharge/', views_patient_flow.discharge_create, name='discharge_create'),
     path('flow/worklist/', views_patient_flow.dept_worklist, name='dept_worklist'),
@@ -678,4 +756,11 @@ urlpatterns = [
     path('or/reports/daily/', views_or.report_or_daily, name='report_or_daily'),
     path('or/reports/utilization/', views_or.report_or_utilization, name='report_or_utilization'),
     path('or/reports/surgeon-schedule/', views_or.report_surgeon_schedule, name='report_surgeon_schedule'),
+
+    # ── System Configuration ─────────────────────────────────────────────────
+    path('config/hospital/',   views_config.hospital_profile,  name='hospital_profile'),
+    path('config/modules/',    views_config.module_management,  name='module_management'),
+    path('config/about/',      views_config.system_about,       name='system_about'),
+    path('config/versions/',   views_config.version_history,    name='version_history'),
+    path('config/license/',    views_config.license_info,       name='license_info'),
 ]

@@ -8,11 +8,23 @@
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Stock levels, expiry tracking, and alerts</p>
   </div>
   <div class="flex gap-2">
-    {% if perms.core.manage_medication %}
+    <a href="{% url 'medication_list' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+      Medication Catalog
+    </a>
+    {% if perms.core.receive_stock %}
     <a href="{% url 'batch_receive_select' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
       Receive Stock
     </a>
+    {% endif %}
+    {% if perms.core.system_configuration %}
+    <a href="{% url 'pricing_settings_edit' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+      Pricing Settings
+    </a>
+    {% endif %}
+    {% if perms.core.manage_medication %}
     <a href="{% url 'medication_create' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
       Add Medication
@@ -22,8 +34,10 @@
 </div>
 
 <!-- KPI cards -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-  {% include "med_inventory/_kpi.html" with label="Total Medications" value=total_meds color="blue" icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" %}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
+  <a href="{% url 'medication_list' %}" class="block">
+    {% include "med_inventory/_kpi.html" with label="Total Medications" value=total_meds color="blue" icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" %}
+  </a>
   {% include "med_inventory/_kpi.html" with label="Active Batches" value=total_batches color="teal" icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" %}
   {% include "med_inventory/_kpi.html" with label="Suppliers" value=total_suppliers color="violet" icon="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" %}
   <a href="{% url 'medication_list' %}?status=low_stock" class="block">
@@ -35,6 +49,11 @@
   <a href="{% url 'batch_list' %}?expiry=30" class="block">
     {% include "med_inventory/_kpi.html" with label="Near Expiry" value=near_expiry_count color="orange" icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" alert=True %}
   </a>
+  {% if perms.core.view_inv_reports %}
+  <a href="{% url 'supplier_payable_list' %}" class="block">
+    {% include "med_inventory/_kpi.html" with label="Payables Due/Overdue" value=payables_alert_count color="red" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" alert=True %}
+  </a>
+  {% endif %}
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -100,6 +119,36 @@
     </div>
   </div>
 </div>
+
+{% if perms.core.view_inv_reports and payables_alert_count %}
+<!-- Supplier Payables Alerts -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-6">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Supplier Payment Alerts</h2>
+    <a href="{% url 'supplier_payable_list' %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all payables</a>
+  </div>
+  <div class="divide-y divide-slate-50 dark:divide-slate-700/60">
+    {% for p in overdue_payables %}
+    <a href="{% url 'supplier_payable_detail' p.id %}" class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/40">
+      <div>
+        <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ p.supplier.name }} — {{ p.goods_receipt.goods_receipt_number }}</p>
+        <p class="text-xs text-slate-400">Overdue since {{ p.due_date }}</p>
+      </div>
+      <span class="text-sm font-bold text-red-600">ETB {{ p.outstanding_balance }}</span>
+    </a>
+    {% endfor %}
+    {% for p in due_soon_payables %}
+    <a href="{% url 'supplier_payable_detail' p.id %}" class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/40">
+      <div>
+        <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ p.supplier.name }} — {{ p.goods_receipt.goods_receipt_number }}</p>
+        <p class="text-xs text-slate-400">Due {{ p.due_date }}</p>
+      </div>
+      <span class="text-sm font-bold text-amber-600">ETB {{ p.outstanding_balance }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <!-- Recent Transactions -->
 <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">

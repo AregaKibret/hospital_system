@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Surgery Booking Deposit — {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+
+  <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Surgery Booking Deposit</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.order_number }} &middot; {{ order.patient.full_name }}</p>
+    </div>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <!-- Summary Card -->
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 mb-5">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Booking Deposit Required</p>
+        <p class="text-2xl font-bold text-amber-900 dark:text-amber-100">ETB {{ order.booking_deposit_amount|floatformat:2 }}</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div><span class="text-xs text-amber-600 dark:text-amber-400 block">Patient</span><span class="font-medium text-amber-900 dark:text-amber-100">{{ order.patient.full_name }}</span></div>
+      <div><span class="text-xs text-amber-600 dark:text-amber-400 block">Procedure</span><span class="text-amber-900 dark:text-amber-100">{{ order.planned_procedure }}</span></div>
+      <div><span class="text-xs text-amber-600 dark:text-amber-400 block">Surgeon</span><span class="text-amber-900 dark:text-amber-100">Dr. {{ order.surgeon.get_full_name|default:order.surgeon.username }}</span></div>
+      <div><span class="text-xs text-amber-600 dark:text-amber-400 block">MRN / Card</span><span class="font-mono text-amber-900 dark:text-amber-100">{{ order.patient.card_number }}</span></div>
+    </div>
+  </div>
+
+  <!-- Payment Form -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">Record Payment</h2>
+    <form method="post" action="{% url 'surgery_booking_deposit' order.pk %}">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div class="field-wrapper">
+          <label class="field-label">Amount Received (ETB) <span class="text-red-500">*</span></label>
+          <input type="number" name="amount" min="0.01" step="0.01" required
+                 value="{{ order.booking_deposit_amount|floatformat:2 }}"
+                 class="field-input text-lg font-semibold" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Payment Method <span class="text-red-500">*</span></label>
+          <select name="payment_method" class="field-input">
+            {% for val, label in methods %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Reference / Transaction Number</label>
+          <input type="text" name="reference_number" class="field-input" placeholder="Bank transfer ref, mobile money ID…" />
+        </div>
+        <div class="field-wrapper">
+          <label class="field-label">Notes</label>
+          <textarea name="notes" rows="2" class="field-input" placeholder="Optional notes…"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button type="submit" class="btn-primary">Confirm &amp; Record Payment</button>
+        <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

@@ -16,9 +16,11 @@ from django.views.decorators.http import require_POST
 from .audit import log_action
 from .decorators import hms_permission_required
 from .forms import AdmissionDepositRuleForm, AdmissionRequestForm
+from decimal import Decimal as _D
+
 from .models import (
     Admission, AdmissionDepositRule, AdmissionRequest, AuditLog, Bed, Department,
-    Invoice, InvoiceItem, Visit, Ward,
+    DepositTransaction, Invoice, InvoiceItem, InpatientDepositAccount, Payment, Visit, Ward,
 )
 from .views_facility import _available_beds_qs, _perform_admission, _redirect_after_bed_action
 
@@ -85,6 +87,34 @@ def _requires_review(admission_request):
     return admission_request.request_source in (
         AdmissionRequest.Source.NURSE, AdmissionRequest.Source.RECEPTION,
     )
+
+
+def _create_deposit_account(admission, created_by, admission_request=None):
+    """Create the InpatientDepositAccount for a new admission. The initial
+    deposit amount is taken from the paid/credit-approved deposit invoice item
+    on the admission request (if one exists); Quick-Admit paths get a zero
+    initial balance that the cashier can top up later."""
+    initial = _D('0')
+    if admission_request and admission_request.deposit_invoice_item_id:
+        initial = _D(str(admission_request.deposit_invoice_item.total or 0))
+    account = InpatientDepositAccount.objects.create(
+        admission=admission,
+        patient=admission.patient,
+        admission_request=admission_request,
+        initial_deposit=initial,
+        created_by=created_by,
+    )
+    if initial > 0:
+        DepositTransaction.objects.create(
+            account=account,
+            tx_type=DepositTransaction.TxType.INITIAL_DEPOSIT,
+            amount=initial,
+            description='Initial Admission Deposit',
+            invoice_item=admission_request.deposit_invoice_item if admission_request else None,
+            balance_after=account.available_balance,
+            performed_by=created_by,
+        )
+    return account
 
 
 def _advance_to_deposit_stage(admission_request, user):
@@ -298,6 +328,7 @@ def admission_request_assign_bed(request, req_id):
                 )
                 req.status = AdmissionRequest.Status.ADMITTED
                 req.save(update_fields=['status', 'updated_at'])
+                _create_deposit_account(admission, request.user, admission_request=req)
             log_action(
                 request.user, AuditLog.Action.CREATE, AuditLog.Module.ADMISSION,
                 object_type='Admission', object_id=admission.pk, object_repr=f'{req.patient.full_name} → {bed.bed_code}',
@@ -446,4 +477,433 @@ def admission_dashboard(request):
         'emergency_admissions_today': emergency_admissions_today,
         'todays_admissions': todays_admissions, 'todays_discharges': todays_discharges,
         'recent_transfers': recent_transfers, 'recent_requests': recent_requests,
+    })
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INPATIENT DEPOSIT ACCOUNT VIEWS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@hms_permission_required('core.view_inpatient_deposit')
+def deposit_account_detail(request, admission_id):
+    admission = get_object_or_404(
+        Admission.objects.select_related('patient', 'bed__room__ward', 'visit', 'admission_request'),
+        pk=admission_id,
+    )
+    account = getattr(admission, 'deposit_account', None)
+    if account is None:
+        messages.info(request, 'No deposit account exists for this admission yet.')
+        return redirect('facility_dashboard')
+    transactions = account.transactions.select_related('invoice_item', 'invoice', 'performed_by').order_by('created_at')
+    pending_items = InvoiceItem.objects.filter(
+        invoice__visit=admission.visit,
+    ).exclude(
+        payment_status__in=[
+            InvoiceItem.PaymentStatus.PAID, InvoiceItem.PaymentStatus.CREDIT,
+            InvoiceItem.PaymentStatus.CANCELLED, InvoiceItem.PaymentStatus.REFUNDED,
+        ]
+    ).exclude(service_type__in=[InvoiceItem.ServiceType.DEPOSIT, InvoiceItem.ServiceType.SERVICE_CHARGE])
+    return render(request, 'admissions/deposit_account.html', {
+        'admission': admission,
+        'account': account,
+        'transactions': transactions,
+        'pending_items': pending_items,
+    })
+
+
+@hms_permission_required('core.manage_inpatient_deposit')
+def deposit_add(request, admission_id):
+    admission = get_object_or_404(
+        Admission.objects.select_related('patient', 'visit'), pk=admission_id,
+    )
+    if admission.status != Admission.Status.ADMITTED:
+        messages.error(request, 'Cannot add deposit to a non-active admission.')
+        return redirect('facility_dashboard')
+    account = getattr(admission, 'deposit_account', None)
+    if account is None:
+        messages.error(request, 'No deposit account found for this admission.')
+        return redirect('facility_dashboard')
+
+    if request.method == 'POST':
+        try:
+            amount_raw = request.POST.get('amount', '').strip()
+            if not amount_raw:
+                raise ValueError('Amount is required.')
+            amount = _D(amount_raw)
+            if amount <= 0:
+                raise ValueError('Amount must be greater than zero.')
+            method = request.POST.get('payment_method', Payment.Method.CASH)
+            notes = request.POST.get('notes', '').strip()
+            reference = request.POST.get('reference_number', '').strip()
+
+            with transaction.atomic():
+                invoice = Invoice.objects.create(
+                    patient=admission.patient,
+                    visit=admission.visit,
+                    created_by=request.user,
+                    status=Invoice.Status.PAID,
+                    total_amount=amount,
+                    paid_amount=amount,
+                    notes='Additional Admission Deposit',
+                )
+                item = InvoiceItem.objects.create(
+                    invoice=invoice,
+                    description='Additional Admission Deposit',
+                    service_type=InvoiceItem.ServiceType.DEPOSIT,
+                    quantity=1,
+                    unit_price=amount,
+                    payment_status=InvoiceItem.PaymentStatus.PAID,
+                    paid_amount=amount,
+                )
+                payment = Payment.objects.create(
+                    invoice=invoice,
+                    amount=amount,
+                    payment_method=method,
+                    reference_number=reference,
+                    received_by=request.user,
+                    notes=notes,
+                )
+                account.additional_deposits = account.additional_deposits + amount
+                account.save(update_fields=['additional_deposits', 'updated_at'])
+                DepositTransaction.objects.create(
+                    account=account,
+                    tx_type=DepositTransaction.TxType.ADDITIONAL_DEPOSIT,
+                    amount=amount,
+                    description=f'Additional Deposit ({method})',
+                    invoice_item=item,
+                    invoice=invoice,
+                    payment=payment,
+                    balance_after=account.available_balance,
+                    notes=notes,
+                    performed_by=request.user,
+                )
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.ADMISSION,
+                object_type='DepositTransaction', object_id=account.pk,
+                object_repr=admission.patient.full_name,
+                description=f'Additional deposit ETB {amount:,.2f} for {admission.patient.full_name}',
+                request=request,
+            )
+            messages.success(request, f'Additional deposit of ETB {amount:,.2f} recorded.')
+            return redirect('deposit_account_detail', admission_id=admission.pk)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'admissions/deposit_add.html', {
+        'admission': admission,
+        'account': account,
+        'payment_methods': Payment.Method.choices,
+    })
+
+
+@hms_permission_required('core.manage_inpatient_deposit')
+def deposit_adjustment(request, admission_id):
+    admission = get_object_or_404(
+        Admission.objects.select_related('patient', 'visit'), pk=admission_id,
+    )
+    account = getattr(admission, 'deposit_account', None)
+    if account is None:
+        messages.error(request, 'No deposit account found.')
+        return redirect('facility_dashboard')
+
+    if request.method == 'POST':
+        try:
+            adj_type = request.POST.get('adj_type', '')
+            amount = _D(request.POST.get('amount', '0'))
+            reason = request.POST.get('reason', '').strip()
+            if amount <= 0:
+                raise ValueError('Amount must be greater than zero.')
+            if adj_type not in ('credit', 'debit'):
+                raise ValueError('Invalid adjustment type.')
+            with transaction.atomic():
+                if adj_type == 'credit':
+                    account.additional_deposits = account.additional_deposits + amount
+                    tx_type = DepositTransaction.TxType.ADJUSTMENT_IN
+                else:
+                    account.total_charges = account.total_charges + amount
+                    tx_type = DepositTransaction.TxType.ADJUSTMENT_OUT
+                account.save(update_fields=['additional_deposits', 'total_charges', 'updated_at'])
+                DepositTransaction.objects.create(
+                    account=account,
+                    tx_type=tx_type,
+                    amount=amount,
+                    description=f'Manual Adjustment — {reason}',
+                    balance_after=account.available_balance,
+                    notes=reason,
+                    performed_by=request.user,
+                )
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.ADMISSION,
+                object_type='DepositTransaction', object_id=account.pk,
+                object_repr=admission.patient.full_name,
+                description=f'Deposit adjustment ({adj_type}) ETB {amount:,.2f} — {reason}',
+                request=request,
+            )
+            messages.success(request, f'Adjustment of ETB {amount:,.2f} applied.')
+            return redirect('deposit_account_detail', admission_id=admission.pk)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'admissions/deposit_adjustment.html', {
+        'admission': admission, 'account': account,
+    })
+
+
+@hms_permission_required('core.manage_inpatient_deposit')
+def deposit_reconcile(request, admission_id):
+    admission = get_object_or_404(
+        Admission.objects.select_related('patient', 'visit', 'discharge_approved_by'),
+        pk=admission_id,
+    )
+    account = getattr(admission, 'deposit_account', None)
+    if account is None:
+        messages.error(request, 'No deposit account found.')
+        return redirect('facility_dashboard')
+
+    unpaid_items = list(InvoiceItem.objects.filter(
+        invoice__visit=admission.visit,
+    ).exclude(
+        payment_status__in=[
+            InvoiceItem.PaymentStatus.PAID, InvoiceItem.PaymentStatus.CREDIT,
+            InvoiceItem.PaymentStatus.CANCELLED, InvoiceItem.PaymentStatus.REFUNDED,
+        ]
+    ).select_related('invoice'))
+
+    total_unpaid = sum(item.balance for item in unpaid_items)
+    balance = account.available_balance
+    outstanding_after = max(_D('0'), total_unpaid - balance)
+    refund_after = max(_D('0'), balance - total_unpaid)
+
+    if request.method == 'POST' and request.POST.get('action') == 'settle':
+        try:
+            with transaction.atomic():
+                remaining_balance = balance
+                for item in unpaid_items:
+                    if remaining_balance <= 0:
+                        break
+                    pay = min(remaining_balance, item.balance)
+                    item.paid_amount = item.paid_amount + pay
+                    item.payment_status = (
+                        InvoiceItem.PaymentStatus.PAID
+                        if item.paid_amount >= item.total
+                        else InvoiceItem.PaymentStatus.PARTIAL
+                    )
+                    item.save(update_fields=['paid_amount', 'payment_status'])
+                    remaining_balance -= pay
+                account.total_refunded = refund_after
+                account.status = InpatientDepositAccount.Status.SETTLED
+                account.save(update_fields=['total_refunded', 'status', 'updated_at'])
+                if refund_after > 0 or total_unpaid >= 0:
+                    DepositTransaction.objects.create(
+                        account=account,
+                        tx_type=DepositTransaction.TxType.REFUND if refund_after > 0 else DepositTransaction.TxType.ADJUSTMENT_OUT,
+                        amount=refund_after,
+                        description='Discharge Settlement — Final Reconciliation',
+                        balance_after=_D('0'),
+                        performed_by=request.user,
+                    )
+            log_action(
+                request.user, AuditLog.Action.UPDATE, AuditLog.Module.ADMISSION,
+                object_type='InpatientDepositAccount', object_id=account.pk,
+                object_repr=admission.patient.full_name,
+                description=(
+                    f'Discharge reconciliation: Refund ETB {refund_after:,.2f}, '
+                    f'Outstanding ETB {outstanding_after:,.2f}'
+                ),
+                request=request,
+            )
+            messages.success(request, 'Discharge reconciliation completed.')
+            return redirect('deposit_account_detail', admission_id=admission.pk)
+        except Exception as exc:
+            messages.error(request, f'Error during reconciliation: {exc}')
+
+    return render(request, 'admissions/deposit_reconcile.html', {
+        'admission': admission,
+        'account': account,
+        'unpaid_items': unpaid_items,
+        'total_unpaid': total_unpaid,
+        'outstanding_after': outstanding_after,
+        'refund_after': refund_after,
+    })
+
+
+# ── Deposit Reports ──────────────────────────────────────────────────────────
+
+@hms_permission_required('core.view_deposit_reports')
+def report_deposit_transactions(request):
+    from datetime import date, timedelta
+    from django.core.paginator import Paginator
+    today = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to = request.GET.get('to', today.isoformat())
+    patient_q = request.GET.get('patient', '').strip()
+    tx_type = request.GET.get('tx_type', '')
+
+    qs = DepositTransaction.objects.select_related(
+        'account__patient', 'account__admission', 'invoice', 'performed_by',
+    ).filter(created_at__date__gte=date_from, created_at__date__lte=date_to).order_by('-created_at')
+
+    if patient_q:
+        qs = qs.filter(
+            account__patient__first_name__icontains=patient_q
+        ) | qs.filter(
+            account__patient__last_name__icontains=patient_q
+        ) | qs.filter(
+            account__patient__card_number__icontains=patient_q
+        )
+    if tx_type:
+        qs = qs.filter(tx_type=tx_type)
+
+    all_txns = list(qs)
+    total_in = sum(t.amount for t in all_txns if t.is_credit)
+    total_out = sum(t.amount for t in all_txns if t.is_debit)
+
+    page = Paginator(all_txns, 50).get_page(request.GET.get('page', 1))
+    return render(request, 'admissions/reports/deposit_transactions.html', {
+        'page_obj': page,
+        'date_from': date_from, 'date_to': date_to,
+        'patient_q': patient_q, 'tx_type': tx_type,
+        'tx_types': DepositTransaction.TxType.choices,
+        'total_in': total_in, 'total_out': total_out,
+        'total_records': len(all_txns),
+    })
+
+
+@hms_permission_required('core.view_deposit_reports')
+def report_deposit_balance(request):
+    status_filter = request.GET.get('status', 'active')
+    dept_filter = request.GET.get('department', '')
+
+    qs = InpatientDepositAccount.objects.select_related(
+        'patient', 'admission__bed__room__ward', 'admission_request__admitting_department',
+    ).order_by('-created_at')
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if dept_filter:
+        qs = qs.filter(admission_request__admitting_department_id=dept_filter)
+
+    accounts = list(qs)
+    low_balance_count = sum(1 for a in accounts if a.is_low_balance)
+    exhausted_count = sum(1 for a in accounts if a.is_exhausted)
+
+    return render(request, 'admissions/reports/deposit_balance.html', {
+        'accounts': accounts,
+        'status_filter': status_filter,
+        'dept_filter': dept_filter,
+        'status_choices': InpatientDepositAccount.Status.choices,
+        'departments': Department.objects.filter(is_active=True),
+        'low_balance_count': low_balance_count,
+        'exhausted_count': exhausted_count,
+    })
+
+
+@hms_permission_required('core.view_deposit_reports')
+def report_low_balance(request):
+    dept_filter = request.GET.get('department', '')
+    threshold_override = request.GET.get('threshold', '').strip()
+
+    qs = InpatientDepositAccount.objects.filter(
+        status=InpatientDepositAccount.Status.ACTIVE,
+    ).select_related(
+        'patient', 'admission__bed__room__ward', 'admission_request__admitting_department',
+    )
+    if dept_filter:
+        qs = qs.filter(admission_request__admitting_department_id=dept_filter)
+
+    low = []
+    exhausted = []
+    for acc in qs:
+        if acc.is_exhausted:
+            exhausted.append(acc)
+        elif acc.is_low_balance:
+            if threshold_override:
+                try:
+                    if acc.available_balance <= _D(threshold_override):
+                        low.append(acc)
+                except Exception:
+                    low.append(acc)
+            else:
+                low.append(acc)
+
+    return render(request, 'admissions/reports/low_balance.html', {
+        'low_accounts': low,
+        'exhausted_accounts': exhausted,
+        'dept_filter': dept_filter,
+        'departments': Department.objects.filter(is_active=True),
+        'threshold_override': threshold_override,
+    })
+
+
+@hms_permission_required('core.view_deposit_reports')
+def report_discharge_settlement(request):
+    from datetime import date, timedelta
+    today = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to = request.GET.get('to', today.isoformat())
+    dept_filter = request.GET.get('department', '')
+
+    qs = InpatientDepositAccount.objects.filter(
+        status=InpatientDepositAccount.Status.SETTLED,
+        updated_at__date__gte=date_from,
+        updated_at__date__lte=date_to,
+    ).select_related(
+        'patient', 'admission__bed__room__ward', 'admission_request__admitting_department',
+    )
+    if dept_filter:
+        qs = qs.filter(admission_request__admitting_department_id=dept_filter)
+
+    accounts = list(qs)
+    total_deposited = sum(a.total_deposited for a in accounts)
+    total_charges = sum(a.total_charges for a in accounts)
+    total_refunded = sum(a.total_refunded for a in accounts)
+
+    return render(request, 'admissions/reports/discharge_settlement.html', {
+        'accounts': accounts,
+        'date_from': date_from, 'date_to': date_to,
+        'dept_filter': dept_filter,
+        'departments': Department.objects.filter(is_active=True),
+        'total_deposited': total_deposited,
+        'total_charges': total_charges,
+        'total_refunded': total_refunded,
+    })
+
+
+@hms_permission_required('core.view_deposit_reports')
+def report_deposit_collection(request):
+    from datetime import date, timedelta
+    from django.contrib.auth import get_user_model
+    from django.core.paginator import Paginator
+    User = get_user_model()
+    today = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to = request.GET.get('to', today.isoformat())
+    dept_filter = request.GET.get('department', '')
+    cashier_filter = request.GET.get('cashier', '')
+
+    qs = InpatientDepositAccount.objects.select_related(
+        'patient', 'admission', 'admission_request__admitting_department', 'created_by',
+    ).filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+
+    if dept_filter:
+        qs = qs.filter(admission_request__admitting_department_id=dept_filter)
+    if cashier_filter:
+        qs = qs.filter(created_by_id=cashier_filter)
+
+    accounts = list(qs.order_by('-created_at'))
+    total_initial = sum(a.initial_deposit for a in accounts)
+    total_additional = sum(a.additional_deposits for a in accounts)
+
+    page = Paginator(accounts, 50).get_page(request.GET.get('page', 1))
+    return render(request, 'admissions/reports/deposit_collection.html', {
+        'page_obj': page,
+        'date_from': date_from, 'date_to': date_to,
+        'dept_filter': dept_filter, 'cashier_filter': cashier_filter,
+        'departments': Department.objects.filter(is_active=True),
+        'cashiers': User.objects.filter(deposit_accounts_created__isnull=False).distinct(),
+        'total_initial': total_initial,
+        'total_additional': total_additional,
+        'total_collected': total_initial + total_additional,
+        'total_accounts': len(accounts),
     })

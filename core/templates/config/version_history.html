@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Version History{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'system_about' %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Version History</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">All software releases for this deployment.</p>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    {% for v in versions %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border {% if v.is_current %}border-blue-400 dark:border-blue-600{% else %}border-slate-200 dark:border-slate-700{% endif %} shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 {% if v.is_current %}bg-blue-50 dark:bg-blue-900/20{% else %}bg-slate-50 dark:bg-slate-700/40{% endif %} border-b {% if v.is_current %}border-blue-100 dark:border-blue-800{% else %}border-slate-100 dark:border-slate-700{% endif %}">
+        <div class="flex items-center gap-3">
+          <span class="text-lg font-bold {% if v.is_current %}text-blue-700 dark:text-blue-300{% else %}text-slate-700 dark:text-slate-200{% endif %}">v{{ v.version }}</span>
+          {% if v.is_current %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200">Current</span>{% endif %}
+          {% if v.build %}<span class="text-xs text-slate-400">Build {{ v.build }}</span>{% endif %}
+        </div>
+        <span class="text-sm text-slate-500">{{ v.release_date|date:"d M Y" }}</span>
+      </div>
+      {% if v.release_notes %}
+      <div class="px-5 py-3 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">{{ v.release_notes }}</div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 py-12 text-center text-slate-400">No version records found.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -69,7 +69,7 @@
           <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
             <th class="px-5 py-3 font-medium">Date</th>
             <th class="px-5 py-3 font-medium">Department</th>
-            <th class="px-5 py-3 font-medium">Medication</th>
+            <th class="px-5 py-3 font-medium">Item</th>
             <th class="px-5 py-3 font-medium text-right">Qty</th>
             <th class="px-5 py-3 font-medium">Type</th>
             <th class="px-5 py-3 font-medium">Patient</th>
@@ -81,7 +81,7 @@
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
             <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ u.usage_date|date:"M d, H:i" }}</td>
             <td class="px-5 py-3 text-slate-700 dark:text-slate-300">{{ u.department_store.name }}</td>
-            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ u.medication.name }}</td>
+            <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ u.medication.name|default:u.inventory_item.name }}</td>
             <td class="px-5 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">{{ u.quantity_used }}</td>
             <td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ u.get_usage_type_display }}</span></td>
             <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ u.patient|default:"—" }}</td>

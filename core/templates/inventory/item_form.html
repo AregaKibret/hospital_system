@@ -169,16 +169,21 @@
       <div>
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Unit Cost (ETB)</label>
         <div class="field-wrapper">
-          <input type="number" name="unit_cost" value="{{ item.unit_cost|default:0 }}" step="0.01" min="0" placeholder="0.00">
+          <input type="number" id="id_unit_cost" name="unit_cost" value="{{ item.unit_cost|default:0 }}" step="0.01" min="0" placeholder="0.00">
         </div>
       </div>
 
       <!-- Selling Price -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Selling Price (ETB)</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Selling Price (ETB)
+          <span id="sellingPriceAutoBadge" class="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(auto)</span>
+        </label>
         <div class="field-wrapper">
-          <input type="number" name="selling_price" value="{{ item.selling_price|default:0 }}" step="0.01" min="0" placeholder="0.00">
+          <input type="number" id="id_selling_price" name="selling_price" value="{{ item.selling_price|default:0 }}" step="0.01" min="0" placeholder="0.00">
+          <input type="hidden" id="id_selling_price_overridden" name="selling_price_overridden" value="{% if item.selling_price_is_manual %}1{% else %}{% endif %}">
         </div>
+        <p class="text-xs text-slate-400 mt-1">Auto-calculated as Unit Cost + {{ default_markup_percent }}% markup. Edit directly to override.</p>
       </div>
 
       <!-- Inpatient Price -->
@@ -262,4 +267,32 @@
   </form>
 </div>
 
+<script>
+  (function () {
+    const costInput       = document.getElementById('id_unit_cost');
+    const sellingInput    = document.getElementById('id_selling_price');
+    const overriddenInput = document.getElementById('id_selling_price_overridden');
+    const autoBadge       = document.getElementById('sellingPriceAutoBadge');
+    const markupPercent   = parseFloat('{{ default_markup_percent|default:"25" }}') || 25;
+
+    function isOverridden() { return overriddenInput.value === '1'; }
+    function setBadge() { autoBadge.style.display = isOverridden() ? 'none' : 'inline'; }
+
+    function recalcSellingPrice() {
+      if (isOverridden()) return;
+      const cost = parseFloat(costInput.value) || 0;
+      const computed = cost + (cost * markupPercent / 100);
+      sellingInput.value = computed.toFixed(2);
+    }
+
+    costInput.addEventListener('input', recalcSellingPrice);
+    sellingInput.addEventListener('input', function () {
+      overriddenInput.value = '1';
+      setBadge();
+    });
+
+    setBadge();
+    {% if not item %}recalcSellingPrice();{% endif %}
+  })();
+</script>
 {% endblock %}

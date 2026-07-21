@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Deposit Balance Report{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Deposit Balance Report</h1>
+    <p class="text-xs text-slate-400 mt-0.5">{{ accounts|length }} account{{ accounts|length|pluralize }}</p>
+  </div>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<!-- Alert counters -->
+{% if low_balance_count or exhausted_count %}
+<div class="grid grid-cols-2 gap-3 mb-5">
+  {% if exhausted_count %}
+  <a href="{% url 'report_low_balance' %}" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-4 hover:bg-red-100 transition-colors">
+    <p class="text-xs text-red-500 uppercase tracking-wide">Exhausted Balances</p>
+    <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">{{ exhausted_count }}</p>
+    <p class="text-xs text-red-500 mt-0.5">Immediate attention required</p>
+  </a>
+  {% endif %}
+  {% if low_balance_count %}
+  <a href="{% url 'report_low_balance' %}" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 hover:bg-amber-100 transition-colors">
+    <p class="text-xs text-amber-500 uppercase tracking-wide">Low Balances</p>
+    <p class="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{{ low_balance_count }}</p>
+    <p class="text-xs text-amber-500 mt-0.5">Additional deposit may be needed</p>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
+      <select name="status" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Department</label>
+      <select name="department" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn-primary text-sm py-1.5 px-4">Apply</button>
+    <a href="{% url 'report_deposit_balance' %}" class="btn-secondary text-sm py-1.5 px-3">Clear</a>
+  </form>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 uppercase">
+        <th class="px-4 py-3 font-semibold">Patient</th>
+        <th class="px-4 py-3 font-semibold">Bed / Ward</th>
+        <th class="px-4 py-3 font-semibold">Since</th>
+        <th class="px-4 py-3 font-semibold text-right">Deposited</th>
+        <th class="px-4 py-3 font-semibold text-right">Charges</th>
+        <th class="px-4 py-3 font-semibold text-right">Balance</th>
+        <th class="px-4 py-3 font-semibold">Status</th>
+        <th class="px-4 py-3 font-semibold print:hidden">Actions</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for acc in accounts %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition
+          {% if acc.is_exhausted %}bg-red-50/50 dark:bg-red-900/10{% elif acc.is_low_balance %}bg-amber-50/50 dark:bg-amber-900/10{% endif %}">
+          <td class="px-4 py-3">
+            <span class="font-medium text-slate-800 dark:text-slate-100">{{ acc.patient.full_name }}</span>
+            <span class="block text-xs text-slate-400">{{ acc.patient.card_number }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">
+            {% if acc.admission.bed %}{{ acc.admission.bed.bed_code }} / {{ acc.admission.bed.room.ward.name }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ acc.created_at|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{{ acc.total_deposited|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{{ acc.total_charges|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right tabular-nums font-semibold
+            {% if acc.is_exhausted %}text-red-600 dark:text-red-400
+            {% elif acc.is_low_balance %}text-amber-600 dark:text-amber-400
+            {% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+            {{ acc.available_balance|floatformat:2 }}
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+              {% if acc.is_exhausted %}bg-red-100 text-red-700
+              {% elif acc.is_low_balance %}bg-amber-100 text-amber-700
+              {% elif acc.status == 'settled' %}bg-blue-100 text-blue-700
+              {% else %}bg-emerald-100 text-emerald-700{% endif %}">
+              {% if acc.is_exhausted %}Exhausted{% elif acc.is_low_balance %}Low Balance{% else %}{{ acc.get_status_display }}{% endif %}
+            </span>
+          </td>
+          <td class="px-4 py-3 print:hidden">
+            <a href="{% url 'deposit_account_detail' admission_id=acc.admission.pk %}" class="text-xs text-indigo-600 hover:underline">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="py-16 text-center text-slate-400">No accounts found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

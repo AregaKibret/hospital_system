@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Deposit Account — {{ admission.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-start justify-between mb-5 print:hidden">
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <a href="{% url 'facility_dashboard' %}" class="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Facility</a>
+      <span class="text-slate-400">/</span>
+      <span class="text-sm text-slate-700 dark:text-slate-300">Deposit Account</span>
+    </div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ admission.patient.full_name }}</h1>
+    <p class="text-xs text-slate-400 mt-0.5">
+      Bed {{ admission.bed.bed_code }} &middot; {{ admission.bed.room.ward.name }} &middot;
+      Admitted {{ admission.admitted_at|date:"d M Y" }}
+      &middot; <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+        {% if account.status == 'active' %}bg-emerald-100 text-emerald-700
+        {% elif account.status == 'settled' %}bg-blue-100 text-blue-700
+        {% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ account.get_status_display }}
+      </span>
+    </p>
+  </div>
+  <div class="flex gap-2">
+    {% if perms.core.manage_inpatient_deposit and account.status == 'active' %}
+    <a href="{% url 'deposit_add' admission_id=admission.pk %}" class="btn-primary text-sm">+ Add Deposit</a>
+    <a href="{% url 'deposit_adjustment' admission_id=admission.pk %}" class="btn-secondary text-sm">Adjust</a>
+    <a href="{% url 'deposit_reconcile' admission_id=admission.pk %}" class="px-3 py-2 rounded-xl text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors">Reconcile</a>
+    {% endif %}
+    <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+  </div>
+</div>
+
+<!-- Balance Summary Cards -->
+{% if account.is_exhausted %}
+<div class="mb-5 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-3">
+  <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <div>
+    <p class="font-semibold text-red-700 dark:text-red-400">Deposit Exhausted</p>
+    <p class="text-sm text-red-600 dark:text-red-300 mt-0.5">The patient's deposit balance is exhausted. Additional deposit is required to continue covering charges.</p>
+  </div>
+</div>
+{% elif account.is_low_balance %}
+<div class="mb-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+  <svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <div>
+    <p class="font-semibold text-amber-700 dark:text-amber-400">Low Balance</p>
+    <p class="text-sm text-amber-600 dark:text-amber-300 mt-0.5">Available balance (ETB {{ account.available_balance|floatformat:2 }}) is below the threshold (ETB {{ account.low_balance_threshold|floatformat:2 }}).</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Initial Deposit</p>
+    <p class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">ETB {{ account.initial_deposit|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Additional</p>
+    <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">ETB {{ account.additional_deposits|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total Deposited</p>
+    <p class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">ETB {{ account.total_deposited|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total Charges</p>
+    <p class="text-xl font-bold text-red-600 dark:text-red-400 mt-1">ETB {{ account.total_charges|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Available Balance</p>
+    <p class="text-xl font-bold mt-1 {% if account.available_balance < 0 %}text-red-600 dark:text-red-400{% elif account.is_low_balance %}text-amber-600 dark:text-amber-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+      ETB {{ account.available_balance|floatformat:2 }}
+    </p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Utilization</p>
+    <p class="text-xl font-bold text-slate-700 dark:text-slate-300 mt-1">{{ account.utilization_pct }}%</p>
+    <div class="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+      <div class="h-full rounded-full {% if account.utilization_pct >= 90 %}bg-red-500{% elif account.utilization_pct >= 70 %}bg-amber-500{% else %}bg-emerald-500{% endif %}" style="width:{{ account.utilization_pct }}%"></div>
+    </div>
+  </div>
+</div>
+
+{% if account.outstanding_balance > 0 %}
+<div class="mb-5 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700">
+  <p class="text-sm font-semibold text-red-700 dark:text-red-400">Outstanding Balance: <span class="text-lg">ETB {{ account.outstanding_balance|floatformat:2 }}</span></p>
+  <p class="text-xs text-red-500 mt-0.5">Charges have exceeded the deposit. Additional payment is required.</p>
+</div>
+{% endif %}
+
+<!-- Pending charges not yet in ledger -->
+{% if pending_items %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 mb-5">
+  <p class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Pending Unpaid Invoice Items ({{ pending_items|length }})</p>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-xs">
+      <thead><tr class="text-left text-amber-600 dark:text-amber-400">
+        <th class="pb-1 pr-4">Description</th>
+        <th class="pb-1 pr-4">Type</th>
+        <th class="pb-1 text-right">Amount (ETB)</th>
+      </tr></thead>
+      <tbody>
+        {% for item in pending_items %}
+        <tr>
+          <td class="pr-4 py-0.5 text-slate-700 dark:text-slate-300">{{ item.description }}</td>
+          <td class="pr-4 py-0.5 text-slate-500">{{ item.get_service_type_display }}</td>
+          <td class="text-right tabular-nums text-slate-700 dark:text-slate-300">{{ item.balance|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Transaction Ledger -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Transaction Ledger</h2>
+    <span class="text-xs text-slate-400">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 uppercase">
+          <th class="px-4 py-3 font-semibold">Date &amp; Time</th>
+          <th class="px-4 py-3 font-semibold">Type</th>
+          <th class="px-4 py-3 font-semibold">Description</th>
+          <th class="px-4 py-3 font-semibold text-right">Credit (ETB)</th>
+          <th class="px-4 py-3 font-semibold text-right">Debit (ETB)</th>
+          <th class="px-4 py-3 font-semibold text-right">Balance After</th>
+          <th class="px-4 py-3 font-semibold">By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for tx in transactions %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ tx.created_at|date:"d M Y H:i" }}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+              {% if tx.tx_type == 'initial' or tx.tx_type == 'additional' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400
+              {% elif tx.tx_type == 'deduction' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif tx.tx_type == 'reversal' or tx.tx_type == 'adj_in' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+              {% elif tx.tx_type == 'refund' %}bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ tx.get_tx_type_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
+            {{ tx.description }}
+            {% if tx.invoice %}<a href="{% url 'invoice_detail' tx.invoice.pk %}" class="text-xs text-indigo-500 hover:underline ml-1">#{{ tx.invoice.invoice_number }}</a>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums font-medium {% if tx.is_credit %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+            {% if tx.is_credit %}{{ tx.amount|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums font-medium {% if tx.is_debit %}text-red-600 dark:text-red-400{% else %}text-slate-300 dark:text-slate-600{% endif %}">
+            {% if tx.is_debit %}{{ tx.amount|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums font-semibold {% if tx.balance_after < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+            {{ tx.balance_after|floatformat:2 }}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ tx.performed_by.get_full_name|default:tx.performed_by.username }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="py-12 text-center text-slate-400">No transactions recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

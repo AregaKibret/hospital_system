@@ -79,6 +79,7 @@
             <th class="px-4 py-3 text-center">Status</th>
             <th class="px-4 py-3 text-left">Assigned Nurse</th>
             <th class="px-4 py-3 text-left">Admitted</th>
+            <th class="px-4 py-3 text-left">Deposit Balance</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
@@ -99,6 +100,21 @@
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{% if adm.assigned_nurse %}{{ adm.assigned_nurse.get_full_name|default:adm.assigned_nurse.username }}{% else %}Unassigned{% endif %}</td>
             <td class="px-4 py-3 text-xs text-slate-400">{{ adm.admitted_at|date:"d M Y H:i" }}</td>
+            <td class="px-4 py-3 text-xs">
+              {% if perms.core.view_inpatient_deposit %}
+              {% with acc=adm.deposit_account %}
+              {% if acc %}
+              <a href="{% url 'deposit_account_detail' admission_id=adm.pk %}"
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
+                  {% if acc.is_exhausted %}bg-red-100 text-red-700
+                  {% elif acc.is_low_balance %}bg-amber-100 text-amber-700
+                  {% else %}bg-emerald-100 text-emerald-700{% endif %}">
+                ETB {{ acc.available_balance|floatformat:2 }}
+              </a>
+              {% endif %}
+              {% endwith %}
+              {% endif %}
+            </td>
           </tr>
           {% empty %}
           <tr><td colspan="8" class="px-4 py-12 text-center text-slate-400">No admissions match these filters.</td></tr>

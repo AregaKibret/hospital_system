@@ -141,7 +141,15 @@ _SURGERY_DOCTOR = _SURGERY_READ | {
     'core.read_surgery_reports',
 }
 
-_SURGERY_FULL = _SURGERY_DOCTOR | {
+_SURGERY_BOOKING = {
+    'core.counsel_surgery_patient',
+    'core.process_surgery_booking_deposit',
+    'core.initiate_surgery_admission',
+    'core.collect_surgery_pre_deposit',
+    'core.settle_surgery_account',
+}
+
+_SURGERY_FULL = _SURGERY_DOCTOR | _SURGERY_BOOKING | {
     'core.approve_surgery_order',
     'core.manage_or_schedule',
     'core.write_surgery_anesthesia',
@@ -175,6 +183,15 @@ _ATTACHMENT_ADMIN = _ATTACHMENT_CLINICAL | {
     'core.manage_attachment_categories', 'core.view_attachment_reports',
 }
 
+_CERTIFICATE_READ = {'core.read_medical_certificate', 'core.read_death_certificate'}
+_CERTIFICATE_DOCTOR = _CERTIFICATE_READ | {
+    'core.write_medical_certificate', 'core.finalize_medical_certificate',
+    'core.write_death_certificate', 'core.finalize_death_certificate',
+}
+_CERTIFICATE_VOID = {'core.void_medical_certificate', 'core.void_death_certificate'}
+
+_EXAM_TEMPLATES = {'core.manage_exam_templates'}
+
 
 # ── Role → permission set mapping ──────────────────────────────────────────
 ROLE_PERMISSIONS = {
@@ -184,7 +201,7 @@ ROLE_PERMISSIONS = {
         'core.add_visit', 'core.view_visit', 'core.change_visit', 'core.delete_visit',
         'core.view_queue', 'core.change_queue', 'core.manage_queue',
         'core.manage_users', 'core.manage_roles',
-        'core.system_configuration', 'core.read_audit_log',
+        'core.system_configuration', 'core.manage_system_config', 'core.read_audit_log',
         'core.manage_departments',
         'core.read_clinical_reports', 'core.read_financial_report',
         'core.read_department_reports',
@@ -203,6 +220,9 @@ ROLE_PERMISSIONS = {
         'core.manage_employee_signatures', 'core.delete_employee_signature',
         'core.manage_lab_services', 'core.view_lab_reports',
         'core.ward_supervisor_approve', 'core.view_nursing_dashboard',
+        'core.view_dept_reports',
+        *_CERTIFICATE_DOCTOR, *_CERTIFICATE_VOID,
+        *_EXAM_TEMPLATES,
     },
     'Medical Director': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
@@ -219,6 +239,7 @@ ROLE_PERMISSIONS = {
         'core.manage_discharge',
         'core.manage_card_types', 'core.override_card_expiry', 'core.view_card_reports',
         'core.manage_specializations', 'core.manage_doctors', 'core.view_specialization_reports',
+        *_CERTIFICATE_DOCTOR, *_CERTIFICATE_VOID,
     },
 
     # ── Reception ───────────────────────────────────────────────────────────
@@ -235,6 +256,10 @@ ROLE_PERMISSIONS = {
         *_ADMISSION_REQUESTER,
         'core.view_admission_dashboard',
         *_ATTACHMENT_BASE,
+        'core.read_surgery',
+        'core.counsel_surgery_patient',
+        'core.initiate_surgery_admission',
+        'core.collect_surgery_pre_deposit',
     },
 
     # ── Medical Records ─────────────────────────────────────────────────────
@@ -242,6 +267,7 @@ ROLE_PERMISSIONS = {
         'core.view_patient', 'core.view_visit',
         *_ATTACHMENT_CLINICAL,
         'core.view_attachment_reports',
+        *_CERTIFICATE_READ,
     },
 
     # ── Medical / Clinical Doctors ──────────────────────────────────────────
@@ -256,6 +282,7 @@ ROLE_PERMISSIONS = {
         *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        *_CERTIFICATE_DOCTOR,
     },
     'Ward Doctor': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
@@ -266,6 +293,7 @@ ROLE_PERMISSIONS = {
         *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        *_CERTIFICATE_DOCTOR,
     },
     'Emergency Doctor': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
@@ -278,6 +306,7 @@ ROLE_PERMISSIONS = {
         *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        *_CERTIFICATE_DOCTOR,
     },
     'Surgeon': {
         *_CLINICAL_BASE, *_DOCTOR_WRITE,
@@ -292,6 +321,7 @@ ROLE_PERMISSIONS = {
         *_ATTACHMENT_CLINICAL,
         *_PATIENT_FLOW_MANAGE,
         'core.manage_discharge',
+        *_CERTIFICATE_DOCTOR,
     },
 
     # ── Nursing ─────────────────────────────────────────────────────────────
@@ -305,6 +335,7 @@ ROLE_PERMISSIONS = {
         *_ADMISSION_REQUESTER,
         *_ATTACHMENT_BASE,
         'core.view_nursing_dashboard',
+        *_CERTIFICATE_READ,
     },
     'Ward Nurse': {
         *_NURSE_BASE,
@@ -315,6 +346,7 @@ ROLE_PERMISSIONS = {
         *_ADMISSION_REQUESTER,
         *_ATTACHMENT_BASE,
         'core.view_nursing_dashboard',
+        *_CERTIFICATE_READ,
     },
     'OR Nurse': {
         *_NURSE_BASE,
@@ -336,6 +368,7 @@ ROLE_PERMISSIONS = {
         *_ADMISSION_REQUESTER,
         *_ATTACHMENT_BASE,
         'core.view_nursing_dashboard',
+        *_CERTIFICATE_READ,
     },
     'Triage Staff': {
         'core.view_patient',
@@ -424,6 +457,7 @@ ROLE_PERMISSIONS = {
         'core.read_medication_inventory', 'core.manage_medication',
         'core.manage_med_catalog', 'core.receive_stock',
         'core.manage_suppliers', 'core.view_inv_reports', 'core.export_inv_reports',
+        'core.manage_supplier_payments',
         'core.dispense_medication',
         'core.process_pharmacy_sale', 'core.approve_pharmacy_discount',
         'core.approve_credit_sale', 'core.manage_pharmacy_returns',
@@ -459,6 +493,7 @@ ROLE_PERMISSIONS = {
         'core.process_pharmacy_sale', 'core.approve_pharmacy_discount',
         'core.approve_credit_sale', 'core.manage_pharmacy_returns',
         'core.read_pharmacy_reports', 'core.view_inv_reports',
+        'core.manage_supplier_payments',
     },
 
     # ── Store / Inventory ───────────────────────────────────────────────────
@@ -526,6 +561,9 @@ ROLE_PERMISSIONS = {
         *_SURGERY_READ,
         *_PATIENT_FLOW_READ,
         'core.view_admission_dashboard',
+        'core.process_surgery_booking_deposit',
+        'core.collect_surgery_pre_deposit',
+        'core.settle_surgery_account',
     },
 
     # ── HR ──────────────────────────────────────────────────────────────────
@@ -727,6 +765,18 @@ DASHBOARD_MODULES = [
             '3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 '
             '01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 '
             '3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'
+        ),
+    },
+    {
+        'id': 'certificates',
+        'title': 'Medical & Death Certificates',
+        'description': 'Issue, finalize, and print medical and death certificates',
+        'url_name': 'certificate_dashboard',
+        'permission': 'core.read_medical_certificate',
+        'color': 'rose',
+        'available': True,
+        'icon_path': (
+            'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
         ),
     },
     {

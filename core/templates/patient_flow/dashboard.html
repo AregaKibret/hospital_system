@@ -14,13 +14,35 @@
 </div>
 
 <!-- KPI Row -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-  {% include "surgery/_kpi.html" with label="Today's Visits" value=total_today color="indigo" %}
-  {% include "surgery/_kpi.html" with label="Active" value=active_count color="blue" %}
-  {% include "surgery/_kpi.html" with label="Awaiting Payment" value=waiting_payment color="amber" %}
-  {% include "surgery/_kpi.html" with label="Waiting Doctor" value=waiting_doctor color="sky" %}
-  {% include "surgery/_kpi.html" with label="In Consultation" value=in_consultation color="purple" %}
-  {% include "surgery/_kpi.html" with label="Discharged" value=discharged_today color="emerald" %}
+<div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+  <a href="{% url 'patient_flow_list' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors">
+    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ total_today }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Today's Visits</p>
+  </a>
+  <a href="{% url 'patient_flow_list' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ active_count }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Active</p>
+  </a>
+  <a href="{% url 'patient_flow_list' %}?status=waiting_payment" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-amber-300 dark:hover:border-amber-600 transition-colors">
+    <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ waiting_payment }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Awaiting Payment</p>
+  </a>
+  <a href="{% url 'patient_flow_list' %}?status=waiting_doctor" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-sky-300 dark:hover:border-sky-600 transition-colors">
+    <p class="text-2xl font-bold text-sky-600 dark:text-sky-400">{{ waiting_doctor }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Waiting Doctor</p>
+  </a>
+  <a href="{% url 'patient_flow_list' %}?status=consultation_started" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
+    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ in_consultation }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">In Consultation</p>
+  </a>
+  <a href="{% url 'patient_flow_list' %}?status=discharged" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors">
+    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ discharged_today }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Discharged Today</p>
+  </a>
+  <a href="{% url 'admitted_patient_list' %}" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 text-center hover:border-teal-300 dark:hover:border-teal-600 transition-colors">
+    <p class="text-2xl font-bold text-teal-600 dark:text-teal-400">{{ admitted_count }}</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Admitted</p>
+  </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -60,9 +82,45 @@
     </div>
     {% empty %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 text-center text-slate-400">
-      No active patients today.
+      No active outpatient visits.
     </div>
     {% endfor %}
+
+    <!-- Admitted / Inpatient -->
+    {% if admitted_patients %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-teal-200 dark:border-teal-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-teal-100 dark:border-teal-700/50 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">Admitted / Inpatient</span>
+          <span class="text-xs text-slate-400">{{ admitted_count }} patient{{ admitted_count|pluralize }}</span>
+        </div>
+        <a href="{% url 'admitted_patient_list' %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View all →</a>
+      </div>
+      <div class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for admission in admitted_patients %}
+        <div class="px-4 py-2.5 flex items-center justify-between hover:bg-teal-50 dark:hover:bg-teal-900/10 transition">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-xs font-bold text-teal-700 dark:text-teal-300 shrink-0">
+              {{ admission.patient.first_name|first }}{{ admission.patient.last_name|first }}
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{{ admission.patient.full_name }}</p>
+              <p class="text-xs text-slate-400 truncate">
+                MRN: {{ admission.patient.card_number }}
+                {% if admission.bed.room.ward %} · {{ admission.bed.room.ward.name }}{% endif %}
+                · Bed {{ admission.bed.bed_number }}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs text-slate-400">{{ admission.admitted_at|timesince }} ago</span>
+            <a href="{% url 'patient_search' %}?q={{ admission.patient.card_number }}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Profile →</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
   </div>
 

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Batch Tracking Report{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+  <div class="mb-5">
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Batch Tracking Report</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">A batch's full lifecycle: received → transactions → disposed</p>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 flex gap-3">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search by batch number or medication name…" class="flex-1 field-input text-sm py-1.5">
+    <button type="submit" class="btn-primary text-sm">Search</button>
+  </form>
+
+  {% if candidates %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-5">
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for c in candidates %}
+      <a href="?batch={{ c.id }}" class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/40">
+        <div>
+          <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ c.medication.name }}</p>
+          <p class="text-xs text-slate-400">Batch {{ c.batch_number }} · Expires {{ c.expiration_date }}</p>
+        </div>
+        <span class="text-xs text-blue-600">View →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if batch %}
+  <div class="flex items-center gap-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-3.5 mb-5">
+    <div class="flex-1">
+      <p class="font-semibold text-slate-800 dark:text-slate-200">{{ batch.medication.name }} — Batch {{ batch.batch_number }}</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        Received {{ batch.received_date }} · Expires {{ batch.expiration_date }} ·
+        {{ batch.get_ownership_display }} · {{ batch.get_status_display }}
+        {% if batch.goods_receipt %} · <a href="{% url 'goods_receipt_detail' batch.goods_receipt.id %}" class="text-blue-600 hover:underline">{{ batch.goods_receipt.goods_receipt_number }}</a>{% endif %}
+      </p>
+    </div>
+    <a href="?batch={{ batch.id }}&export=csv" class="px-3 py-2 text-xs font-semibold text-blue-700 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50">Export CSV</a>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+          <th class="px-5 py-3 font-medium">Date</th>
+          <th class="px-5 py-3 font-medium">Type</th>
+          <th class="px-5 py-3 font-medium text-right">In</th>
+          <th class="px-5 py-3 font-medium text-right">Out</th>
+          <th class="px-5 py-3 font-medium text-right">Balance</th>
+          <th class="px-5 py-3 font-medium">Reference</th>
+          <th class="px-5 py-3 font-medium">By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for tx in transactions %}
+        <tr>
+          <td class="px-5 py-3 text-slate-500">{{ tx.transaction_date|date:"d M Y H:i" }}</td>
+          <td class="px-5 py-3">{{ tx.get_transaction_type_display }}</td>
+          <td class="px-5 py-3 text-right text-emerald-600">{% if tx.quantity_in %}+{{ tx.quantity_in }}{% else %}—{% endif %}</td>
+          <td class="px-5 py-3 text-right text-red-500">{% if tx.quantity_out %}-{{ tx.quantity_out }}{% else %}—{% endif %}</td>
+          <td class="px-5 py-3 text-right font-semibold">{{ tx.balance_after }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ tx.reference_number }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ tx.performed_by.get_full_name|default:tx.performed_by.username }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400">No transactions recorded for this batch.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

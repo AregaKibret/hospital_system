@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}Physical Examination — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="max-w-5xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4 mb-5">
+    <div>
+      <div class="flex items-center gap-2 mb-1">
+        <a href="{% url 'visit_detail' visit.id %}?tab=physical_exam"
+           class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </a>
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white">
+          {% if is_edit %}Edit{% else %}New{% endif %} Physical Examination
+        </h1>
+      </div>
+      <p class="text-sm text-slate-500 dark:text-slate-400 ml-7">
+        {{ visit.patient.full_name }} &middot; {{ visit.patient.card_number }}
+        &middot; {{ visit.created_at|date:"M j, Y" }}
+      </p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" id="markAllNormalBtn"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-300 dark:border-green-700 text-xs font-semibold text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Mark All Normal
+      </button>
+      <button type="button" id="collapseAllBtn"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Collapse All
+      </button>
+    </div>
+  </div>
+
+  <form method="post" id="examForm">
+    {% csrf_token %}
+
+    <!-- Vital Signs banner -->
+    {% if latest_vitals %}
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-5 py-3 mb-5 flex flex-wrap gap-x-6 gap-y-1.5 text-xs items-center">
+      <span class="font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        Latest Vitals
+      </span>
+      {% if latest_vitals.temperature %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Temp</span> {{ latest_vitals.temperature }}°C</span>{% endif %}
+      {% if latest_vitals.blood_pressure != '—' %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">BP</span> {{ latest_vitals.blood_pressure }} mmHg</span>{% endif %}
+      {% if latest_vitals.pulse %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Pulse</span> {{ latest_vitals.pulse }} bpm</span>{% endif %}
+      {% if latest_vitals.respiratory_rate %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">RR</span> {{ latest_vitals.respiratory_rate }}/min</span>{% endif %}
+      {% if latest_vitals.spo2 %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">SpO₂</span> {{ latest_vitals.spo2 }}%</span>{% endif %}
+      {% if latest_vitals.weight %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Wt</span> {{ latest_vitals.weight }} kg</span>{% endif %}
+      {% if latest_vitals.height %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">Ht</span> {{ latest_vitals.height }} cm</span>{% endif %}
+      {% if latest_vitals.bmi %}<span class="text-slate-700 dark:text-slate-300"><span class="text-slate-400">BMI</span> {{ latest_vitals.bmi }}</span>{% endif %}
+      <span class="text-slate-400 ml-auto">Recorded {{ latest_vitals.recorded_at|date:"M j, H:i" }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Template selector + complete checkbox -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-4 mb-5">
+      <div class="flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Specialty Template</label>
+          <select name="template" id="templateSelect"
+                  class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="">— Standard (All Systems) —</option>
+            {% for tpl in templates %}
+            <option value="{{ tpl.pk }}"
+                    data-config='{{ tpl.systems_config|default:"[]" }}'
+                    {% if is_edit and exam.template_id == tpl.pk %}selected{% endif %}>
+              {{ tpl.name }} ({{ tpl.get_specialty_display }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-center gap-3 pt-5">
+          <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input type="checkbox" name="is_complete" id="isComplete"
+                   {% if is_edit and exam.is_complete %}checked{% endif %}
+                   class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+            <span class="font-medium">Mark as Complete</span>
+          </label>
+        </div>
+        <div id="autosaveIndicator" class="text-xs text-slate-400 pt-5 hidden">
+          <span id="autosaveText">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body systems accordion -->
+    <div id="systemsContainer" class="space-y-2 mb-5">
+      {% for key, label, group, quick_normal, quick_findings in exam_systems %}
+      <div class="exam-section bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+           data-key="{{ key }}">
+
+        <!-- Header toggle -->
+        <button type="button"
+                onclick="toggleSection(this)"
+                class="section-header w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="section-dot w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0" id="dot_{{ key }}"></span>
+            <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ label }}</span>
+            <span class="text-xs text-slate-400 hidden sm:inline">{{ group }}</span>
+            <span class="section-badge hidden ml-1" id="badge_{{ key }}"></span>
+          </div>
+          <svg class="section-chevron w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- Body -->
+        <div class="section-body px-4 pb-4 border-t border-slate-100 dark:border-slate-700">
+
+          <!-- Status radios -->
+          <div class="flex flex-wrap gap-2 mt-3 mb-3">
+            {% for val, display in status_choices %}
+            <label class="cursor-pointer select-none">
+              <input type="radio" name="{{ key }}_status" value="{{ val }}"
+                     class="sr-only status-radio"
+                     data-key="{{ key }}"
+                     onchange="onStatusChange('{{ key }}', '{{ val }}')">
+              <span class="status-pill inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                {% if val == 'normal' %}text-green-700 border-green-200 dark:text-green-400 dark:border-green-800
+                {% elif val == 'mild' %}text-yellow-700 border-yellow-200 dark:text-yellow-400 dark:border-yellow-800
+                {% elif val == 'moderate' %}text-orange-700 border-orange-200 dark:text-orange-400 dark:border-orange-800
+                {% elif val == 'severe' %}text-red-700 border-red-200 dark:text-red-400 dark:border-red-800
+                {% else %}text-slate-500 border-slate-200 dark:text-slate-400 dark:border-slate-700{% endif %}">
+                {{ display }}
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+
+          <!-- Quick-pick chips -->
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            {% for f in quick_findings %}
+            <button type="button"
+                    data-key="{{ key }}"
+                    data-text="{{ f }}"
+                    onclick="appendFinding(this)"
+                    class="px-2 py-1 rounded-md text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors border border-transparent">
+              {{ f }}
+            </button>
+            {% endfor %}
+          </div>
+
+          <!-- Comment -->
+          <textarea name="{{ key }}_comment" id="comment_{{ key }}"
+                    rows="2"
+                    placeholder="Findings / comments for {{ label|lower }}…"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none resize-y transition"
+                    onblur="scheduleAutosave()"></textarea>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Overall Summary -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+      <label class="block text-sm font-semibold text-slate-800 dark:text-white mb-2">Overall Examination Summary</label>
+      <textarea name="overall_summary" id="overallSummary" rows="4"
+                placeholder="Summarize key findings, their clinical significance, and overall impression…"
+                class="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none resize-y transition"
+                onblur="scheduleAutosave()"></textarea>
+    </div>
+
+    <!-- Form actions -->
+    <div class="flex items-center justify-between gap-4 pb-8">
+      <a href="{% url 'visit_detail' visit.id %}?tab=physical_exam"
+         class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        Cancel
+      </a>
+      <button type="submit"
+              class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+        {% if is_edit %}Update{% else %}Save{% endif %} Examination
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function () {
+  const SYSTEMS = {{ exam_systems_json|safe }};
+  const EXISTING = {{ existing_findings|default:"{}"|safe }};
+  const AUTOSAVE_URL = {% if is_edit %}"{% url 'physical_exam_autosave' visit.id exam.id %}"{% else %}null{% endif %};
+  const CSRF = "{{ csrf_token }}";
+
+  let autosaveTimer;
+  let allCollapsed = false;
+
+  // ── Pre-populate on load ─────────────────────────────────────────────────
+  SYSTEMS.forEach(sys => {
+    const ef = EXISTING[sys.key];
+    if (ef) {
+      if (ef.status) {
+        const radio = document.querySelector(`input[name="${sys.key}_status"][value="${ef.status}"]`);
+        if (radio) { radio.checked = true; }
+        updateVisuals(sys.key, ef.status);
+      }
+      if (ef.comment) {
+        const ta = document.getElementById('comment_' + sys.key);
+        if (ta) ta.value = ef.comment;
+      }
+    }
+  });
+
+  // Pre-populate overall summary
+  if (EXISTING._summary) {
+    const ta = document.getElementById('overallSummary');
+    if (ta) ta.value = EXISTING._summary;
+  }
+  {% if is_edit %}
+  const osTa = document.getElementById('overallSummary');
+  if (osTa && !osTa.value) osTa.value = "{{ exam.overall_summary|escapejs }}";
+  {% endif %}
+
+  // ── Status change ────────────────────────────────────────────────────────
+  window.onStatusChange = function (key, val) {
+    updateVisuals(key, val);
+    scheduleAutosave();
+  };
+
+  function updateVisuals(key, status) {
+    const dot   = document.getElementById('dot_' + key);
+    const badge = document.getElementById('badge_' + key);
+    if (!dot) return;
+
+    const cfg = {
+      normal:       { dot: 'bg-green-400',  badge: 'inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', label: 'Normal' },
+      mild:         { dot: 'bg-yellow-400', badge: 'inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', label: 'Mild Abnormality' },
+      moderate:     { dot: 'bg-orange-400', badge: 'inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', label: 'Moderate Abnormality' },
+      severe:       { dot: 'bg-red-500',    badge: 'inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', label: 'Severe Abnormality' },
+      not_examined: { dot: 'bg-slate-300',  badge: 'inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400', label: 'Not Examined' },
+    }[status];
+
+    if (!cfg) {
+      dot.className = 'section-dot w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0';
+      if (badge) { badge.className = 'section-badge hidden'; badge.textContent = ''; }
+      return;
+    }
+
+    dot.className = `section-dot w-2.5 h-2.5 rounded-full ${cfg.dot} shrink-0`;
+    if (badge) { badge.className = cfg.badge; badge.textContent = cfg.label; }
+
+    // Highlight selected pill
+    const section = document.querySelector(`.exam-section[data-key="${key}"]`);
+    if (section) {
+      section.querySelectorAll('.status-pill').forEach(pill => {
+        const radio = pill.closest('label').querySelector('.status-radio');
+        pill.classList.remove('ring-2', 'ring-inset', 'font-bold');
+        if (radio && radio.value === status) { pill.classList.add('ring-2', 'ring-inset', 'font-bold'); }
+      });
+    }
+  }
+
+  // ── Toggle section ───────────────────────────────────────────────────────
+  window.toggleSection = function (btn) {
+    const body    = btn.closest('.exam-section').querySelector('.section-body');
+    const chevron = btn.querySelector('.section-chevron');
+    const open    = body.style.display !== 'none';
+    body.style.display      = open ? 'none' : '';
+    chevron.style.transform = open ? 'rotate(-90deg)' : '';
+  };
+
+  document.getElementById('collapseAllBtn').addEventListener('click', function () {
+    allCollapsed = !allCollapsed;
+    document.querySelectorAll('.exam-section').forEach(sec => {
+      const body    = sec.querySelector('.section-body');
+      const chevron = sec.querySelector('.section-chevron');
+      body.style.display      = allCollapsed ? 'none' : '';
+      chevron.style.transform = allCollapsed ? 'rotate(-90deg)' : '';
+    });
+    this.textContent = allCollapsed ? 'Expand All' : 'Collapse All';
+  });
+
+  // ── Mark All Normal ──────────────────────────────────────────────────────
+  document.getElementById('markAllNormalBtn').addEventListener('click', function () {
+    SYSTEMS.forEach(sys => {
+      const radio = document.querySelector(`input[name="${sys.key}_status"][value="normal"]`);
+      if (radio) { radio.checked = true; updateVisuals(sys.key, 'normal'); }
+      const ta = document.getElementById('comment_' + sys.key);
+      if (ta && !ta.value.trim() && sys.quick_normal) ta.value = sys.quick_normal;
+    });
+    scheduleAutosave();
+  });
+
+  // ── Quick-pick chip ──────────────────────────────────────────────────────
+  window.appendFinding = function (btn) {
+    const key  = btn.dataset.key;
+    const text = btn.dataset.text;
+    const ta   = document.getElementById('comment_' + key);
+    if (!ta) return;
+    ta.value = ta.value.trimEnd() ? ta.value.trimEnd() + '. ' + text : text;
+    scheduleAutosave();
+  };
+
+  // ── Template selector ────────────────────────────────────────────────────
+  document.getElementById('templateSelect').addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    try {
+      const config = JSON.parse(opt.dataset.config || '[]');
+      config.forEach(item => {
+        const sec = document.querySelector(`.exam-section[data-key="${item.key}"]`);
+        if (!sec) return;
+        sec.style.opacity = item.include ? '' : '0.35';
+        if (item.include && item.default_status) {
+          const radio = document.querySelector(`input[name="${item.key}_status"][value="${item.default_status}"]`);
+          if (radio && !radio.checked) { radio.checked = true; updateVisuals(item.key, item.default_status); }
+        }
+      });
+    } catch (e) {}
+  });
+
+  // ── Auto-save ────────────────────────────────────────────────────────────
+  window.scheduleAutosave = function () {
+    if (!AUTOSAVE_URL) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(doAutosave, 3000);
+  };
+
+  function doAutosave() {
+    if (!AUTOSAVE_URL) return;
+    const payload = { overall_summary: (document.getElementById('overallSummary') || {}).value || '' };
+    SYSTEMS.forEach(sys => {
+      const radio   = document.querySelector(`input[name="${sys.key}_status"]:checked`);
+      const ta      = document.getElementById('comment_' + sys.key);
+      payload[sys.key] = { status: radio ? radio.value : '', comment: ta ? ta.value : '' };
+    });
+
+    const ind = document.getElementById('autosaveIndicator');
+    const txt = document.getElementById('autosaveText');
+    if (ind) ind.classList.remove('hidden');
+    if (txt) txt.textContent = 'Saving…';
+
+    fetch(AUTOSAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(d => { if (txt) txt.textContent = d.ok ? `Saved ${d.saved_at}` : 'Save failed'; })
+    .catch(() => { if (txt) txt.textContent = 'Save failed'; });
+  }
+
+  if (AUTOSAVE_URL) setInterval(doAutosave, 30000);
+})();
+</script>
+
+<style>
+.status-radio:checked + .status-pill { box-shadow: 0 0 0 2px currentColor; }
+</style>
+{% endblock %}

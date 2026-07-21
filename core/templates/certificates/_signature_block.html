@@ -1,0 +1,19 @@
+{# Shared certificate signature block. Expects: cert, signature_label (optional) #}
+{% load signatures %}
+<div style="margin-top:24px;padding-top:12px;border-top:1px solid #ccc;font-size:12px">
+  {% if cert.is_finalized %}
+  <p><strong>Signed by:</strong> {{ cert.signature_name }}</p>
+  <p><strong>Date Certified:</strong> {{ cert.finalized_at|date:"d M Y H:i" }}</p>
+  <div style="margin-top:10px">
+    {% signature_block cert.finalized_by label=signature_label|default:"Certifying Physician's Signature" %}
+  </div>
+  {% if cert.verification_code %}<p style="color:#888;margin-top:8px">Verification Code: <strong>{{ cert.verification_code }}</strong></p>{% endif %}
+  {% else %}
+  <p style="color:#b45309"><strong>Not yet finalized / signed — this is a draft and is not a valid certificate.</strong></p>
+  {% endif %}
+  {% if cert.is_void %}
+  <p style="color:#dc2626;margin-top:8px"><strong>THIS CERTIFICATE HAS BEEN VOIDED.</strong> Reason: {{ cert.void_reason }} (by {{ cert.voided_by.get_full_name|default:cert.voided_by.username }} on {{ cert.voided_at|date:"d M Y H:i" }})</p>
+  {% endif %}
+  <p style="color:#888;margin-top:6px">Created by {{ cert.created_by.get_full_name|default:cert.created_by.username }} on {{ cert.created_at|date:"d M Y H:i" }}</p>
+  {% if cert.revision_reason %}<p style="color:#888;margin-top:2px">Revision reason: {{ cert.revision_reason }}</p>{% endif %}
+</div>

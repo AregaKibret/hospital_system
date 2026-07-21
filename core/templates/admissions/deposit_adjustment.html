@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Deposit Adjustment — {{ admission.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <div class="mb-5">
+    <a href="{% url 'deposit_account_detail' admission_id=admission.pk %}" class="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">&larr; Back to Deposit Account</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Manual Adjustment</h1>
+    <p class="text-sm text-slate-500 mt-0.5">{{ admission.patient.full_name }} &middot; Bed {{ admission.bed.bed_code }}</p>
+  </div>
+
+  <div class="bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-2xl p-4 mb-5 flex justify-between text-sm">
+    <span class="text-slate-600 dark:text-slate-300">Current Available Balance</span>
+    <span class="font-bold text-slate-800 dark:text-slate-100">ETB {{ account.available_balance|floatformat:2 }}</span>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <form method="post">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Adjustment Type <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center gap-2 p-3 border-2 rounded-xl cursor-pointer border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700">
+              <input type="radio" name="adj_type" value="credit" checked class="accent-emerald-600">
+              <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">Credit (Add to Balance)</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border-2 rounded-xl cursor-pointer border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700">
+              <input type="radio" name="adj_type" value="debit" class="accent-red-600">
+              <span class="text-sm font-medium text-red-700 dark:text-red-400">Debit (Reduce Balance)</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Amount (ETB) <span class="text-red-500">*</span></label>
+          <input type="number" name="amount" step="0.01" min="0.01" required class="field-input" placeholder="0.00" autofocus>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Reason <span class="text-red-500">*</span></label>
+          <textarea name="reason" rows="3" required class="field-input resize-none" placeholder="Explain the reason for this adjustment..."></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button type="submit" class="btn-primary flex-1">Apply Adjustment</button>
+        <a href="{% url 'deposit_account_detail' admission_id=admission.pk %}" class="btn-secondary flex-1 text-center">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

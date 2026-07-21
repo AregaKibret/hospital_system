@@ -874,6 +874,80 @@ class Diagnosis(models.Model):
         return f"{self.description}{code} ({self.status})"
 
 
+# ── Physical Examination ──────────────────────────────────────────────────────
+
+class PhysicalExamTemplate(models.Model):
+    """Admin-configurable specialty examination template."""
+
+    class Specialty(models.TextChoices):
+        GENERAL       = 'General',       'General / Internal Medicine'
+        SURGERY       = 'Surgery',       'Surgery / Pre-Op'
+        PEDIATRICS    = 'Pediatrics',    'Pediatrics'
+        GYNECOLOGY    = 'Gynecology',    'Gynecology & Obstetrics'
+        ORTHOPEDICS   = 'Orthopedics',   'Orthopedics'
+        ENT           = 'ENT',           'ENT'
+        OPHTHALMOLOGY = 'Ophthalmology', 'Ophthalmology'
+        NEUROLOGY     = 'Neurology',     'Neurology'
+        CARDIOLOGY    = 'Cardiology',    'Cardiology'
+        DERMATOLOGY   = 'Dermatology',   'Dermatology'
+        UROLOGY       = 'Urology',       'Urology'
+        EMERGENCY     = 'Emergency',     'Emergency Medicine'
+        PSYCHIATRY    = 'Psychiatry',    'Psychiatry'
+        CUSTOM        = 'Custom',        'Custom'
+
+    name           = models.CharField(max_length=120)
+    specialty      = models.CharField(max_length=30, choices=Specialty.choices, default=Specialty.GENERAL)
+    description    = models.TextField(blank=True)
+    systems_config = models.JSONField(default=list, help_text='List of {key, include, default_status}')
+    is_active      = models.BooleanField(default=True)
+    is_default     = models.BooleanField(default=False)
+    created_by     = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='exam_templates_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['specialty', 'name']
+        verbose_name = 'Physical Exam Template'
+        verbose_name_plural = 'Physical Exam Templates'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_specialty_display()})"
+
+
+class PhysicalExamination(models.Model):
+    """Structured physical examination record linked to a visit."""
+
+    visit = models.ForeignKey(Visit, on_delete=models.PROTECT, related_name='physical_exams')
+    clinical_note = models.OneToOneField(
+        ClinicalNote, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='physical_exam',
+    )
+    template = models.ForeignKey(
+        PhysicalExamTemplate, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='examinations',
+    )
+    examiner        = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='physical_exams_conducted',
+    )
+    findings        = models.JSONField(default=dict, help_text='system_key: {status, comment}')
+    overall_summary = models.TextField(blank=True)
+    is_complete     = models.BooleanField(default=False)
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Physical Examination'
+        verbose_name_plural = 'Physical Examinations'
+
+    def __str__(self):
+        return f"Physical Exam — {self.visit.patient} ({self.created_at:%Y-%m-%d})"
+
+
 # ── Laboratory Service Master ──────────────────────────────────────────────────
 
 class LabCategory(models.Model):
@@ -1812,6 +1886,8 @@ class InvoiceItem(models.Model):
         NURSING = 'Nursing Care', 'Nursing Care'
         SERVICE_CHARGE = 'Service Charge', 'Service Charge'
         CARD_FEE = 'Card Fee', 'Card Fee'
+        SURGERY_BOOKING = 'Surgery Booking', 'Surgery Booking Deposit'
+        SURGERY_DEPOSIT = 'Surgery Deposit', 'Surgery Pre-Deposit'
         OTHER = 'Other', 'Other'
 
     class PaymentStatus(models.TextChoices):
@@ -2125,6 +2201,7 @@ class InventoryItem(models.Model):
     quantity_damaged  = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     quantity_reserved = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     reorder_level     = models.DecimalField(max_digits=12, decimal_places=2, default=10)
+    reorder_quantity  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     min_stock         = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     max_stock         = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     safety_stock      = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -2133,6 +2210,7 @@ class InventoryItem(models.Model):
     unit_cost        = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     average_cost      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     selling_price    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    selling_price_is_manual = models.BooleanField(default=False)
     inpatient_price   = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     emergency_price   = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tax_type          = models.CharField(max_length=20, blank=True)
@@ -2892,6 +2970,191 @@ class Supplier(models.Model):
         return self.name
 
 
+class GoodsReceipt(models.Model):
+    """One row per supplier delivery/invoice — the receiving 'header' a
+    goods-receipt cart submission (or the single-drug quick-receive
+    fast path) always creates exactly one of, regardless of how many
+    drugs/batches it contains."""
+    class PaymentMethod(models.TextChoices):
+        CASH        = 'cash',        'Cash'
+        CREDIT      = 'credit',      'Credit'
+        CONSIGNMENT = 'consignment', 'Consignment'
+
+    goods_receipt_number = models.CharField(max_length=20, unique=True, blank=True)
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='goods_receipts')
+
+    supplier_invoice_number = models.CharField(max_length=100)
+    supplier_invoice_date   = models.DateField(null=True, blank=True)
+    purchase_order_ref      = models.CharField(max_length=100, blank=True)
+    delivery_note_number    = models.CharField(max_length=100, blank=True)
+
+    payment_method = models.CharField(max_length=15, choices=PaymentMethod.choices, default=PaymentMethod.CASH)
+
+    received_by   = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='goods_receipts_received')
+    received_date = models.DateTimeField(default=timezone.now)
+
+    # Cash-specific — meaningful only when payment_method == CASH (paid in
+    # full at the time of receiving, no SupplierPayable needed).
+    cash_payment_date      = models.DateField(null=True, blank=True)
+    cash_amount_paid       = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    cash_cashier           = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='goods_receipts_cashiered',
+    )
+    cash_payment_reference = models.CharField(max_length=100, blank=True)
+
+    notes      = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-received_date']
+        unique_together = [('supplier', 'supplier_invoice_number')]
+        verbose_name = 'Goods Receipt'
+
+    def __str__(self):
+        return f'{self.goods_receipt_number} — {self.supplier.name} ({self.get_payment_method_display()})'
+
+    def save(self, *args, **kwargs):
+        if not self.goods_receipt_number:
+            last = GoodsReceipt.objects.order_by('-id').first()
+            next_id = (last.id + 1) if last else 1
+            self.goods_receipt_number = f"GR-{timezone.localdate():%Y%m}-{next_id:04d}"
+        super().save(*args, **kwargs)
+
+
+class SupplierPayable(models.Model):
+    """Money owed to a supplier for a Credit or Consignment goods receipt —
+    never created for a Cash receipt (paid in full immediately, recorded
+    directly on GoodsReceipt instead)."""
+    goods_receipt = models.OneToOneField(GoodsReceipt, on_delete=models.CASCADE, related_name='payable')
+    supplier      = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='payables')
+
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount_paid  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    due_date           = models.DateField(null=True, blank=True)
+    credit_period_days = models.PositiveIntegerField(null=True, blank=True)
+    consignment_agreement_number = models.CharField(max_length=100, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_date']
+        verbose_name = 'Supplier Payable'
+
+    def __str__(self):
+        return f'{self.supplier.name} — {self.goods_receipt.goods_receipt_number} ({self.status})'
+
+    @property
+    def outstanding_balance(self):
+        return self.total_amount - self.amount_paid
+
+    @property
+    def is_overdue(self):
+        return bool(self.due_date) and self.due_date < timezone.localdate() and self.outstanding_balance > 0
+
+    @property
+    def status(self):
+        if self.amount_paid >= self.total_amount and self.total_amount > 0:
+            return 'Fully Paid'
+        if self.is_overdue:
+            return 'Overdue'
+        if self.amount_paid > 0:
+            return 'Partially Paid'
+        return 'Unpaid'
+
+    def recalculate_amount_paid(self):
+        from django.db.models import Sum
+        self.amount_paid = self.payments.aggregate(t=Sum('amount'))['t'] or 0
+        self.save(update_fields=['amount_paid', 'updated_at'])
+
+
+class SupplierPayment(models.Model):
+    """A single payment (partial or full) recorded against a SupplierPayable."""
+    payable   = models.ForeignKey(SupplierPayable, on_delete=models.CASCADE, related_name='payments')
+    amount    = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_date      = models.DateField(default=timezone.localdate)
+    payment_reference = models.CharField(max_length=100, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='supplier_payments_recorded')
+    notes       = models.TextField(blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-payment_date']
+        verbose_name = 'Supplier Payment'
+
+    def __str__(self):
+        return f'{self.payable.supplier.name} — ETB {self.amount} on {self.payment_date}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.payable.recalculate_amount_paid()
+
+
+class PharmacyCreditSettings(models.Model):
+    """Singleton (pk=1) — the one configurable value the credit-due/overdue
+    dashboard alerts need."""
+    reminder_days_before_due = models.PositiveIntegerField(default=7)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='pharmacy_credit_settings_updates',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pharmacy Credit Settings'
+        verbose_name_plural = 'Pharmacy Credit Settings'
+
+    def __str__(self):
+        return f'Pharmacy Credit Settings (remind {self.reminder_days_before_due}d before due)'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class PricingSettings(models.Model):
+    """Singleton (pk=1) — the global default markup used to auto-calculate
+    Selling Price from Purchase Price across Pharmacy (Medication /
+    MedicationBatch) and Inventory (InventoryItem). Admin-editable without a
+    code change. Changing this value does not retroactively touch existing
+    records' selling prices — see the explicit 'recalculate existing prices'
+    action, which only touches records that were never manually overridden."""
+    default_markup_percent = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('25.00'))
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='pricing_settings_updates',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pricing Settings'
+        verbose_name_plural = 'Pricing Settings'
+
+    def __str__(self):
+        return f'Pricing Settings ({self.default_markup_percent}% default markup)'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def compute_selling_price(self, purchase_price):
+        purchase_price = Decimal(purchase_price or 0)
+        markup = (purchase_price * self.default_markup_percent / Decimal('100')).quantize(Decimal('0.01'))
+        return (purchase_price + markup).quantize(Decimal('0.01'))
+
+
 class MedicationCategory(models.Model):
     name        = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -2965,65 +3228,157 @@ class Medication(models.Model):
         FROZEN          = 'Frozen',           'Frozen (< −18 °C)'
         LIGHT_PROTECTED = 'Light Protected',  'Light Protected'
 
-    # Basic
-    name                = models.CharField(max_length=200)          # Brand name
+    # Item Master link — the single source of truth for master/catalog data
+    # (name, code, category, units, barcode, manufacturer, supplier, pricing,
+    # stock levels, storage, active flag). Every field below with a matching
+    # @property further down used to be a real column here; it's now read
+    # (never written) through this relation so there is exactly one place
+    # the data lives. Properties are getter-only on purpose — any code that
+    # still tries `med.purchase_price = X` fails loudly instead of silently
+    # writing to a column that no longer exists.
+    inventory_item      = models.OneToOneField(
+        'InventoryItem', on_delete=models.CASCADE, related_name='medication_details',
+    )
+    atc_code            = models.CharField(max_length=20, blank=True)
+
+    # Basic (Medication Details — brand_name is deliberately independent of
+    # inventory_item.name, not delegated, per product decision)
+    brand_name          = models.CharField(max_length=200)
     generic_name        = models.CharField(max_length=200)
     scientific_name     = models.CharField(max_length=200, blank=True)
-    code                = models.CharField(max_length=50, unique=True)
-    barcode             = models.CharField(max_length=100, blank=True)
-    category            = models.ForeignKey(MedicationCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name='medications')
     therapeutic_class   = models.CharField(max_length=100, blank=True)
     drug_type           = models.CharField(max_length=20, choices=DrugType.choices, default=DrugType.TABLET)
     strength            = models.CharField(max_length=100)          # e.g. 500 mg
     dosage_form         = models.CharField(max_length=100, blank=True)
     route               = models.CharField(max_length=20, choices=Route.choices, default=Route.ORAL)
-    manufacturer        = models.CharField(max_length=200, blank=True)
     country_of_origin   = models.CharField(max_length=100, blank=True)
-    supplier            = models.ForeignKey(Supplier, null=True, blank=True, on_delete=models.SET_NULL, related_name='medications')
 
-    # Packaging
-    unit_of_measure     = models.CharField(max_length=50, default='Tablet')
+    # Packaging (not on InventoryItem — kept as genuine, non-duplicated detail)
     pack_description    = models.CharField(max_length=200, blank=True)  # e.g. 1 Box = 10 Strips × 10 Tablets
     units_per_pack      = models.PositiveIntegerField(default=1)
-    purchase_unit       = models.CharField(max_length=50, blank=True, default='Box')
-    dispensing_unit     = models.CharField(max_length=50, blank=True, default='Tablet')
-    conversion_factor   = models.PositiveIntegerField(default=1)    # dispensing units per purchase unit
 
-    # Pricing (ETB)
-    purchase_price      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    selling_price       = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Pricing (not on InventoryItem — kept as genuine, non-duplicated detail)
     wholesale_price     = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     insurance_price     = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    # Stock control levels (in dispensing units)
-    minimum_stock       = models.PositiveIntegerField(default=0)
-    maximum_stock       = models.PositiveIntegerField(default=0)
-    reorder_level       = models.PositiveIntegerField(default=0)
-    reorder_quantity    = models.PositiveIntegerField(default=0)
-    safety_stock        = models.PositiveIntegerField(default=0)
-
-    # Regulatory
+    # Regulatory / clinical
     registration_number = models.CharField(max_length=100, blank=True)
     regulatory_approval = models.CharField(max_length=100, blank=True)
     controlled_substance = models.BooleanField(default=False)
     prescription_required = models.BooleanField(default=True)
-
-    # Storage
-    location            = models.ForeignKey(StorageLocation, null=True, blank=True, on_delete=models.SET_NULL, related_name='medications')
     storage_condition   = models.CharField(max_length=20, choices=StorageCondition.choices, default=StorageCondition.ROOM_TEMP)
 
     # Meta
-    is_active   = models.BooleanField(default=True)
     notes       = models.TextField(blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['brand_name']
 
     def __str__(self):
-        return f"{self.name} — {self.strength}"
+        return f"{self.brand_name} — {self.strength}"
 
+    # ── Item Master delegation (read-only) ──────────────────────────────────
+    # Note: `name` intentionally aliases brand_name (a genuine, independently
+    # stored field — see the class docstring), NOT inventory_item.name. Every
+    # existing call site (templates, reports, search results) has always
+    # meant "this medication's own display name" by `med.name`; brand_name is
+    # exactly that, kept independent of whatever the Item Master's own name
+    # gets edited to later via the Inventory module.
+    @property
+    def name(self):
+        return self.brand_name
+
+    @property
+    def code(self):
+        return self.inventory_item.item_code
+
+    @property
+    def barcode(self):
+        return self.inventory_item.barcode
+
+    @property
+    def category(self):
+        return self.inventory_item.category
+
+    @property
+    def category_id(self):
+        return self.inventory_item.category_id
+
+    @property
+    def manufacturer(self):
+        return self.inventory_item.manufacturer
+
+    @property
+    def supplier(self):
+        return self.inventory_item.supplier
+
+    @property
+    def supplier_id(self):
+        return self.inventory_item.supplier_id
+
+    @property
+    def unit_of_measure(self):
+        return self.inventory_item.unit
+
+    @property
+    def purchase_unit(self):
+        return self.inventory_item.unit_purchase
+
+    @property
+    def dispensing_unit(self):
+        return self.inventory_item.dispensing_unit
+
+    @property
+    def conversion_factor(self):
+        return self.inventory_item.consumption_factor
+
+    @property
+    def purchase_price(self):
+        return self.inventory_item.unit_cost
+
+    @property
+    def selling_price(self):
+        return self.inventory_item.selling_price
+
+    @property
+    def selling_price_is_manual(self):
+        return self.inventory_item.selling_price_is_manual
+
+    @property
+    def minimum_stock(self):
+        return self.inventory_item.min_stock
+
+    @property
+    def maximum_stock(self):
+        return self.inventory_item.max_stock
+
+    @property
+    def reorder_level(self):
+        return self.inventory_item.reorder_level
+
+    @property
+    def reorder_quantity(self):
+        return self.inventory_item.reorder_quantity
+
+    @property
+    def safety_stock(self):
+        return self.inventory_item.safety_stock
+
+    @property
+    def location(self):
+        return self.inventory_item.storage_location
+
+    @property
+    def location_id(self):
+        return self.inventory_item.storage_location_id
+
+    @property
+    def is_active(self):
+        return self.inventory_item.is_active
+
+    # ── Stock (unchanged — reads self.batches + the delegated properties above) ──
     @property
     def current_stock(self):
         from django.db.models import Sum
@@ -3075,6 +3430,15 @@ class Medication(models.Model):
 
 
 class MedicationBatch(models.Model):
+    class Ownership(models.TextChoices):
+        PURCHASED   = 'purchased',   'Purchased'
+        CONSIGNMENT = 'consignment', 'Consignment'
+
+    class BatchStatus(models.TextChoices):
+        ACTIVE    = 'active',    'Active'
+        QUARANTINE = 'quarantine', 'Quarantined'
+        RECALLED  = 'recalled',  'Recalled'
+
     medication          = models.ForeignKey(Medication, on_delete=models.CASCADE, related_name='batches')
     batch_number        = models.CharField(max_length=100)
     lot_number          = models.CharField(max_length=100, blank=True)
@@ -3083,12 +3447,17 @@ class MedicationBatch(models.Model):
     quantity_received   = models.PositiveIntegerField()
     quantity_available  = models.PositiveIntegerField()
     purchase_price      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    selling_price       = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    selling_price_is_manual = models.BooleanField(default=False)
     supplier            = models.ForeignKey(Supplier, null=True, blank=True, on_delete=models.SET_NULL, related_name='batches')
     location            = models.ForeignKey(StorageLocation, null=True, blank=True, on_delete=models.SET_NULL, related_name='batches')
     received_date       = models.DateField(null=True, blank=True)
     received_by         = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='batches_received')
     purchase_order_ref  = models.CharField(max_length=100, blank=True)
     invoice_number      = models.CharField(max_length=100, blank=True)
+    goods_receipt        = models.ForeignKey(GoodsReceipt, null=True, blank=True, on_delete=models.SET_NULL, related_name='batches')
+    ownership           = models.CharField(max_length=15, choices=Ownership.choices, default=Ownership.PURCHASED)
+    status              = models.CharField(max_length=15, choices=BatchStatus.choices, default=BatchStatus.ACTIVE)
     is_active           = models.BooleanField(default=True)
     notes               = models.TextField(blank=True)
     created_at          = models.DateTimeField(auto_now_add=True)
@@ -3368,6 +3737,18 @@ class TransferRequest(models.Model):
     )
     ward_supervisor_approved_at = models.DateTimeField(null=True, blank=True)
 
+    # Patient-specific requisition fields
+    class RequestType(models.TextChoices):
+        DEPT_STOCK       = 'dept_stock',       'Department Stock Request'
+        PATIENT_SPECIFIC = 'patient_specific', 'Patient-Specific Request'
+
+    request_type      = models.CharField(max_length=20, choices=RequestType.choices, default=RequestType.DEPT_STOCK)
+    patient           = models.ForeignKey('Patient', null=True, blank=True, on_delete=models.SET_NULL, related_name='requisitions')
+    visit             = models.ForeignKey('Visit',   null=True, blank=True, on_delete=models.SET_NULL, related_name='requisitions')
+    requesting_doctor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='requisitions_as_doctor')
+    clinical_reason   = models.TextField(blank=True)
+    invoice           = models.ForeignKey('Invoice', null=True, blank=True, on_delete=models.SET_NULL, related_name='requisitions')
+
     class Meta:
         ordering = ['-request_date']
 
@@ -3389,6 +3770,9 @@ class TransferRequestItem(models.Model):
     quantity_approved  = models.IntegerField(null=True, blank=True)
     quantity_issued    = models.IntegerField(default=0)
     notes              = models.CharField(max_length=200, blank=True)
+    unit_price         = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_billable        = models.BooleanField(default=True)
+    invoice_item       = models.ForeignKey('InvoiceItem', null=True, blank=True, on_delete=models.SET_NULL, related_name='requisition_items')
 
     def __str__(self):
         name = self.medication.name if self.medication_id else self.inventory_item.name
@@ -3579,6 +3963,8 @@ class HMSPermissions(models.Model):
             ('ward_supervisor_approve',    'Can give ward-supervisor pre-approval on transfer requests'),
             ('record_dept_usage',          'Can record medication/consumable usage in department'),
             ('view_dept_reports',          'Can view department pharmacy reports'),
+            ('view_patient_requisitions',  'Can view patient-specific requisitions'),
+            ('manage_patient_requisitions','Can create and manage patient-specific requisitions'),
 
             # Nursing Module
             ('view_nursing_dashboard',     'Can view the nursing dashboard'),
@@ -3589,6 +3975,7 @@ class HMSPermissions(models.Model):
             ('manage_suppliers',      'Can manage suppliers'),
             ('view_inv_reports',      'Can view inventory reports'),
             ('export_inv_reports',    'Can export inventory reports'),
+            ('manage_supplier_payments', 'Can record payments against supplier payables'),
 
             # Store / Inventory
             ('read_inventory',            'Can read store inventory'),
@@ -3629,6 +4016,7 @@ class HMSPermissions(models.Model):
             ('manage_users',              'Can manage system users'),
             ('manage_roles',              'Can manage roles and permissions'),
             ('system_configuration',      'Can access system configuration'),
+            ('manage_system_config',      'Can manage hospital profile and module settings'),
             ('read_audit_log',            'Can read audit logs'),
             ('manage_departments',        'Can manage departments'),
 
@@ -3653,6 +4041,11 @@ class HMSPermissions(models.Model):
             ('read_postop_note',               'Can read post-operative notes'),
             ('add_periop_nursing_note',        'Can add nursing addenda to perioperative documents'),
             ('read_periop_document_history',   'Can view perioperative document version history'),
+            ('counsel_surgery_patient',        'Can counsel patients about surgery cost and record patient decisions'),
+            ('process_surgery_booking_deposit', 'Can process and record surgery booking deposits'),
+            ('collect_surgery_pre_deposit',    'Can collect pre-surgery deposit when patient arrives'),
+            ('settle_surgery_account',         'Can settle surgery account at discharge'),
+            ('initiate_surgery_admission',     'Can initiate inpatient admission for surgical patients'),
 
             # Facility Management
             ('manage_facilities',        'Can add, edit, and delete buildings, wards, rooms, beds, and OR configuration'),
@@ -3666,6 +4059,9 @@ class HMSPermissions(models.Model):
             ('view_admission_dashboard', 'Can view the admission dashboard'),
             ('view_admission_reports',   'Can view admission management reports'),
             ('manage_deposit_rules',     'Can create and edit admission deposit rules'),
+            ('view_inpatient_deposit',   'Can view inpatient deposit accounts and balances'),
+            ('manage_inpatient_deposit', 'Can add deposits, adjustments, and process reconciliation'),
+            ('view_deposit_reports',     'Can view inpatient deposit reports'),
 
             # Patient Attachment & Document Management
             ('upload_attachment',        'Can upload patient documents/attachments'),
@@ -3686,6 +4082,16 @@ class HMSPermissions(models.Model):
             ('manage_specializations',   'Can create, edit, and deactivate medical specializations'),
             ('manage_doctors',           'Can create and edit doctor staff records'),
             ('view_specialization_reports', 'Can view specialization reports'),
+
+            # Medical / Death Certificate Management
+            ('write_medical_certificate',    'Can create and edit medical certificates'),
+            ('finalize_medical_certificate', 'Can finalize and sign medical certificates'),
+            ('read_medical_certificate',     'Can view and print medical certificates'),
+            ('void_medical_certificate',     'Can void a finalized medical certificate'),
+            ('write_death_certificate',      'Can create and edit death certificates'),
+            ('finalize_death_certificate',   'Can finalize and sign death certificates'),
+            ('read_death_certificate',       'Can view and print death certificates'),
+            ('void_death_certificate',       'Can void a finalized death certificate'),
         ]
 
 
@@ -3746,6 +4152,8 @@ class AuditLog(models.Model):
         CARD_MANAGEMENT = 'card_management', 'Card & Consultation Type Management'
         ADMISSION     = 'admission',     'Admission Management'
         DOCUMENT      = 'document',      'Document / Attachment'
+        MEDICAL_CERTIFICATE = 'medical_certificate', 'Medical Certificate'
+        DEATH_CERTIFICATE   = 'death_certificate',   'Death Certificate'
 
     class Severity(models.TextChoices):
         INFO     = 'info',     'Info'
@@ -3890,6 +4298,142 @@ class DischargeSummary(models.Model):
 
     def __str__(self):
         return f"Discharge — {self.visit.patient} ({self.authored_at:%Y-%m-%d})"
+
+
+# ── Medical / Death Certificate Module ────────────────────────────────────────
+
+class CertificateDocumentBase(models.Model):
+    """Shared versioning/audit/signature scaffolding for legal clinical
+    certificates (Medical Certificate, Death Certificate) — the same
+    draft → finalize → immutable-version pattern used by PeriopDocumentBase
+    for perioperative documentation, plus an explicit Void action since a
+    finalized certificate issued in error needs to be flagged invalid
+    without silently disappearing or being overwritten."""
+
+    class DocStatus(models.TextChoices):
+        DRAFT     = 'draft',     'Draft'
+        FINALIZED = 'finalized', 'Finalized'
+
+    certificate_number = models.CharField(max_length=30, unique=True, blank=True)
+    verification_code  = models.CharField(max_length=20, unique=True, blank=True)
+
+    version          = models.PositiveSmallIntegerField(default=1)
+    is_current       = models.BooleanField(default=True, db_index=True)
+    doc_status       = models.CharField(max_length=10, choices=DocStatus.choices, default=DocStatus.DRAFT)
+    supersedes       = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_superseded_by',
+    )
+    revision_reason  = models.TextField(blank=True)
+
+    is_void      = models.BooleanField(default=False)
+    voided_by    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_voided',
+    )
+    voided_at    = models.DateTimeField(null=True, blank=True)
+    void_reason  = models.TextField(blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='%(class)s_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_updated',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    finalized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='%(class)s_finalized',
+    )
+    finalized_at   = models.DateTimeField(null=True, blank=True)
+    signature_name = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def is_finalized(self):
+        return self.doc_status == self.DocStatus.FINALIZED
+
+
+class MedicalCertificate(CertificateDocumentBase):
+    class Fitness(models.TextChoices):
+        FIT_WORK_SCHOOL       = 'fit_work_school',       'Fit for Work / School'
+        FIT_WITH_RESTRICTIONS = 'fit_with_restrictions', 'Fit with Restrictions'
+        UNFIT_TEMPORARY       = 'unfit_temporary',       'Temporarily Unfit'
+        UNFIT                 = 'unfit',                 'Unfit'
+
+    visit   = models.ForeignKey(Visit, on_delete=models.PROTECT, related_name='medical_certificates')
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='medical_certificates')
+
+    date_of_examination = models.DateField()
+    medical_findings     = models.TextField(blank=True)
+    diagnosis             = models.TextField(blank=True)
+
+    rest_from  = models.DateField(null=True, blank=True)
+    rest_to    = models.DateField(null=True, blank=True)
+    days_off   = models.PositiveIntegerField(null=True, blank=True)
+
+    fitness_status    = models.CharField(max_length=25, choices=Fitness.choices, default=Fitness.FIT_WORK_SCHOOL)
+    work_restrictions = models.TextField(blank=True)
+
+    follow_up_date = models.DateField(null=True, blank=True)
+    remarks        = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Medical Certificate'
+
+    def __str__(self):
+        return f"Medical Certificate {self.certificate_number or '(draft)'} — {self.patient}"
+
+
+class DeathCertificate(CertificateDocumentBase):
+    class MannerOfDeath(models.TextChoices):
+        NATURAL                = 'natural',                'Natural'
+        ACCIDENT               = 'accident',                'Accident'
+        SUICIDE                = 'suicide',                 'Suicide'
+        HOMICIDE                = 'homicide',                'Homicide'
+        PENDING_INVESTIGATION  = 'pending_investigation',    'Pending Investigation'
+        OTHER                  = 'other',                    'Other'
+
+    visit             = models.ForeignKey(Visit, on_delete=models.PROTECT, related_name='death_certificates')
+    patient           = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='death_certificates')
+    admission         = models.ForeignKey(
+        'Admission', on_delete=models.SET_NULL, null=True, blank=True, related_name='death_certificates',
+    )
+    discharge_summary = models.ForeignKey(
+        DischargeSummary, on_delete=models.SET_NULL, null=True, blank=True, related_name='death_certificates',
+    )
+
+    date_of_death  = models.DateField()
+    time_of_death  = models.TimeField()
+    place_of_death = models.CharField(max_length=200, blank=True)
+    ward           = models.CharField(max_length=100, blank=True)
+    room           = models.CharField(max_length=100, blank=True)
+    bed            = models.CharField(max_length=100, blank=True)
+
+    immediate_cause         = models.TextField()
+    underlying_cause        = models.TextField(blank=True)
+    contributing_conditions = models.TextField(blank=True)
+    manner_of_death         = models.CharField(max_length=25, choices=MannerOfDeath.choices, default=MannerOfDeath.NATURAL)
+    duration_of_illness     = models.CharField(max_length=100, blank=True)
+
+    attending_physician = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='death_certificates_attended',
+    )
+    clinical_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Death Certificate'
+
+    def __str__(self):
+        return f"Death Certificate {self.certificate_number or '(draft)'} — {self.patient}"
 
 
 # ── Surgery / Procedure Module ────────────────────────────────────────────────
@@ -4037,15 +4581,26 @@ class ORRoom(models.Model):
 
 class SurgeryOrder(models.Model):
     class Status(models.TextChoices):
-        ORDERED          = 'ordered',          'Ordered'
-        PENDING_REVIEW   = 'pending_review',   'Pending Review'
-        APPROVED         = 'approved',         'Approved'
-        SCHEDULED        = 'scheduled',        'Scheduled'
-        PATIENT_PREPARED = 'patient_prepared', 'Patient Prepared'
-        IN_OR            = 'in_or',            'In Operating Room'
-        COMPLETED        = 'completed',        'Completed'
-        POST_OP          = 'post_op',          'Post-operative Care'
-        CANCELLED        = 'cancelled',        'Cancelled'
+        ORDERED            = 'ordered',            'Ordered'
+        PENDING_REVIEW     = 'pending_review',     'Pending Review'
+        APPROVED           = 'approved',           'Approved'
+        SCHEDULED          = 'scheduled',          'Scheduled'
+        PATIENT_PREPARED   = 'patient_prepared',   'Patient Prepared'
+        IN_OR              = 'in_or',              'In Operating Room'
+        COMPLETED          = 'completed',          'Completed'
+        POST_OP            = 'post_op',            'Post-operative Care'
+        CANCELLED          = 'cancelled',          'Cancelled'
+        # Surgery booking workflow statuses
+        AWAITING_DECISION  = 'awaiting_decision',  'Awaiting Patient Decision'
+        BOOKING_DEPOSIT    = 'booking_deposit',    'Booking Deposit Pending'
+        AWAITING_ADMISSION = 'awaiting_admission', 'Awaiting Inpatient Admission'
+        RECOVERY           = 'recovery',           'Recovery'
+        DISCHARGED         = 'discharged',         'Discharged'
+
+    class PatientDecision(models.TextChoices):
+        PENDING  = 'pending',  'Pending'
+        AGREED   = 'agreed',   'Agreed'
+        DECLINED = 'declined', 'Declined'
 
     class Priority(models.TextChoices):
         EMERGENCY = 'emergency', 'Emergency'
@@ -4136,6 +4691,19 @@ class SurgeryOrder(models.Model):
     cancellation_reason = models.TextField(blank=True)
     completed_at        = models.DateTimeField(null=True, blank=True)
 
+    # Estimated Costs (set at order creation, editable until billing)
+    estimated_procedure_fee  = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    estimated_surgeon_fee    = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    estimated_anesthesia_fee = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    estimated_facility_fee   = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+
+    @property
+    def estimated_total(self):
+        return (
+            self.estimated_procedure_fee + self.estimated_surgeon_fee
+            + self.estimated_anesthesia_fee + self.estimated_facility_fee
+        )
+
     # Billing
     invoice = models.ForeignKey(
         Invoice, on_delete=models.SET_NULL, null=True, blank=True,
@@ -4152,6 +4720,50 @@ class SurgeryOrder(models.Model):
     )
 
     notes = models.TextField(blank=True)
+
+    # ── Reception Counseling ─────────────────────────────────────────────────
+    counseling_notes   = models.TextField(blank=True)
+    counseling_done_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_counselings',
+    )
+    counseling_done_at = models.DateTimeField(null=True, blank=True)
+
+    # ── Patient Decision ─────────────────────────────────────────────────────
+    patient_decision       = models.CharField(
+        max_length=10, choices=PatientDecision.choices, default=PatientDecision.PENDING,
+    )
+    patient_decision_at    = models.DateTimeField(null=True, blank=True)
+    patient_decision_by    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_patient_decisions',
+    )
+    patient_decline_reason = models.TextField(blank=True)
+
+    # ── Surgery Booking Deposit ──────────────────────────────────────────────
+    booking_deposit_amount       = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0'),
+    )
+    booking_deposit_invoice      = models.ForeignKey(
+        Invoice, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_booking_deposit_orders',
+    )
+    booking_deposit_invoice_item = models.ForeignKey(
+        'InvoiceItem', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_booking_deposit_order',
+    )
+    booking_deposit_paid    = models.BooleanField(default=False)
+    booking_deposit_paid_at = models.DateTimeField(null=True, blank=True)
+
+    # ── Admission Bridge ─────────────────────────────────────────────────────
+    surgery_admission_request = models.ForeignKey(
+        'AdmissionRequest', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_orders',
+    )
+
+    # ── Recovery / Discharge Timestamps ─────────────────────────────────────
+    recovered_at          = models.DateTimeField(null=True, blank=True)
+    discharged_surgery_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-ordered_at']
@@ -4181,16 +4793,32 @@ class SurgeryOrder(models.Model):
         return self.status in (self.Status.ORDERED, self.Status.PENDING_REVIEW)
 
     @property
-    def can_schedule(self):
-        return self.status == self.Status.APPROVED
-
-    @property
     def can_cancel(self):
-        return self.status not in (self.Status.COMPLETED, self.Status.CANCELLED)
+        return self.status not in (
+            self.Status.COMPLETED, self.Status.CANCELLED, self.Status.DISCHARGED,
+        )
 
     @property
     def is_active(self):
-        return self.status not in (self.Status.COMPLETED, self.Status.CANCELLED)
+        return self.status not in (
+            self.Status.COMPLETED, self.Status.CANCELLED, self.Status.DISCHARGED,
+        )
+
+    @property
+    def booking_deposit_cleared(self):
+        if not self.booking_deposit_amount:
+            return True
+        return self.booking_deposit_paid
+
+    @property
+    def can_send_to_reception(self):
+        return self.status in (
+            self.Status.ORDERED, self.Status.PENDING_REVIEW, self.Status.APPROVED,
+        )
+
+    @property
+    def can_schedule(self):
+        return self.status == self.Status.APPROVED
 
     @property
     def current_anesthesia_record(self):
@@ -4582,6 +5210,77 @@ class SurgeryConsumable(models.Model):
     def save(self, *args, **kwargs):
         self.total_cost = Decimal(str(self.quantity)) * Decimal(str(self.unit_cost))
         super().save(*args, **kwargs)
+
+
+class SurgeryPreDeposit(models.Model):
+    """Pre-surgery deposit collected when the patient arrives for surgery (day before / day of).
+    Covers procedure + all in-hospital charges during the stay. At discharge the total
+    is reconciled: surplus is refunded, deficit is collected. Credit patients skip the
+    upfront payment and are billed in full at discharge."""
+
+    class Status(models.TextChoices):
+        ACTIVE   = 'active',   'Active'
+        SETTLED  = 'settled',  'Settled'
+        REFUNDED = 'refunded', 'Refunded'
+
+    surgery_order    = models.OneToOneField(
+        SurgeryOrder, on_delete=models.PROTECT, related_name='pre_deposit',
+    )
+    patient          = models.ForeignKey(
+        Patient, on_delete=models.PROTECT, related_name='surgery_pre_deposits',
+    )
+    is_credit        = models.BooleanField(default=False)
+    deposit_amount   = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    credit_limit     = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    payment_method   = models.CharField(max_length=30, blank=True)
+    reference_number = models.CharField(max_length=100, blank=True)
+    invoice          = models.ForeignKey(
+        'Invoice', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_pre_deposits',
+    )
+    invoice_item     = models.ForeignKey(
+        'InvoiceItem', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_pre_deposit',
+    )
+    collected_by     = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='surgery_pre_deposits_collected',
+    )
+    collected_at     = models.DateTimeField(auto_now_add=True)
+    notes            = models.TextField(blank=True)
+    credit_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_credits_approved',
+    )
+    credit_approved_at = models.DateTimeField(null=True, blank=True)
+    status           = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+
+    # Settlement (filled at discharge)
+    total_charges    = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    balance_refund   = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    balance_due      = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    settlement_invoice = models.ForeignKey(
+        'Invoice', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_settlements',
+    )
+    settled_at       = models.DateTimeField(null=True, blank=True)
+    settled_by       = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='surgery_pre_deposits_settled',
+    )
+    settlement_notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Surgery Pre-Deposit'
+
+    def __str__(self):
+        if self.is_credit:
+            return f'Credit — {self.surgery_order.order_number} ({self.patient})'
+        return f'Deposit ETB {self.deposit_amount:,.2f} — {self.surgery_order.order_number}'
+
+    @property
+    def running_balance(self):
+        return self.deposit_amount - self.total_charges
 
 
 class PostOperativeNote(PeriopDocumentBase):
@@ -5027,6 +5726,139 @@ class AdmissionRequest(models.Model):
     @property
     def deposit_amount(self):
         return self.deposit_invoice_item.total if self.deposit_invoice_item_id else 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INPATIENT DEPOSIT ACCOUNT
+# ══════════════════════════════════════════════════════════════════════════════
+
+class InpatientDepositAccount(models.Model):
+    """Wallet-style ledger for an inpatient stay. Created when the bed is
+    assigned; every subsequent billable service is recorded as a CHARGE_DEDUCTION
+    entry so the balance decreases in real time. Closed at discharge after
+    final reconciliation."""
+
+    class Status(models.TextChoices):
+        ACTIVE  = 'active',  'Active'
+        SETTLED = 'settled', 'Settled'
+        CLOSED  = 'closed',  'Closed'
+
+    admission         = models.OneToOneField('Admission', on_delete=models.CASCADE, related_name='deposit_account')
+    patient           = models.ForeignKey('Patient', on_delete=models.PROTECT, related_name='deposit_accounts')
+    admission_request = models.OneToOneField(
+        'AdmissionRequest', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deposit_account',
+    )
+
+    initial_deposit     = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    additional_deposits = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    total_charges       = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+    total_refunded      = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
+
+    low_balance_threshold = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('500'),
+        help_text='Alert staff when the available balance falls below this amount.',
+    )
+
+    status     = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    notes      = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='deposit_accounts_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Inpatient Deposit Account'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Deposit — {self.patient.full_name} ({self.admission_id})'
+
+    @property
+    def total_deposited(self):
+        return self.initial_deposit + self.additional_deposits
+
+    @property
+    def available_balance(self):
+        return self.total_deposited - self.total_charges + self.total_refunded
+
+    @property
+    def outstanding_balance(self):
+        bal = self.available_balance
+        return abs(bal) if bal < Decimal('0') else Decimal('0')
+
+    @property
+    def refund_due(self):
+        bal = self.available_balance
+        return bal if bal > Decimal('0') else Decimal('0')
+
+    @property
+    def is_low_balance(self):
+        bal = self.available_balance
+        return Decimal('0') < bal <= self.low_balance_threshold
+
+    @property
+    def is_exhausted(self):
+        return self.available_balance <= Decimal('0') and self.total_charges > Decimal('0')
+
+    @property
+    def utilization_pct(self):
+        if self.total_deposited <= 0:
+            return 0
+        return min(100, int(self.total_charges / self.total_deposited * 100))
+
+
+class DepositTransaction(models.Model):
+    """Immutable ledger entry for every financial event on an
+    InpatientDepositAccount."""
+
+    class TxType(models.TextChoices):
+        INITIAL_DEPOSIT    = 'initial',    'Initial Deposit'
+        ADDITIONAL_DEPOSIT = 'additional', 'Additional Deposit'
+        CHARGE_DEDUCTION   = 'deduction',  'Charge Deduction'
+        REVERSAL           = 'reversal',   'Charge Reversal'
+        REFUND             = 'refund',     'Refund Issued'
+        ADJUSTMENT_IN      = 'adj_in',     'Adjustment (Credit)'
+        ADJUSTMENT_OUT     = 'adj_out',    'Adjustment (Debit)'
+
+    account       = models.ForeignKey(InpatientDepositAccount, on_delete=models.CASCADE, related_name='transactions')
+    tx_type       = models.CharField(max_length=15, choices=TxType.choices)
+    amount        = models.DecimalField(max_digits=12, decimal_places=2)
+    description   = models.CharField(max_length=255)
+    invoice_item  = models.ForeignKey(
+        'InvoiceItem', on_delete=models.SET_NULL, null=True, blank=True, related_name='deposit_transactions',
+    )
+    invoice       = models.ForeignKey(
+        'Invoice', on_delete=models.SET_NULL, null=True, blank=True, related_name='deposit_transactions',
+    )
+    payment       = models.ForeignKey(
+        'Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='deposit_transactions',
+    )
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2)
+    notes         = models.TextField(blank=True)
+    performed_by  = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='deposit_transactions_performed',
+    )
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Deposit Transaction'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.get_tx_type_display()} ETB {self.amount:,.2f} — {self.account_id}'
+
+    @property
+    def is_credit(self):
+        return self.tx_type in (
+            self.TxType.INITIAL_DEPOSIT, self.TxType.ADDITIONAL_DEPOSIT,
+            self.TxType.REVERSAL, self.TxType.ADJUSTMENT_IN,
+        )
+
+    @property
+    def is_debit(self):
+        return not self.is_credit
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -6697,3 +7529,161 @@ class AttachmentComment(models.Model):
     def __str__(self):
         return f'{self.author} on {self.attachment_id}: {self.comment[:40]}'
 
+
+
+# ── Hospital Configuration ────────────────────────────────────────────────────
+
+class HospitalProfile(models.Model):
+    """Singleton: hospital identity & branding — one row per deployment."""
+
+    name          = models.CharField(max_length=200, default='Hospital Management System')
+    short_name    = models.CharField(max_length=60, blank=True, help_text='Abbreviated name for tight spaces')
+    tagline       = models.CharField(max_length=200, blank=True)
+    logo          = models.ImageField(upload_to='hospital/', null=True, blank=True)
+    stamp         = models.ImageField(upload_to='hospital/', null=True, blank=True, help_text='Official stamp/seal for documents')
+
+    # Contact
+    address       = models.TextField(blank=True)
+    city          = models.CharField(max_length=100, blank=True)
+    region        = models.CharField(max_length=100, blank=True)
+    country       = models.CharField(max_length=100, default='Ethiopia')
+    phone         = models.CharField(max_length=50, blank=True)
+    phone_alt     = models.CharField(max_length=50, blank=True)
+    email         = models.EmailField(blank=True)
+    website       = models.URLField(blank=True)
+
+    # Legal / Financial
+    license_number = models.CharField(max_length=100, blank=True, verbose_name='License Number')
+    tin            = models.CharField(max_length=50,  blank=True, verbose_name='TIN')
+    currency       = models.CharField(max_length=10,  default='ETB')
+    currency_symbol = models.CharField(max_length=5,  default='ETB')
+
+    # Locale
+    timezone  = models.CharField(max_length=60, default='Africa/Addis_Ababa')
+    language  = models.CharField(max_length=10, default='en')
+
+    # Print document headers / footers
+    report_header = models.TextField(blank=True, help_text='Shown at top of printed reports')
+    report_footer = models.TextField(blank=True, help_text='Shown at bottom of printed documents')
+
+    # Appearance
+    primary_color = models.CharField(max_length=7, default='#2563eb', help_text='Hex colour for UI accent')
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Hospital Profile'
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def display_address(self):
+        parts = [p for p in [self.address, self.city, self.region, self.country] if p]
+        return ', '.join(parts)
+
+
+class SystemModule(models.Model):
+    """Feature flags — enable/disable whole functional areas per deployment."""
+
+    class Category(models.TextChoices):
+        CLINICAL       = 'clinical',        'Clinical'
+        DIAGNOSTIC     = 'diagnostic',      'Diagnostic'
+        OPERATIONS     = 'operations',      'Operations'
+        ADMINISTRATIVE = 'administrative',  'Administrative'
+        FINANCIAL      = 'financial',       'Financial'
+        HR             = 'hr',              'Human Resources'
+
+    name        = models.SlugField(unique=True, help_text='Unique machine-readable key')
+    label       = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    category    = models.CharField(max_length=20, choices=Category.choices, default=Category.ADMINISTRATIVE)
+    icon_svg    = models.TextField(blank=True, help_text='SVG path data for the module icon')
+    is_enabled  = models.BooleanField(default=True)
+    is_core     = models.BooleanField(default=False, help_text='Core modules cannot be disabled')
+    order       = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['category', 'order', 'label']
+        verbose_name = 'System Module'
+
+    def __str__(self):
+        return f"{self.label} ({'on' if self.is_enabled else 'off'})"
+
+    @classmethod
+    def enabled_set(cls):
+        """Return a set of enabled module name slugs (cached per process cycle)."""
+        return set(cls.objects.filter(is_enabled=True).values_list('name', flat=True))
+
+
+class SystemVersion(models.Model):
+    """Track software versions and release history."""
+
+    version       = models.CharField(max_length=20, help_text='SemVer e.g. 1.0.0')
+    build         = models.CharField(max_length=50, blank=True)
+    release_date  = models.DateField()
+    release_notes = models.TextField(blank=True)
+    db_schema_ver = models.CharField(max_length=20, blank=True, verbose_name='DB Schema Version')
+    api_version   = models.CharField(max_length=20, blank=True)
+    is_current    = models.BooleanField(default=False)
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-release_date', '-id']
+        verbose_name = 'System Version'
+
+    def __str__(self):
+        return f"v{self.version}"
+
+    def save(self, *args, **kwargs):
+        if self.is_current:
+            SystemVersion.objects.exclude(pk=self.pk).update(is_current=False)
+        super().save(*args, **kwargs)
+
+
+class LicenseInfo(models.Model):
+    """License record for this deployment."""
+
+    class LicenseType(models.TextChoices):
+        TRIAL        = 'trial',        'Trial'
+        BASIC        = 'basic',        'Basic'
+        STANDARD     = 'standard',     'Standard'
+        PROFESSIONAL = 'professional', 'Professional'
+        ENTERPRISE   = 'enterprise',   'Enterprise'
+
+    class Status(models.TextChoices):
+        ACTIVE    = 'active',    'Active'
+        EXPIRED   = 'expired',   'Expired'
+        SUSPENDED = 'suspended', 'Suspended'
+
+    hospital_name      = models.CharField(max_length=200)
+    license_key        = models.CharField(max_length=255, unique=True)
+    license_type       = models.CharField(max_length=20, choices=LicenseType.choices, default=LicenseType.STANDARD)
+    max_users          = models.PositiveIntegerField(default=0, help_text='0 = unlimited')
+    max_branches       = models.PositiveIntegerField(default=1)
+    issued_at          = models.DateField()
+    expiration_date    = models.DateField(null=True, blank=True)
+    support_expiration = models.DateField(null=True, blank=True)
+    status             = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    notes              = models.TextField(blank=True)
+    created_at         = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'License'
+        ordering = ['-issued_at']
+
+    def __str__(self):
+        return f"{self.hospital_name} — {self.get_license_type_display()} ({self.status})"
+
+    @property
+    def is_active(self):
+        if self.status != self.Status.ACTIVE:
+            return False
+        if self.expiration_date and self.expiration_date < timezone.localdate():
+            return False
+        return True

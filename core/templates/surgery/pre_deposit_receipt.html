@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Surgery Deposit Receipt — {{ order.patient.full_name }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #111; background: #fff; padding: 18mm 16mm; }
+  h1 { font-size: 15pt; font-weight: bold; text-align: center; margin-bottom: 1mm; }
+  .subtitle { text-align: center; font-size: 10pt; color: #555; margin-bottom: 5mm; }
+  .divider { border-top: 1.5px solid #333; margin: 4mm 0; }
+  .divider-thin { border-top: 1px dashed #999; margin: 3mm 0; }
+  .row { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 1.5mm; }
+  .label { color: #444; }
+  .value { font-weight: bold; }
+  .total-row { display: flex; justify-content: space-between; font-size: 12pt; font-weight: bold; background: #f0f4ff; border: 1px solid #aad; padding: 3mm 4mm; border-radius: 3px; margin-top: 3mm; }
+  .credit-badge { display: inline-block; padding: 2px 8px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 10pt; color: #92400e; font-weight: bold; }
+  .footer { margin-top: 8mm; font-size: 9pt; color: #666; border-top: 1px solid #ddd; padding-top: 2mm; display: flex; justify-content: space-between; }
+  @media print { body { padding: 8mm 10mm; } @page { size: A5; margin: 8mm; } }
+</style>
+</head>
+<body>
+
+{% if hospital %}
+<div style="text-align:center; border-bottom:2px solid #1E3A5F; padding-bottom:6px; margin-bottom:6px;">
+  <div style="font-size:15pt; font-weight:bold; color:#1E3A5F;">{{ hospital.name|default:"Hospital" }}</div>
+  {% if hospital.tagline %}<div style="font-size:9pt; color:#64748b;">{{ hospital.tagline }}</div>{% endif %}
+  {% if hospital.address %}<div style="font-size:8pt; color:#555;">{{ hospital.display_address }}{% if hospital.phone %} | Tel: {{ hospital.phone }}{% endif %}</div>{% endif %}
+</div>
+{% endif %}
+<h1>Surgery Deposit Receipt</h1>
+<p class="subtitle">Official Payment Confirmation</p>
+<div class="divider"></div>
+
+<div class="row"><span class="label">Receipt Date:</span><span class="value">{% now "d M Y H:i" %}</span></div>
+<div class="row"><span class="label">Order No.:</span><span class="value">{{ order.order_number }}</span></div>
+<div class="row"><span class="label">Patient Name:</span><span class="value">{{ order.patient.full_name }}</span></div>
+<div class="row"><span class="label">MRN:</span><span class="value">{{ order.patient.card_number }}</span></div>
+<div class="row"><span class="label">Procedure:</span><span class="value">{{ order.planned_procedure }}</span></div>
+<div class="row"><span class="label">Surgeon:</span><span class="value">Dr. {{ order.surgeon.get_full_name }}</span></div>
+{% if order.planned_date %}<div class="row"><span class="label">Planned Date:</span><span class="value">{{ order.planned_date|date:"d M Y" }}</span></div>{% endif %}
+
+<div class="divider-thin"></div>
+
+{% if pre_dep.is_credit %}
+<div class="row"><span class="label">Payment Type:</span><span><span class="credit-badge">CREDIT APPROVED</span></span></div>
+{% if pre_dep.credit_limit > 0 %}
+<div class="row"><span class="label">Credit Limit:</span><span class="value">ETB {{ pre_dep.credit_limit|floatformat:2 }}</span></div>
+{% endif %}
+<div class="row"><span class="label">Approved By:</span><span class="value">{{ pre_dep.credit_approved_by.get_full_name|default:pre_dep.credit_approved_by.username }}</span></div>
+<p style="margin-top:4mm; font-size:9pt; color:#92400e; border:1px solid #f59e0b; padding:3mm; border-radius:3px;">
+  This patient has been approved for credit. All charges will be billed at discharge.
+</p>
+{% else %}
+<div class="row"><span class="label">Deposit Amount:</span><span class="value">ETB {{ pre_dep.deposit_amount|floatformat:2 }}</span></div>
+<div class="row"><span class="label">Payment Method:</span><span class="value">{{ pre_dep.payment_method|default:"Cash" }}</span></div>
+{% if pre_dep.reference_number %}<div class="row"><span class="label">Reference No.:</span><span class="value">{{ pre_dep.reference_number }}</span></div>{% endif %}
+{% if payment %}<div class="row"><span class="label">Received By:</span><span class="value">{{ payment.received_by.get_full_name|default:payment.received_by.username }}</span></div>{% endif %}
+<div class="total-row"><span>DEPOSIT PAID</span><span>ETB {{ pre_dep.deposit_amount|floatformat:2 }}</span></div>
+{% endif %}
+
+{% if pre_dep.notes %}
+<div class="divider-thin"></div>
+<div class="row"><span class="label">Notes:</span><span>{{ pre_dep.notes }}</span></div>
+{% endif %}
+
+<div class="divider"></div>
+<p style="font-size:9pt; text-align:center; color:#555; margin-top:3mm;">
+  This deposit will be applied toward all surgery-related charges.<br>
+  Any surplus will be refunded at discharge. Any deficit will be collected at that time.
+</p>
+
+<div class="footer">
+  <span>Collected by: {{ pre_dep.collected_by.get_full_name|default:pre_dep.collected_by.username }}</span>
+  <span>{{ pre_dep.collected_at|date:"d M Y H:i" }}</span>
+</div>
+
+<script>window.onload = function(){ window.print(); }</script>
+</body>
+</html>

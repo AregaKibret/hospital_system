@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Supplier Invoice Register{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+
+  {% include "reports/_toolbar.html" with title="Supplier Invoice Register" qp=qp %}
+
+  <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
+    <select name="supplier" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All suppliers</option>
+      {% for s in suppliers %}<option value="{{ s.id }}" {% if supplier_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ receipts|length }} invoice(s) recorded</h3>
+    </div>
+    {% if receipts %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">Supplier</th>
+          <th class="text-left px-4 py-3">Invoice #</th>
+          <th class="text-left px-4 py-3">Invoice Date</th>
+          <th class="text-left px-4 py-3">Receipt #</th>
+          <th class="text-left px-4 py-3">Received</th>
+          <th class="text-left px-4 py-3">Payment Method</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for r in receipts %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 {% if r.calc_is_duplicate_invoice %}bg-red-50/50 dark:bg-red-900/10{% endif %}">
+          <td class="px-4 py-3 font-medium text-slate-900 dark:text-white">{{ r.supplier.name }}</td>
+          <td class="px-4 py-3">
+            {{ r.supplier_invoice_number }}
+            {% if r.calc_is_duplicate_invoice %}<span class="ml-1 px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">Possible duplicate</span>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-slate-500">{{ r.supplier_invoice_date|default:"—" }}</td>
+          <td class="px-4 py-3"><a href="{% url 'goods_receipt_detail' r.id %}" class="text-blue-600 hover:underline">{{ r.goods_receipt_number }}</a></td>
+          <td class="px-4 py-3 text-slate-500">{{ r.received_date|date:"d M Y" }}</td>
+          <td class="px-4 py-3">{{ r.get_payment_method_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No goods receipts recorded yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

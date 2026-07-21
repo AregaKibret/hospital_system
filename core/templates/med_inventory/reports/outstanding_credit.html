@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+
+  {% include "reports/_toolbar.html" with title=title qp=qp %}
+
+  {% if reminder_days %}
+  <p class="text-xs text-slate-400 mb-3 no-print">Reminder window: {{ reminder_days }} day(s) before due date.</p>
+  {% endif %}
+
+  <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
+    <select name="supplier" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All suppliers</option>
+      {% for s in suppliers %}<option value="{{ s.id }}" {% if supplier_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ payables|length }} payable(s)</h3>
+      <span class="text-sm font-bold text-slate-900 dark:text-white">Outstanding: ETB {{ grand_total|floatformat:2 }}</span>
+    </div>
+    {% if payables %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">Supplier</th>
+          <th class="text-left px-4 py-3">Receipt #</th>
+          <th class="text-right px-4 py-3">Total</th>
+          <th class="text-right px-4 py-3">Paid</th>
+          <th class="text-right px-4 py-3">Outstanding</th>
+          <th class="text-left px-4 py-3">Due Date</th>
+          <th class="text-left px-4 py-3">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for p in payables %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer" onclick="window.location='{% url 'supplier_payable_detail' p.id %}'">
+          <td class="px-4 py-3 font-medium text-slate-900 dark:text-white">{{ p.supplier.name }}</td>
+          <td class="px-4 py-3 text-slate-500">{{ p.goods_receipt.goods_receipt_number }}</td>
+          <td class="px-4 py-3 text-right">{{ p.total_amount }}</td>
+          <td class="px-4 py-3 text-right text-emerald-600">{{ p.amount_paid }}</td>
+          <td class="px-4 py-3 text-right font-semibold">{{ p.outstanding_balance }}</td>
+          <td class="px-4 py-3 {% if p.is_overdue %}text-red-600 font-semibold{% endif %}">{{ p.due_date|default:"—" }}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs
+              {% if p.status == 'Overdue' %}bg-red-100 text-red-700{% elif p.status == 'Fully Paid' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+              {{ p.status }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No payables match this filter.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

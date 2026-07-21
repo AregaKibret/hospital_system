@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Exam Templates — Settings{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Physical Exam Templates</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Manage specialty-specific examination templates for the H&P module</p>
+  </div>
+  <a href="{% url 'exam_template_create' %}"
+     class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    New Template
+  </a>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  {% if templates %}
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+      <tr>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Name</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Specialty</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:table-cell">Systems</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden md:table-cell">Status</th>
+        <th class="text-right px-5 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+      {% for tpl in templates %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+        <td class="px-5 py-3">
+          <p class="font-medium text-slate-900 dark:text-white">{{ tpl.name }}</p>
+          {% if tpl.description %}<p class="text-xs text-slate-400 mt-0.5">{{ tpl.description|truncatechars:60 }}</p>{% endif %}
+          {% if tpl.is_default %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">Default</span>{% endif %}
+        </td>
+        <td class="px-5 py-3 text-slate-600 dark:text-slate-300">{{ tpl.get_specialty_display }}</td>
+        <td class="px-5 py-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell">
+          {% if tpl.systems_config %}{{ tpl.systems_config|length }} systems configured{% else %}<span class="text-slate-300 dark:text-slate-600">Standard</span>{% endif %}
+        </td>
+        <td class="px-5 py-3 hidden md:table-cell">
+          {% if tpl.is_active %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">Inactive</span>
+          {% endif %}
+        </td>
+        <td class="px-5 py-3 text-right">
+          <a href="{% url 'exam_template_edit' tpl.pk %}"
+             class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="py-16 text-center">
+    <svg class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    <p class="text-slate-400 dark:text-slate-500">No templates yet</p>
+    <a href="{% url 'exam_template_create' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-block">Create the first template</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

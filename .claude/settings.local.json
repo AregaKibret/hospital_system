@@ -6,7 +6,8 @@
       "Bash(*)",
       "Read(*)",
       "Edit(*)",
-      "Write(*)"
+      "Write(*)",
+      "Bash(python manage.py shell -c ' *)"
     ]
   }
 }

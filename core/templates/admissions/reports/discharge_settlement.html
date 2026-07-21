@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Discharge Settlement Report{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5 print:hidden">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Discharge Settlement Report</h1>
+    <p class="text-xs text-slate-400 mt-0.5">{{ date_from }} — {{ date_to }} &middot; {{ accounts|length }} settlement{{ accounts|length|pluralize }}</p>
+  </div>
+  <button onclick="window.print()" class="btn-secondary text-sm">Print</button>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5 print:hidden">
+  <form method="get" class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">Department</label>
+      <select name="department" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">From</label>
+      <input type="date" name="from" value="{{ date_from }}" class="field-input text-sm py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-500 mb-1">To</label>
+      <input type="date" name="to" value="{{ date_to }}" class="field-input text-sm py-1.5">
+    </div>
+    <button type="submit" class="btn-primary text-sm py-1.5 px-4">Apply</button>
+    <a href="{% url 'report_discharge_settlement' %}" class="btn-secondary text-sm py-1.5 px-3">Clear</a>
+  </form>
+</div>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-3 gap-3 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total Deposited</p>
+    <p class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">ETB {{ total_deposited|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total Charges</p>
+    <p class="text-xl font-bold text-red-600 dark:text-red-400 mt-1">ETB {{ total_charges|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Total Refunded</p>
+    <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">ETB {{ total_refunded|floatformat:2 }}</p>
+  </div>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 uppercase">
+        <th class="px-4 py-3 font-semibold">Patient</th>
+        <th class="px-4 py-3 font-semibold">Settled On</th>
+        <th class="px-4 py-3 font-semibold">Bed / Ward</th>
+        <th class="px-4 py-3 font-semibold text-right">Total Deposited</th>
+        <th class="px-4 py-3 font-semibold text-right">Total Charges</th>
+        <th class="px-4 py-3 font-semibold text-right">Refund Issued</th>
+        <th class="px-4 py-3 font-semibold text-right">Outstanding</th>
+        <th class="px-4 py-3 font-semibold print:hidden">Detail</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for acc in accounts %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <td class="px-4 py-3">
+            <span class="font-medium text-slate-800 dark:text-slate-100">{{ acc.patient.full_name }}</span>
+            <span class="block text-xs text-slate-400">{{ acc.patient.card_number }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ acc.updated_at|date:"d M Y" }}</td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ acc.admission.bed.bed_code|default:"—" }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{{ acc.total_deposited|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{{ acc.total_charges|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{{ acc.total_refunded|floatformat:2 }}</td>
+          <td class="px-4 py-3 text-right tabular-nums {% if acc.outstanding_balance > 0 %}font-semibold text-red-600 dark:text-red-400{% else %}text-slate-400{% endif %}">
+            {{ acc.outstanding_balance|floatformat:2 }}
+          </td>
+          <td class="px-4 py-3 print:hidden">
+            <a href="{% url 'deposit_account_detail' admission_id=acc.admission.pk %}" class="text-xs text-indigo-600 hover:underline">View</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="py-16 text-center text-slate-400">No discharge settlements found for this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

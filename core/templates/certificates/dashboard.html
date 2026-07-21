@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Medical &amp; Death Certificates{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Medical &amp; Death Certificates</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Issue, finalize, and print medical and death certificates. New certificates are started from a patient's visit.</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'certificate_verify' %}" class="btn-secondary text-sm">Verify a Certificate</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+  {% include "certificates/_kpi.html" with label="Medical Certificates" value=mc_total color="rose" %}
+  {% include "certificates/_kpi.html" with label="Finalized This Month" value=mc_finalized_month color="emerald" %}
+  {% include "certificates/_kpi.html" with label="Death Certificates" value=dc_total color="slate" %}
+  {% include "certificates/_kpi.html" with label="Finalized This Month" value=dc_finalized_month color="purple" %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+  <!-- Medical Certificates -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Medical Certificates</h2>
+      <form method="get" class="flex gap-2">
+        <input type="hidden" name="dc_q" value="{{ dc_q }}">
+        <input type="text" name="mc_q" value="{{ mc_q }}" placeholder="Search by patient, MRN, or certificate no." class="field-input flex-1" />
+        <button type="submit" class="btn-secondary text-sm">Search</button>
+      </form>
+    </div>
+    {% if medical_certs %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Certificate No.</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for c in medical_certs %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ c.patient.full_name }}</p>
+              <p class="text-xs text-slate-400">{{ c.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-2.5 text-xs font-mono text-slate-600 dark:text-slate-400">{{ c.certificate_number|default:"(draft)" }}</td>
+            <td class="px-4 py-2.5">
+              {% if c.is_void %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Void</span>
+              {% elif c.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized</span>
+              {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft</span>{% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-right">
+              <a href="{% url 'medical_certificate_print' c.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Print</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-slate-400 text-sm">No medical certificates found.</div>
+    {% endif %}
+  </div>
+
+  <!-- Death Certificates -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-3">Death Certificates</h2>
+      <form method="get" class="flex gap-2">
+        <input type="hidden" name="mc_q" value="{{ mc_q }}">
+        <input type="text" name="dc_q" value="{{ dc_q }}" placeholder="Search by patient, MRN, or certificate no." class="field-input flex-1" />
+        <button type="submit" class="btn-secondary text-sm">Search</button>
+      </form>
+    </div>
+    {% if death_certs %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40">
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Patient</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Certificate No.</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+            <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {% for c in death_certs %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition">
+            <td class="px-4 py-2.5">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ c.patient.full_name }}</p>
+              <p class="text-xs text-slate-400">{{ c.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-2.5 text-xs font-mono text-slate-600 dark:text-slate-400">{{ c.certificate_number|default:"(draft)" }}</td>
+            <td class="px-4 py-2.5">
+              {% if c.is_void %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Void</span>
+              {% elif c.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized</span>
+              {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft</span>{% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-right">
+              <a href="{% url 'death_certificate_print' c.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Print</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-10 text-center text-slate-400 text-sm">No death certificates found.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

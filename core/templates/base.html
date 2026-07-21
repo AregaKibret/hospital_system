@@ -192,15 +192,19 @@
 
                 <!-- Brand -->
                 <a href="/" class="flex items-center gap-3 group">
+                    {% if hospital.logo %}
+                    <img src="{{ hospital.logo.url }}" alt="{{ hospital.name }}" class="h-8 w-auto object-contain rounded">
+                    {% else %}
                     <div class="ocean-logo-wrap w-9 h-9 bg-blue-600 group-hover:bg-blue-700 rounded-xl flex items-center justify-center shadow-sm transition-colors">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
+                    {% endif %}
                     <div class="leading-tight">
-                        <div class="ocean-brand-title text-slate-900 dark:text-slate-100 font-bold text-sm tracking-tight">Hospital Management</div>
-                        <div class="ocean-brand-sub text-slate-400 dark:text-slate-500 text-xs">Management System</div>
+                        <div class="ocean-brand-title text-slate-900 dark:text-slate-100 font-bold text-sm tracking-tight">{{ hospital.short_name|default:hospital.name|default:"Hospital" }}</div>
+                        <div class="ocean-brand-sub text-slate-400 dark:text-slate-500 text-xs">{{ hospital.tagline|default:"Management System" }}</div>
                     </div>
                 </a>
 
@@ -512,6 +516,24 @@
                                 </svg>
                                 Change Password
                             </a>
+                            {% if perms.core.manage_system_config %}
+                            <div class="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+                            <a href="{% url 'hospital_profile' %}"
+                               class="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                Hospital Profile
+                            </a>
+                            <a href="{% url 'module_management' %}"
+                               class="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                                Module Management
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'system_about' %}"
+                               class="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                About / Version
+                            </a>
                             <form method="post" action="{% url 'logout' %}">
                                 {% csrf_token %}
                                 <button type="submit"
@@ -597,7 +619,8 @@
     <footer class="hms-footer bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 mt-auto transition-colors duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <p class="text-xs text-slate-400 dark:text-slate-600 text-center">
-                &copy; 2025 Hospital Management System. All rights reserved.
+                &copy; {% now "Y" %} {{ hospital.name|default:"Hospital Management System" }}.
+                {% if system_version %}v{{ system_version.version }}{% endif %}
             </p>
         </div>
     </footer>

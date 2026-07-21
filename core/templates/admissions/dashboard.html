@@ -6,6 +6,8 @@
   <h1 class="text-xl font-bold text-slate-900 dark:text-white">Admission Dashboard</h1>
   <div class="flex gap-2 flex-wrap">
     <a href="{% url 'admission_request_list' %}" class="btn-secondary text-sm">Admission Requests</a>
+    {% if perms.core.view_inpatient_deposit %}<a href="{% url 'report_deposit_balance' %}" class="btn-secondary text-sm">Deposit Accounts</a>{% endif %}
+    {% if perms.core.view_deposit_reports %}<a href="{% url 'report_low_balance' %}" class="px-3 py-2 text-sm font-medium rounded-xl border border-amber-300 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">Low Balance Alert</a>{% endif %}
     {% if perms.core.manage_deposit_rules %}<a href="{% url 'deposit_rule_list' %}" class="btn-secondary text-sm">Deposit Rules</a>{% endif %}
     {% if perms.core.view_admission_reports %}<a href="{% url 'reports_hub' %}" class="btn-secondary text-sm">Reports</a>{% endif %}
   </div>

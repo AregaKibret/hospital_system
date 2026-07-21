@@ -92,12 +92,16 @@
           </div>
 
           <!-- Total -->
+          {% if perms.core.read_billing %}
           <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
             <div class="flex justify-between items-center">
               <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Charge</span>
               <span id="cartTotal" class="text-lg font-bold text-gray-900 dark:text-white">ETB 0.00</span>
             </div>
           </div>
+          {% else %}
+          <span id="cartTotal" class="hidden"></span>
+          {% endif %}
 
           <!-- Priority -->
           <div class="px-4 pb-3">
@@ -152,6 +156,7 @@
   const cartItems     = document.getElementById('cartItems');
   const cartEmpty     = document.getElementById('cartEmpty');
   const cartCount     = document.getElementById('cartCount');
+  const SHOW_PRICE    = {% if perms.core.read_billing %}true{% else %}false{% endif %};
   const cartTotal     = document.getElementById('cartTotal');
   const hiddenInputs  = document.getElementById('hiddenInputs');
   const submitBtn     = document.getElementById('submitBtn');
@@ -238,7 +243,7 @@
           </div>
         </div>
         <div class="text-right shrink-0">
-          <div class="text-sm font-bold text-gray-900 dark:text-white">ETB ${parseFloat(svc.price).toFixed(2)}</div>
+          ${SHOW_PRICE ? `<div class="text-sm font-bold text-gray-900 dark:text-white">ETB ${parseFloat(svc.price).toFixed(2)}</div>` : ''}
           ${isAdded
             ? '<div class="text-xs text-blue-600 dark:text-blue-400 font-medium">Added ✓</div>'
             : '<div class="text-xs text-gray-400">Click to add</div>'}
@@ -310,9 +315,7 @@
           <div class="text-xs text-gray-400">${svc.code}${svc.body_part ? ' &bull; ' + svc.body_part : ''}</div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            ETB ${parseFloat(svc.price).toFixed(2)}
-          </span>
+          ${SHOW_PRICE ? `<span class="text-sm font-semibold text-gray-700 dark:text-gray-300">ETB ${parseFloat(svc.price).toFixed(2)}</span>` : ''}
           <button type="button" onclick="window._imagingRemove(${id})"
                   class="text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -323,7 +326,7 @@
       cartItems.appendChild(row);
     });
 
-    cartTotal.textContent = `ETB ${total.toFixed(2)}`;
+    if (SHOW_PRICE) cartTotal.textContent = `ETB ${total.toFixed(2)}`;
     submitBtn.disabled = false;
   }
 

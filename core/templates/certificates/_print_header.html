@@ -1,0 +1,27 @@
+{# Shared certificate print header. Expects: title, cert, patient #}
+<div style="text-align:center;border-bottom:2px solid #1E3A5F;padding-bottom:12px;margin-bottom:16px;position:relative">
+  {% if cert.is_void %}
+  <div style="position:absolute;top:0;right:0;color:#dc2626;font-weight:bold;font-size:22px;border:3px solid #dc2626;padding:2px 14px;transform:rotate(-8deg);">VOID</div>
+  {% endif %}
+  <div style="font-size:18px;font-weight:bold;color:#1E3A5F">{{ hospital.name|upper|default:"HOSPITAL MANAGEMENT SYSTEM" }}</div>
+  {% if hospital.tagline %}<div style="font-size:10px;color:#888;">{{ hospital.tagline }}</div>{% endif %}
+  {% if hospital.address %}<div style="font-size:10px;color:#666;">{{ hospital.display_address }}{% if hospital.phone %} — Tel: {{ hospital.phone }}{% endif %}</div>{% endif %}
+  <div style="font-size:11px;color:#666">Official Medical Document</div>
+  <div style="font-size:14px;font-weight:bold;margin-top:4px">{{ title }}</div>
+  <div style="font-size:11px;color:#666;margin-top:2px">
+    {% if cert.certificate_number %}Certificate No: {{ cert.certificate_number }} —{% endif %}
+    {% if cert.is_finalized %}Version {{ cert.version }} — Finalized{% else %}Version {{ cert.version }} — DRAFT (not valid until signed){% endif %}
+  </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:12px">
+  <div>
+    <div><strong>Patient:</strong> {{ patient.full_name }}</div>
+    <div><strong>MRN:</strong> {{ patient.card_number }}</div>
+    <div><strong>Age / Sex:</strong> {{ patient.age_display|default:"—" }} / {{ patient.sex }}</div>
+  </div>
+  <div>
+    <div><strong>Date of Birth:</strong> {{ patient.date_of_birth|date:"d M Y"|default:"—" }}</div>
+    <div><strong>Address:</strong> {{ patient.city|default:"" }}{% if patient.subcity %}, {{ patient.subcity }}{% endif %}{% if not patient.city and not patient.subcity %}—{% endif %}</div>
+  </div>
+</div>

@@ -1,6 +1,8 @@
 {# Shared perioperative document print header. Expects: order, header, doc, doc_title #}
 <div style="text-align:center;border-bottom:2px solid #1E3A5F;padding-bottom:12px;margin-bottom:16px">
-  <div style="font-size:18px;font-weight:bold;color:#1E3A5F">HOSPITAL MANAGEMENT SYSTEM</div>
+  <div style="font-size:18px;font-weight:bold;color:#1E3A5F">{{ hospital.name|upper|default:"HOSPITAL MANAGEMENT SYSTEM" }}</div>
+  {% if hospital.tagline %}<div style="font-size:10px;color:#888;">{{ hospital.tagline }}</div>{% endif %}
+  {% if hospital.address %}<div style="font-size:10px;color:#666;">{{ hospital.display_address }}{% if hospital.phone %} — Tel: {{ hospital.phone }}{% endif %}</div>{% endif %}
   <div style="font-size:14px;font-weight:bold;margin-top:4px">{{ doc_title }}</div>
   <div style="font-size:11px;color:#666;margin-top:2px">
     {% if doc.is_finalized %}Version {{ doc.version }} — Finalized{% else %}Version {{ doc.version }} — Draft{% endif %}

@@ -521,6 +521,8 @@ def admission_create(request, visit_id):
         try:
             with transaction.atomic():
                 admission = _perform_admission(patient, visit, bed, request.user)
+                from .views_admissions import _create_deposit_account
+                _create_deposit_account(admission, request.user)
             log_action(
                 request.user, AuditLog.Action.CREATE, AuditLog.Module.FACILITY,
                 object_type='Admission', object_id=admission.pk, object_repr=f'{patient.full_name} → {bed.bed_code}',

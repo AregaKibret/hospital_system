@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Verify Certificate{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'certificate_dashboard' %}" class="btn-secondary text-sm">← Back to Certificates</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Verify a Certificate</h1>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 max-w-lg">
+  <form method="get" class="flex gap-2">
+    <input type="text" name="code" value="{{ code }}" placeholder="Enter verification code (e.g. A7F3E91C)" class="field-input flex-1 font-mono" />
+    <button type="submit" class="btn-primary">Verify</button>
+  </form>
+</div>
+
+{% if code %}
+<div class="mt-5 max-w-lg">
+  {% if result %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border {% if result.is_void %}border-red-300 dark:border-red-700{% else %}border-emerald-300 dark:border-emerald-700{% endif %} shadow-sm p-5">
+    {% if result.is_void %}
+    <p class="text-sm font-semibold text-red-700 dark:text-red-300">This certificate has been VOIDED.</p>
+    {% else %}
+    <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Valid {{ doc_type }}</p>
+    {% endif %}
+    <dl class="mt-3 space-y-1.5 text-sm">
+      <div class="flex justify-between"><dt class="text-slate-400">Certificate No.</dt><dd class="font-mono text-slate-800 dark:text-slate-100">{{ result.certificate_number }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-400">Patient</dt><dd class="text-slate-800 dark:text-slate-100">{{ result.patient.full_name }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-400">Signed By</dt><dd class="text-slate-800 dark:text-slate-100">{{ result.signature_name }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-400">Date Certified</dt><dd class="text-slate-800 dark:text-slate-100">{{ result.finalized_at|date:"d M Y H:i" }}</dd></div>
+    </dl>
+  </div>
+  {% else %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 text-center text-slate-400 text-sm">
+    No certificate found with that verification code.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

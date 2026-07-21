@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ receipt.goods_receipt_number }}{% endblock %}
+{% block content %}
+<div class="mb-5 flex items-center justify-between gap-3 flex-wrap">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'batch_receive_select' %}" class="text-sm text-slate-500 hover:text-blue-600 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Receiving
+    </a>
+    <span class="text-slate-300">/</span>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ receipt.goods_receipt_number }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'goods_receipt_print' receipt.id %}"
+       target="_blank"
+       class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+      </svg>
+      Print GRN
+    </a>
+    <a href="{% url 'goods_receipt_print' receipt.id %}?print=1"
+       target="_blank"
+       class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      Export PDF
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Supplier</p>
+    <p class="font-semibold text-slate-800 dark:text-slate-100 mt-1">{{ receipt.supplier.name }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Invoice #</p>
+    <p class="font-semibold text-slate-800 dark:text-slate-100 mt-1">{{ receipt.supplier_invoice_number }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Payment Method</p>
+    <p class="font-semibold text-slate-800 dark:text-slate-100 mt-1">{{ receipt.get_payment_method_display }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wide">Received</p>
+    <p class="font-semibold text-slate-800 dark:text-slate-100 mt-1">{{ receipt.received_date|date:"M d, Y H:i" }}</p>
+  </div>
+</div>
+
+{% if payable %}
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Supplier Payable</h2>
+    {% if perms.core.manage_supplier_payments %}
+    <a href="{% url 'supplier_payment_record' payable.id %}" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Record Payment</a>
+    {% endif %}
+  </div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+    <div><p class="text-xs text-slate-400">Total</p><p class="font-semibold text-slate-800 dark:text-slate-100">ETB {{ payable.total_amount }}</p></div>
+    <div><p class="text-xs text-slate-400">Paid</p><p class="font-semibold text-emerald-600">ETB {{ payable.amount_paid }}</p></div>
+    <div><p class="text-xs text-slate-400">Outstanding</p><p class="font-semibold text-amber-600">ETB {{ payable.outstanding_balance }}</p></div>
+    <div><p class="text-xs text-slate-400">Status</p>
+      <p class="font-semibold {% if payable.status == 'Overdue' %}text-red-600{% elif payable.status == 'Fully Paid' %}text-emerald-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">{{ payable.status }}{% if payable.due_date %} · Due {{ payable.due_date }}{% endif %}</p>
+    </div>
+  </div>
+  <a href="{% url 'supplier_payable_detail' payable.id %}" class="inline-block mt-3 text-xs text-blue-600 hover:underline">View payment history →</a>
+</div>
+{% endif %}
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Line Items</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+          <th class="px-5 py-3 font-medium">Medication</th>
+          <th class="px-5 py-3 font-medium">Batch #</th>
+          <th class="px-5 py-3 font-medium">Expiry</th>
+          <th class="px-5 py-3 font-medium text-right">Qty</th>
+          <th class="px-5 py-3 font-medium text-right">Unit Cost</th>
+          <th class="px-5 py-3 font-medium text-right">Selling Price</th>
+          <th class="px-5 py-3 font-medium text-right">Line Total</th>
+          <th class="px-5 py-3 font-medium">Ownership</th>
+          <th class="px-5 py-3 font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for b in batches %}
+        <tr>
+          <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ b.medication.name }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ b.batch_number }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ b.expiration_date }}</td>
+          <td class="px-5 py-3 text-right">{{ b.quantity_received }}</td>
+          <td class="px-5 py-3 text-right">{{ b.purchase_price }}</td>
+          <td class="px-5 py-3 text-right">{{ b.selling_price }}</td>
+          <td class="px-5 py-3 text-right font-semibold">{{ b.purchase_price|floatformat:2 }} × {{ b.quantity_received }}</td>
+          <td class="px-5 py-3">{{ b.get_ownership_display }}</td>
+          <td class="px-5 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs {% if b.status == 'active' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ b.get_status_display }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if receipt.notes %}
+<div class="mt-4 text-sm text-slate-500 dark:text-slate-400"><span class="font-medium">Notes:</span> {{ receipt.notes }}</div>
+{% endif %}
+{% endblock %}

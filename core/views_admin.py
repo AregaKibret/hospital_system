@@ -17,6 +17,15 @@ from .permissions import DEPARTMENT_DEFAULTS, ROLE_CATEGORIES, ROLE_META, ROLE_N
 User = get_user_model()
 
 
+@hms_permission_required('core.manage_roles')
+def settings_hub(request):
+    return render(request, 'admin/settings_hub.html', {
+        'user_count':  User.objects.filter(is_active=True).count(),
+        'dept_count':  Department.objects.filter(is_active=True).count(),
+        'role_count':  Group.objects.count(),
+    })
+
+
 # ── Permission category labels (for grouped display) ─────────────────────────
 _PERM_GROUPS = [
     ('Queue / Triage',        ['manage_queue', 'perform_triage']),

@@ -16,10 +16,11 @@ from django.views.decorators.http import require_POST
 from .audit import build_changes, log_action
 from .decorators import hms_permission_required
 from .models import (
-    AuditLog, Department, Invoice, InventoryItem, InventoryTransaction, InvoiceItem,
-    OperativeNote, ORRoom, Patient, PeriopNursingAddendum, PostOperativeNote,
-    ProcedureCategory, ProcedureMaster, SurgeryAnesthesiaRecord, SurgeryConsumable,
-    SurgeryOrder, SurgerySchedule, VitalSign, Visit,
+    AdmissionRequest, AuditLog, Department, Invoice, InventoryItem, InventoryTransaction,
+    InvoiceItem, OperativeNote, ORRoom, Patient, Payment, PeriopNursingAddendum,
+    PostOperativeNote, ProcedureCategory, ProcedureMaster, SurgeryAnesthesiaRecord,
+    SurgeryConsumable, SurgeryOrder, SurgeryPreDeposit, SurgerySchedule, VitalSign, Visit,
+    Ward,
 )
 from .report_export import export_excel
 
@@ -308,10 +309,18 @@ def surgery_order_create(request, patient_id=None, visit_id=None):
             messages.error(request, 'Surgeon is required.')
             return _order_form_render(request, procedures, surgeons, departments, patients, pt, vt, p)
 
+        def _decimal(val, default='0'):
+            try:
+                from decimal import Decimal as D, InvalidOperation
+                return D(str(val).strip() or default)
+            except Exception:
+                return D(default)
+
         order = SurgeryOrder(
             patient          = pt,
             visit            = vt,
             procedure_master = proc,
+            status             = SurgeryOrder.Status.AWAITING_DECISION,
             pre_op_diagnosis   = p.get('pre_op_diagnosis', '').strip(),
             planned_procedure  = p.get('planned_procedure', '').strip() or (proc.name if proc else ''),
             indication         = p.get('indication', '').strip(),
@@ -328,6 +337,10 @@ def surgery_order_create(request, patient_id=None, visit_id=None):
             anesthesia_assessment_requested = bool(p.get('anesthesia_assessment_requested')),
             notes      = p.get('notes', '').strip(),
             ordered_by = request.user,
+            estimated_procedure_fee  = _decimal(p.get('estimated_procedure_fee', '0')),
+            estimated_surgeon_fee    = _decimal(p.get('estimated_surgeon_fee', '0')),
+            estimated_anesthesia_fee = _decimal(p.get('estimated_anesthesia_fee', '0')),
+            estimated_facility_fee   = _decimal(p.get('estimated_facility_fee', '0')),
         )
         try:
             order.full_clean()
@@ -336,12 +349,12 @@ def surgery_order_create(request, patient_id=None, visit_id=None):
                 request.user, AuditLog.Action.CREATE, AuditLog.Module.SURGERY,
                 object_type='SurgeryOrder', object_id=order.pk,
                 object_repr=order.order_number,
-                description=f'Surgery order created: {order.planned_procedure} for {pt.full_name} ({order.priority})',
+                description=f'Surgery order created and sent to reception for counseling: {order.planned_procedure} for {pt.full_name} ({order.priority})',
                 extra_data={'priority': order.priority, 'patient': pt.full_name},
                 severity=AuditLog.Severity.WARNING if order.priority == 'emergency' else AuditLog.Severity.INFO,
                 request=request,
             )
-            messages.success(request, f'Surgery order {order.order_number} created successfully.')
+            messages.success(request, f'Surgery order {order.order_number} created and sent to reception for patient counseling.')
             return redirect('surgery_order_detail', order_id=order.pk)
         except Exception as exc:
             messages.error(request, f'Error saving order: {exc}')
@@ -372,6 +385,8 @@ def surgery_order_detail(request, order_id):
             'patient', 'visit', 'surgeon', 'assistant_surgeon',
             'department', 'procedure_master', 'ordered_by',
             'approved_by', 'cancelled_by', 'invoice',
+            'surgery_admission_request', 'booking_deposit_invoice_item',
+            'counseling_done_by', 'patient_decision_by',
         ),
         pk=order_id,
     )
@@ -450,6 +465,17 @@ def surgery_order_edit(request, order_id):
         order.anesthesia_assessment_requested = bool(p.get('anesthesia_assessment_requested'))
         order.notes = p.get('notes', '').strip()
         try:
+            from decimal import Decimal as D
+            def _dec(v, d='0'):
+                try: return D(str(v).strip() or d)
+                except Exception: return D(d)
+            order.estimated_procedure_fee  = _dec(p.get('estimated_procedure_fee', '0'))
+            order.estimated_surgeon_fee    = _dec(p.get('estimated_surgeon_fee', '0'))
+            order.estimated_anesthesia_fee = _dec(p.get('estimated_anesthesia_fee', '0'))
+            order.estimated_facility_fee   = _dec(p.get('estimated_facility_fee', '0'))
+        except Exception:
+            pass
+        try:
             order.save()
             new = {
                 'planned_procedure': order.planned_procedure,
@@ -526,18 +552,6 @@ def surgery_order_update_status(request, order_id):
         )
         messages.warning(request, f'Order {order.order_number} cancelled.')
 
-    elif action == 'patient_prepared' and order.status == SurgeryOrder.Status.SCHEDULED:
-        order.status = SurgeryOrder.Status.PATIENT_PREPARED
-        order.save()
-        log_action(
-            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
-            object_type='SurgeryOrder', object_id=order.pk,
-            object_repr=order.order_number,
-            description=f'Patient prepared for surgery: {order.order_number}',
-            request=request,
-        )
-        messages.success(request, 'Patient marked as prepared.')
-
     elif action == 'in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED and not order.payment_cleared:
         messages.error(request, 'Payment must be cleared (Paid, Credit Approved, or Waived) before starting surgery.')
         return redirect('surgery_order_detail', order_id=order_id)
@@ -574,10 +588,72 @@ def surgery_order_update_status(request, order_id):
         )
         messages.success(request, f'Surgery {order.order_number} marked as completed.')
 
-    elif action == 'post_op' and order.status == SurgeryOrder.Status.COMPLETED:
+    elif action == 'post_op' and order.status in (
+        SurgeryOrder.Status.COMPLETED, SurgeryOrder.Status.RECOVERY,
+    ):
         order.status = SurgeryOrder.Status.POST_OP
         order.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Surgery order moved to post-operative care: {order.order_number}',
+            request=request,
+        )
         messages.success(request, 'Order moved to post-operative care.')
+
+    elif action == 'send_to_reception' and order.can_send_to_reception:
+        order.status = SurgeryOrder.Status.AWAITING_DECISION
+        order.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Surgery order sent to reception for patient counseling: {order.order_number}',
+            request=request,
+        )
+        messages.success(request, 'Order sent to reception — awaiting patient decision.')
+
+    elif action == 'recovery' and order.status == SurgeryOrder.Status.COMPLETED:
+        order.status      = SurgeryOrder.Status.RECOVERY
+        order.recovered_at = now
+        order.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Patient moved to recovery room: {order.order_number}',
+            request=request,
+        )
+        messages.success(request, 'Patient moved to recovery room.')
+
+    elif action == 'discharge_surgery' and order.status == SurgeryOrder.Status.POST_OP:
+        order.status              = SurgeryOrder.Status.DISCHARGED
+        order.discharged_surgery_at = now
+        order.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Surgical patient discharged: {order.order_number} ({order.patient.full_name})',
+            severity=AuditLog.Severity.WARNING,
+            request=request,
+        )
+        messages.success(request, f'Patient {order.patient.full_name} discharged.')
+
+    elif action == 'patient_prepared' and order.status in (
+        SurgeryOrder.Status.SCHEDULED, SurgeryOrder.Status.AWAITING_ADMISSION,
+    ):
+        order.status = SurgeryOrder.Status.PATIENT_PREPARED
+        order.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Patient prepared for surgery: {order.order_number}',
+            request=request,
+        )
+        messages.success(request, 'Patient marked as prepared.')
 
     else:
         messages.error(request, 'Invalid action for current order status.')
@@ -1688,31 +1764,45 @@ def report_cancelled_surgeries(request):
 
 @hms_permission_required('core.read_surgery_reports')
 def report_surgeon_performance(request):
-    date_from = request.GET.get('date_from', '')
-    date_to   = request.GET.get('date_to', '')
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    date_from   = request.GET.get('date_from', '')
+    date_to     = request.GET.get('date_to', '')
+    surgeon_id  = request.GET.get('surgeon', '')
+
+    surgeons = User.objects.filter(
+        surgery_orders_as_surgeon__isnull=False
+    ).distinct().order_by('first_name', 'last_name')
 
     qs = SurgeryOrder.objects.all()
     if date_from:
         qs = qs.filter(ordered_at__date__gte=date_from)
     if date_to:
         qs = qs.filter(ordered_at__date__lte=date_to)
+    if surgeon_id:
+        qs = qs.filter(surgeon_id=surgeon_id)
 
-    surgeon_stats = (
+    performance_data = (
         qs
         .values('surgeon__id', 'surgeon__first_name', 'surgeon__last_name')
         .annotate(
             total       = Count('id'),
             completed   = Count('id', filter=Q(status='completed')),
             cancelled   = Count('id', filter=Q(status='cancelled')),
+            in_progress = Count('id', filter=Q(status__in=['in_or', 'post_op', 'recovery', 'patient_prepared'])),
+            pending     = Count('id', filter=Q(status__in=['ordered', 'awaiting_decision', 'booking_deposit', 'awaiting_admission', 'scheduled'])),
             emergency   = Count('id', filter=Q(priority='emergency')),
         )
         .order_by('-total')
     )
 
     return render(request, 'surgery/reports/surgeon_performance.html', {
-        'surgeon_stats': surgeon_stats,
-        'date_from':     date_from,
-        'date_to':       date_to,
+        'performance_data': performance_data,
+        'surgeons':         surgeons,
+        'selected_surgeon': surgeon_id,
+        'date_from':        date_from,
+        'date_to':          date_to,
     })
 
 
@@ -1825,3 +1915,577 @@ def api_procedure_info(request, proc_id):
     except ProcedureMaster.DoesNotExist:
         from django.http import JsonResponse
         return JsonResponse({'error': 'not found'}, status=404)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SURGERY BOOKING WORKFLOW — new views (Steps 2-6)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@hms_permission_required('core.counsel_surgery_patient')
+def surgery_counsel(request, order_id):
+    """Step 2 — Reception counselling: view order details, procedure cost,
+    record counselling notes, and capture the patient's decision."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'surgeon', 'procedure_master', 'department'),
+        pk=order_id,
+    )
+
+    if request.method == 'POST':
+        notes = request.POST.get('counseling_notes', '').strip()
+        now   = timezone.now()
+        order.counseling_notes  = notes
+        order.counseling_done_by = request.user
+        order.counseling_done_at = now
+        if order.status == SurgeryOrder.Status.AWAITING_DECISION:
+            pass  # stay in awaiting_decision until patient explicitly decides
+        order.save(update_fields=['counseling_notes', 'counseling_done_by', 'counseling_done_at'])
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Counselling notes recorded for {order.order_number} ({order.patient.full_name})',
+            request=request,
+        )
+        messages.success(request, 'Counselling notes saved.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    return render(request, 'surgery/counsel_form.html', {'order': order})
+
+
+@hms_permission_required('core.counsel_surgery_patient')
+@require_POST
+def surgery_patient_decision(request, order_id):
+    """Step 3 — Record patient's decision (agreed / declined)."""
+    order   = get_object_or_404(SurgeryOrder, pk=order_id)
+    decision = request.POST.get('decision', '').strip()
+    now      = timezone.now()
+
+    if decision == 'agreed' and order.status in (
+        SurgeryOrder.Status.AWAITING_DECISION, SurgeryOrder.Status.ORDERED,
+        SurgeryOrder.Status.APPROVED,
+    ):
+        deposit_amount = request.POST.get('booking_deposit_amount', '0').strip()
+        try:
+            deposit_amount = Decimal(deposit_amount)
+        except Exception:
+            deposit_amount = Decimal('0')
+
+        with transaction.atomic():
+            order.patient_decision       = SurgeryOrder.PatientDecision.AGREED
+            order.patient_decision_at    = now
+            order.patient_decision_by    = request.user
+            order.booking_deposit_amount = deposit_amount
+            order.status                 = SurgeryOrder.Status.BOOKING_DEPOSIT
+            order.save()
+
+            if deposit_amount > 0:
+                invoice = Invoice.objects.create(
+                    patient      = order.patient,
+                    visit        = order.visit,
+                    created_by   = request.user,
+                    status       = Invoice.Status.ISSUED,
+                    total_amount = deposit_amount,
+                    notes        = f'Surgery booking deposit — {order.planned_procedure} ({order.order_number})',
+                )
+                inv_item = InvoiceItem.objects.create(
+                    invoice      = invoice,
+                    service_type = InvoiceItem.ServiceType.SURGERY_BOOKING,
+                    description  = f'Booking Deposit: {order.planned_procedure}',
+                    quantity     = 1,
+                    unit_price   = deposit_amount,
+                )
+                order.booking_deposit_invoice      = invoice
+                order.booking_deposit_invoice_item = inv_item
+                order.save(update_fields=['booking_deposit_invoice', 'booking_deposit_invoice_item'])
+
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Patient agreed to surgery: {order.order_number} — booking deposit ETB {deposit_amount:,.2f} required',
+            request=request,
+        )
+        messages.success(request, f'Patient agreed. Booking deposit invoice of ETB {deposit_amount:,.2f} created and sent to billing.')
+
+    elif decision == 'declined' and order.status in (
+        SurgeryOrder.Status.AWAITING_DECISION, SurgeryOrder.Status.ORDERED,
+        SurgeryOrder.Status.APPROVED,
+    ):
+        reason = request.POST.get('decline_reason', '').strip()
+        order.patient_decision        = SurgeryOrder.PatientDecision.DECLINED
+        order.patient_decision_at     = now
+        order.patient_decision_by     = request.user
+        order.patient_decline_reason  = reason
+        order.status                  = SurgeryOrder.Status.CANCELLED
+        order.cancelled_by            = request.user
+        order.cancelled_at            = now
+        order.cancellation_reason     = f'Patient declined: {reason}' if reason else 'Patient declined surgery'
+        order.save()
+        log_action(
+            request.user, AuditLog.Action.CANCEL, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Patient declined surgery: {order.order_number}. Reason: {reason or "—"}',
+            severity=AuditLog.Severity.WARNING,
+            request=request,
+        )
+        messages.warning(request, 'Surgery cancelled — patient declined.')
+
+    else:
+        messages.error(request, 'Invalid decision or order is not in the correct status.')
+
+    return redirect('surgery_order_detail', order_id=order_id)
+
+
+@hms_permission_required('core.process_surgery_booking_deposit')
+def surgery_booking_deposit(request, order_id):
+    """Step 4 — Collect and record the surgery booking deposit."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'visit', 'procedure_master'),
+        pk=order_id,
+    )
+
+    if order.status != SurgeryOrder.Status.BOOKING_DEPOSIT:
+        messages.error(request, 'Booking deposit is not pending for this order.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    if request.method == 'POST':
+        try:
+            amount_raw = request.POST.get('amount', '').strip()
+            if not amount_raw:
+                raise ValueError('Amount is required.')
+            amount   = Decimal(amount_raw)
+            if amount <= 0:
+                raise ValueError('Amount must be greater than zero.')
+            method    = request.POST.get('payment_method', Payment.Method.CASH)
+            reference = request.POST.get('reference_number', '').strip()
+            notes     = request.POST.get('notes', '').strip()
+
+            with transaction.atomic():
+                # Reuse the invoice already created when patient agreed, or create fresh
+                if order.booking_deposit_invoice_id:
+                    invoice = order.booking_deposit_invoice
+                    invoice.status       = Invoice.Status.PAID
+                    invoice.total_amount = amount
+                    invoice.paid_amount  = amount
+                    invoice.save(update_fields=['status', 'total_amount', 'paid_amount'])
+                    item = order.booking_deposit_invoice_item
+                    if item:
+                        item.unit_price      = amount
+                        item.payment_status  = InvoiceItem.PaymentStatus.PAID
+                        item.paid_amount     = amount
+                        item.save(update_fields=['unit_price', 'payment_status', 'paid_amount'])
+                    else:
+                        item = InvoiceItem.objects.create(
+                            invoice=invoice,
+                            description=f'Surgery Booking Deposit — {order.planned_procedure}',
+                            service_type=InvoiceItem.ServiceType.SURGERY_BOOKING,
+                            quantity=1,
+                            unit_price=amount,
+                            payment_status=InvoiceItem.PaymentStatus.PAID,
+                            paid_amount=amount,
+                        )
+                else:
+                    invoice = Invoice.objects.create(
+                        patient=order.patient,
+                        visit=order.visit,
+                        created_by=request.user,
+                        status=Invoice.Status.PAID,
+                        total_amount=amount,
+                        paid_amount=amount,
+                        notes=f'Surgery Booking Deposit — {order.order_number}',
+                    )
+                    item = InvoiceItem.objects.create(
+                        invoice=invoice,
+                        description=f'Surgery Booking Deposit — {order.planned_procedure}',
+                        service_type=InvoiceItem.ServiceType.SURGERY_BOOKING,
+                        quantity=1,
+                        unit_price=amount,
+                        payment_status=InvoiceItem.PaymentStatus.PAID,
+                        paid_amount=amount,
+                    )
+
+                Payment.objects.create(
+                    invoice=invoice,
+                    amount=amount,
+                    payment_method=method,
+                    reference_number=reference,
+                    received_by=request.user,
+                    payment_date=timezone.localdate(),
+                    notes=notes,
+                )
+                order.booking_deposit_amount       = amount
+                order.booking_deposit_invoice      = invoice
+                order.booking_deposit_invoice_item = item
+                order.booking_deposit_paid         = True
+                order.booking_deposit_paid_at      = timezone.now()
+                order.status                       = SurgeryOrder.Status.APPROVED
+                order.save()
+
+            log_action(
+                request.user, AuditLog.Action.PAYMENT, AuditLog.Module.SURGERY,
+                object_type='SurgeryOrder', object_id=order.pk,
+                object_repr=order.order_number,
+                description=f'Surgery booking deposit ETB {amount:,.2f} paid for {order.order_number} ({order.patient.full_name})',
+                request=request,
+            )
+            messages.success(request, f'Booking deposit of ETB {amount:,.2f} recorded. Order ready for scheduling.')
+            return redirect('surgery_booking_deposit_receipt', order_id=order_id)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'surgery/booking_deposit_form.html', {
+        'order':   order,
+        'methods': Payment.Method.choices,
+    })
+
+
+@hms_permission_required('core.process_surgery_booking_deposit')
+def surgery_booking_deposit_receipt(request, order_id):
+    """Printable booking deposit receipt."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related(
+            'patient', 'procedure_master', 'booking_deposit_invoice',
+            'booking_deposit_invoice_item',
+        ),
+        pk=order_id,
+    )
+    payment = None
+    if order.booking_deposit_invoice:
+        payment = order.booking_deposit_invoice.payments.order_by('-created_at').first()
+    return render(request, 'surgery/booking_deposit_receipt.html', {
+        'order':   order,
+        'payment': payment,
+    })
+
+
+@hms_permission_required('core.initiate_surgery_admission')
+def surgery_initiate_admission(request, order_id):
+    """Step 6 — Create an AdmissionRequest (source='or') linked to a scheduled
+    surgery order, so the admission pipeline can assign a bed and collect the
+    inpatient deposit."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'visit', 'surgeon', 'department'),
+        pk=order_id,
+    )
+
+    if order.status not in (SurgeryOrder.Status.SCHEDULED, SurgeryOrder.Status.APPROVED):
+        messages.error(request, 'Admission can only be initiated for a Scheduled or Approved order.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    if not order.visit_id:
+        messages.error(request, 'Surgery order must be linked to a patient visit before initiating admission.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    if order.surgery_admission_request_id:
+        messages.info(request, 'An admission request already exists for this order.')
+        return redirect('admission_request_detail', pk=order.surgery_admission_request_id)
+
+    departments = Department.objects.filter(is_active=True).order_by('name')
+    wards       = Ward.objects.filter(is_active=True).order_by('name')
+
+    if request.method == 'POST':
+        try:
+            diagnosis = request.POST.get('admission_diagnosis', '').strip()
+            reason    = request.POST.get('reason_for_admission', '').strip()
+            dept_id   = request.POST.get('admitting_department')
+            priority  = request.POST.get('priority', AdmissionRequest.Priority.ROUTINE)
+            los       = request.POST.get('expected_los_days') or None
+            notes     = request.POST.get('notes', '').strip()
+
+            if not diagnosis:
+                raise ValueError('Admission diagnosis is required.')
+            if not reason:
+                reason = f'Surgical case: {order.planned_procedure}'
+
+            with transaction.atomic():
+                adm_req = AdmissionRequest.objects.create(
+                    visit=order.visit,
+                    patient=order.patient,
+                    admission_diagnosis=diagnosis,
+                    reason_for_admission=reason,
+                    admitting_department_id=dept_id or None,
+                    admitting_doctor=order.surgeon,
+                    priority=priority,
+                    expected_los_days=int(los) if los else None,
+                    request_source=AdmissionRequest.Source.OR,
+                    requested_by=request.user,
+                    status=AdmissionRequest.Status.PENDING,
+                    notes=notes,
+                )
+                order.surgery_admission_request = adm_req
+                order.status                    = SurgeryOrder.Status.AWAITING_ADMISSION
+                order.save(update_fields=['surgery_admission_request', 'status'])
+
+            log_action(
+                request.user, AuditLog.Action.CREATE, AuditLog.Module.ADMISSION,
+                object_type='AdmissionRequest', object_id=adm_req.pk,
+                object_repr=order.patient.full_name,
+                description=(
+                    f'Admission request created from surgery order {order.order_number} '
+                    f'for {order.patient.full_name} (source: OR)'
+                ),
+                request=request,
+            )
+            messages.success(request, 'Admission request created and sent for review.')
+            return redirect('admission_request_detail', pk=adm_req.pk)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'surgery/initiate_admission_form.html', {
+        'order':       order,
+        'departments': departments,
+        'wards':       wards,
+        'priorities':  AdmissionRequest.Priority.choices,
+    })
+
+
+# ── Surgery Pre-Deposit (actual surgery deposit, day before / day of surgery) ──
+
+@hms_permission_required('core.collect_surgery_pre_deposit')
+def surgery_pre_deposit(request, order_id):
+    """Collect the actual surgery deposit when the patient arrives.
+    Covers the full estimated surgery cost. Credit patients are recorded
+    with no upfront payment and billed at discharge."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'visit', 'procedure_master'),
+        pk=order_id,
+    )
+
+    # Already has a pre-deposit?
+    if hasattr(order, 'pre_deposit'):
+        messages.info(request, 'A pre-deposit has already been recorded for this order.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    eligible_statuses = (
+        SurgeryOrder.Status.SCHEDULED,
+        SurgeryOrder.Status.AWAITING_ADMISSION,
+        SurgeryOrder.Status.APPROVED,
+        SurgeryOrder.Status.PATIENT_PREPARED,
+    )
+    if order.status not in eligible_statuses:
+        messages.error(request, 'Order is not in a state that accepts a surgery deposit.')
+        return redirect('surgery_order_detail', order_id=order_id)
+
+    if request.method == 'POST':
+        is_credit = request.POST.get('payment_type') == 'credit'
+        notes     = request.POST.get('notes', '').strip()
+
+        try:
+            with transaction.atomic():
+                if is_credit:
+                    credit_limit = Decimal(request.POST.get('credit_limit', '0').strip() or '0')
+                    pre_dep = SurgeryPreDeposit.objects.create(
+                        surgery_order      = order,
+                        patient            = order.patient,
+                        is_credit          = True,
+                        credit_limit       = credit_limit,
+                        collected_by       = request.user,
+                        credit_approved_by = request.user,
+                        credit_approved_at = timezone.now(),
+                        notes              = notes,
+                    )
+                    order.status = SurgeryOrder.Status.PATIENT_PREPARED
+                    order.save(update_fields=['status'])
+                    log_action(
+                        request.user, AuditLog.Action.CREATE, AuditLog.Module.SURGERY,
+                        object_type='SurgeryPreDeposit', object_id=pre_dep.pk,
+                        object_repr=order.order_number,
+                        description=f'Credit approved for surgery {order.order_number} — {order.patient.full_name}',
+                        request=request,
+                    )
+                    messages.success(request, f'Credit arrangement approved for {order.patient.full_name}. Patient is ready.')
+                else:
+                    amount_raw = request.POST.get('amount', '').strip()
+                    if not amount_raw:
+                        raise ValueError('Deposit amount is required.')
+                    amount    = Decimal(amount_raw)
+                    if amount <= 0:
+                        raise ValueError('Amount must be greater than zero.')
+                    method    = request.POST.get('payment_method', Payment.Method.CASH)
+                    reference = request.POST.get('reference_number', '').strip()
+
+                    invoice = Invoice.objects.create(
+                        patient      = order.patient,
+                        visit        = order.visit,
+                        created_by   = request.user,
+                        status       = Invoice.Status.PAID,
+                        total_amount = amount,
+                        paid_amount  = amount,
+                        notes        = f'Surgery Pre-Deposit — {order.order_number}',
+                    )
+                    item = InvoiceItem.objects.create(
+                        invoice        = invoice,
+                        description    = f'Surgery Deposit — {order.planned_procedure}',
+                        service_type   = InvoiceItem.ServiceType.SURGERY_DEPOSIT,
+                        quantity       = 1,
+                        unit_price     = amount,
+                        payment_status = InvoiceItem.PaymentStatus.PAID,
+                        paid_amount    = amount,
+                    )
+                    Payment.objects.create(
+                        invoice          = invoice,
+                        amount           = amount,
+                        payment_method   = method,
+                        reference_number = reference,
+                        received_by      = request.user,
+                        payment_date     = timezone.localdate(),
+                        notes            = notes,
+                    )
+                    pre_dep = SurgeryPreDeposit.objects.create(
+                        surgery_order    = order,
+                        patient          = order.patient,
+                        deposit_amount   = amount,
+                        payment_method   = method,
+                        reference_number = reference,
+                        invoice          = invoice,
+                        invoice_item     = item,
+                        collected_by     = request.user,
+                        notes            = notes,
+                    )
+                    order.status = SurgeryOrder.Status.PATIENT_PREPARED
+                    order.save(update_fields=['status'])
+                    log_action(
+                        request.user, AuditLog.Action.PAYMENT, AuditLog.Module.SURGERY,
+                        object_type='SurgeryPreDeposit', object_id=pre_dep.pk,
+                        object_repr=order.order_number,
+                        description=f'Surgery pre-deposit ETB {amount:,.2f} collected — {order.order_number} ({order.patient.full_name})',
+                        request=request,
+                    )
+                    messages.success(request, f'Surgery deposit of ETB {amount:,.2f} collected. Patient is ready.')
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+            return render(request, 'surgery/pre_deposit_form.html', {
+                'order': order, 'methods': Payment.Method.choices,
+            })
+
+        return redirect('surgery_pre_deposit_receipt', order_id=order_id)
+
+    return render(request, 'surgery/pre_deposit_form.html', {
+        'order':   order,
+        'methods': Payment.Method.choices,
+    })
+
+
+@hms_permission_required('core.collect_surgery_pre_deposit')
+def surgery_pre_deposit_receipt(request, order_id):
+    """Printable receipt for the surgery pre-deposit."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'procedure_master', 'surgeon'),
+        pk=order_id,
+    )
+    pre_dep = get_object_or_404(SurgeryPreDeposit, surgery_order=order)
+    payment = None
+    if pre_dep.invoice:
+        payment = pre_dep.invoice.payments.order_by('-created_at').first()
+    return render(request, 'surgery/pre_deposit_receipt.html', {
+        'order':   order,
+        'pre_dep': pre_dep,
+        'payment': payment,
+    })
+
+
+@hms_permission_required('core.settle_surgery_account')
+def surgery_deposit_settlement(request, order_id):
+    """Discharge settlement: reconcile pre-deposit against all charges.
+    Surplus → refund. Deficit → collect. Credit patients → full bill at discharge."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'visit', 'procedure_master', 'surgeon'),
+        pk=order_id,
+    )
+    pre_dep = get_object_or_404(SurgeryPreDeposit, surgery_order=order)
+
+    if pre_dep.status == SurgeryPreDeposit.Status.SETTLED:
+        return redirect('surgery_deposit_settlement_receipt', order_id=order_id)
+
+    # Gather all invoice items for this visit, excluding the deposit itself
+    charge_items = []
+    if order.visit_id:
+        invoices = Invoice.objects.filter(visit_id=order.visit_id).prefetch_related('items')
+        for inv in invoices:
+            for it in inv.items.all():
+                if it.service_type not in (
+                    InvoiceItem.ServiceType.SURGERY_DEPOSIT,
+                    InvoiceItem.ServiceType.SURGERY_BOOKING,
+                ):
+                    charge_items.append(it)
+
+    total_charges = sum(it.total for it in charge_items)
+    deposit       = pre_dep.deposit_amount if not pre_dep.is_credit else Decimal('0')
+    net           = deposit - total_charges
+    balance_refund = max(net, Decimal('0'))
+    balance_due    = max(-net, Decimal('0'))
+
+    if request.method == 'POST':
+        settlement_notes = request.POST.get('settlement_notes', '').strip()
+        additional_payment_raw = request.POST.get('additional_payment', '0').strip()
+        try:
+            additional_payment = Decimal(additional_payment_raw or '0')
+        except Exception:
+            additional_payment = Decimal('0')
+
+        try:
+            with transaction.atomic():
+                pre_dep.total_charges    = total_charges
+                pre_dep.balance_refund   = balance_refund
+                pre_dep.balance_due      = balance_due
+                pre_dep.settled_at       = timezone.now()
+                pre_dep.settled_by       = request.user
+                pre_dep.settlement_notes = settlement_notes
+                pre_dep.status           = SurgeryPreDeposit.Status.SETTLED
+                pre_dep.save()
+
+                order.status                 = SurgeryOrder.Status.DISCHARGED
+                order.discharged_surgery_at  = timezone.now()
+                order.save(update_fields=['status', 'discharged_surgery_at'])
+
+                log_action(
+                    request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+                    object_type='SurgeryPreDeposit', object_id=pre_dep.pk,
+                    object_repr=order.order_number,
+                    description=(
+                        f'Surgery account settled — {order.order_number} ({order.patient.full_name}). '
+                        f'Total charges: ETB {total_charges:,.2f}. '
+                        f'{"Refund" if balance_refund else "Due"}: ETB {(balance_refund or balance_due):,.2f}'
+                    ),
+                    request=request,
+                )
+            messages.success(request, 'Surgery account settled successfully.')
+            return redirect('surgery_deposit_settlement_receipt', order_id=order_id)
+        except Exception as exc:
+            messages.error(request, f'Error: {exc}')
+
+    return render(request, 'surgery/deposit_settlement.html', {
+        'order':         order,
+        'pre_dep':       pre_dep,
+        'charge_items':  charge_items,
+        'total_charges': total_charges,
+        'deposit':       deposit,
+        'balance_refund': balance_refund,
+        'balance_due':    balance_due,
+    })
+
+
+@hms_permission_required('core.settle_surgery_account')
+def surgery_deposit_settlement_receipt(request, order_id):
+    """Printable discharge settlement receipt."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'procedure_master', 'surgeon'),
+        pk=order_id,
+    )
+    pre_dep = get_object_or_404(SurgeryPreDeposit, surgery_order=order)
+    charge_items = []
+    if order.visit_id:
+        invoices = Invoice.objects.filter(visit_id=order.visit_id).prefetch_related('items')
+        for inv in invoices:
+            for it in inv.items.all():
+                if it.service_type not in (
+                    InvoiceItem.ServiceType.SURGERY_DEPOSIT,
+                    InvoiceItem.ServiceType.SURGERY_BOOKING,
+                ):
+                    charge_items.append(it)
+    return render(request, 'surgery/deposit_settlement_receipt.html', {
+        'order':       order,
+        'pre_dep':     pre_dep,
+        'charge_items': charge_items,
+    })

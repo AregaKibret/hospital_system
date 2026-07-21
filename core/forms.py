@@ -114,8 +114,8 @@ class VisitForm(forms.ModelForm):
         self.fields['consultation_type'].queryset = ConsultationType.objects.filter(
             is_active=True,
         ).select_related('department').order_by('department__name', 'name')
-        self.fields['consultation_type'].required = True
-        self.fields['consultation_type'].empty_label = '— Select consultation type —'
+        self.fields['consultation_type'].required = False
+        self.fields['consultation_type'].empty_label = '— Select consultation type (optional) —'
 
 
 # ── User management forms ─────────────────────────────────────────────────────

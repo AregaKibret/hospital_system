@@ -22,7 +22,7 @@
       <!-- Formulary search -->
       <div class="mb-5">
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-          Search Formulary <span class="text-slate-400 font-normal">(price auto-filled)</span>
+          Search Formulary{% if perms.core.read_billing %} <span class="text-slate-400 font-normal">(price auto-filled)</span>{% endif %}
         </label>
         <div class="relative">
           <input type="text" id="medSearchInput" autocomplete="off"
@@ -93,6 +93,7 @@
 
 <script>
 (function () {
+  const SHOW_PRICE    = {% if perms.core.read_billing %}true{% else %}false{% endif %};
   const searchInput   = document.getElementById('medSearchInput');
   const resultsBox    = document.getElementById('medSearchResults');
   const selectedBox   = document.getElementById('medSelected');
@@ -135,7 +136,7 @@
           <div class="font-medium text-slate-800 dark:text-slate-100 truncate">${med.drug_name} <span class="text-slate-400 font-normal">${med.strength}</span></div>
           <div class="text-xs text-slate-400">${med.generic_name} &bull; ${med.dosage_form} &bull; ${med.quantity_in_stock} ${med.unit} in stock</div>
         </div>
-        <div class="text-sm font-semibold text-slate-700 dark:text-slate-300 shrink-0">ETB ${parseFloat(med.selling_price).toFixed(2)}</div>`;
+        ${SHOW_PRICE ? `<div class="text-sm font-semibold text-slate-700 dark:text-slate-300 shrink-0">ETB ${parseFloat(med.selling_price).toFixed(2)}</div>` : ''}`;
       row.addEventListener('click', () => selectMedication(med));
       resultsBox.appendChild(row);
     });
@@ -148,7 +149,9 @@
     if (dosageInput && !dosageInput.value) {
       dosageInput.value = med.strength;
     }
-    selectedLabel.textContent = `${med.drug_name} ${med.strength} — ETB ${parseFloat(med.selling_price).toFixed(2)}`;
+    selectedLabel.textContent = SHOW_PRICE
+      ? `${med.drug_name} ${med.strength} — ETB ${parseFloat(med.selling_price).toFixed(2)}`
+      : `${med.drug_name} ${med.strength}`;
     selectedBox.classList.remove('hidden');
     searchInput.value = '';
     resultsBox.classList.add('hidden');

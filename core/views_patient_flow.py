@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from .audit import log_action
 from .decorators import hms_permission_required
 from .models import (
-    AuditLog, Department, DischargeSummary, Invoice, Patient,
+    Admission, AuditLog, Department, DischargeSummary, Invoice, Patient,
     Visit, VisitJourneyEvent,
 )
 from .patient_flow import log_journey_event
@@ -59,25 +59,37 @@ def _status_css(status):
 def patient_flow_dashboard(request):
     today = timezone.localdate()
 
-    # All active visits today (not discharged)
+    # Visits created today
     today_visits = Visit.objects.filter(
         created_at__date=today
     ).select_related('patient', 'doctor', 'department').order_by('-created_at')
 
+    # All currently active visits (any date, not closed)
+    active_visits = Visit.objects.exclude(
+        status__in=[Visit.Status.DISCHARGED, Visit.Status.COMPLETED]
+    ).select_related('patient', 'doctor', 'department').order_by('-created_at')
+
     # KPIs
     total_today      = today_visits.count()
-    waiting_payment  = today_visits.filter(status=Visit.Status.WAITING_PAYMENT).count()
-    waiting_doctor   = today_visits.filter(status=Visit.Status.WAITING_DOCTOR).count()
-    in_consultation  = today_visits.filter(status=Visit.Status.CONSULTATION_STARTED).count()
+    waiting_payment  = active_visits.filter(status=Visit.Status.WAITING_PAYMENT).count()
+    waiting_doctor   = active_visits.filter(status=Visit.Status.WAITING_DOCTOR).count()
+    in_consultation  = active_visits.filter(status=Visit.Status.CONSULTATION_STARTED).count()
     discharged_today = today_visits.filter(status=Visit.Status.DISCHARGED).count()
-    active_count     = today_visits.exclude(
-        status__in=[Visit.Status.DISCHARGED, Visit.Status.COMPLETED]
-    ).count()
+    active_count     = active_visits.count()
+    admitted_count   = Admission.objects.filter(status=Admission.Status.ADMITTED).count()
+    admitted_patients = (
+        Admission.objects
+        .filter(status=Admission.Status.ADMITTED)
+        .select_related('patient', 'bed__room__ward')
+        .order_by('admitted_at')
+    )
 
-    # Group visits by status
+    # Group active visits by status
     by_status = {}
     for s_val, s_label in Visit.Status.choices:
-        qs = today_visits.filter(status=s_val)
+        if s_val in (Visit.Status.DISCHARGED, Visit.Status.COMPLETED):
+            continue
+        qs = active_visits.filter(status=s_val)
         if qs.exists():
             by_status[s_label] = {
                 'visits': qs[:20],
@@ -93,28 +105,56 @@ def patient_flow_dashboard(request):
 
     # Dept workload
     dept_stats = (
-        today_visits.exclude(status__in=[Visit.Status.DISCHARGED, Visit.Status.COMPLETED])
+        active_visits
         .values('department__name')
         .annotate(count=Count('id'))
         .order_by('-count')
     )
 
     return render(request, 'patient_flow/dashboard.html', {
-        'today':          today,
-        'total_today':    total_today,
-        'waiting_payment':waiting_payment,
-        'waiting_doctor': waiting_doctor,
-        'in_consultation':in_consultation,
+        'today':           today,
+        'total_today':     total_today,
+        'waiting_payment': waiting_payment,
+        'waiting_doctor':  waiting_doctor,
+        'in_consultation': in_consultation,
         'discharged_today':discharged_today,
-        'active_count':   active_count,
-        'by_status':      by_status,
-        'recent_events':  recent_events,
-        'dept_stats':     dept_stats,
-        'status_choices': Visit.Status.choices,
+        'active_count':    active_count,
+        'admitted_count':    admitted_count,
+        'admitted_patients': admitted_patients,
+        'by_status':         by_status,
+        'recent_events':   recent_events,
+        'dept_stats':      dept_stats,
+        'status_choices':  Visit.Status.choices,
     })
 
 
 # ── All Active Patients List ──────────────────────────────────────────────────
+
+@hms_permission_required('core.view_patient_flow')
+def admitted_patient_list(request):
+    """List all currently admitted (inpatient) patients."""
+    q = request.GET.get('q', '').strip()
+    qs = (
+        Admission.objects
+        .filter(status=Admission.Status.ADMITTED)
+        .select_related('patient', 'bed__room__ward', 'visit', 'assigned_nurse')
+        .order_by('admitted_at')
+    )
+    if q:
+        qs = qs.filter(
+            Q(patient__first_name__icontains=q) |
+            Q(patient__last_name__icontains=q) |
+            Q(patient__card_number__icontains=q) |
+            Q(bed__room__ward__name__icontains=q)
+        )
+    paginator = Paginator(qs, 25)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+    return render(request, 'patient_flow/admitted_list.html', {
+        'page_obj': page_obj,
+        'q': q,
+        'total': qs.count(),
+    })
+
 
 @hms_permission_required('core.view_patient_flow')
 def patient_flow_list(request):
@@ -172,7 +212,7 @@ def patient_journey_detail(request, visit_id):
             ClinicalNote, Diagnosis, ImagingOrder, LabOrder,
             MedicationOrder, SurgeryOrder, VitalSign,
         )
-        vitals    = VitalSign.objects.filter(visit=visit).order_by('recorded_at')
+        vitals    = list(VitalSign.objects.filter(visit=visit).order_by('recorded_at'))
         diagnoses = Diagnosis.objects.filter(visit=visit)
         lab_orders = LabOrder.objects.filter(visit=visit).order_by('-ordered_at')
         imaging_orders = ImagingOrder.objects.filter(visit=visit).order_by('-ordered_at')

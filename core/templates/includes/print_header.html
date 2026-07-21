@@ -1,0 +1,32 @@
+{% load static %}
+{# Reusable printable document header — include in all standalone print templates #}
+{# Usage: {% include "includes/print_header.html" %} #}
+<div class="doc-header" style="display:flex; align-items:flex-start; gap:16px; margin-bottom:6mm; border-bottom:2px solid #2563eb; padding-bottom:4mm;">
+  {% if hospital.logo %}
+  <img src="{{ hospital.logo.url }}" alt="{{ hospital.name }}" style="height:48px; width:auto; object-fit:contain; flex-shrink:0;">
+  {% endif %}
+  <div style="flex:1;">
+    <h1 style="font-size:16pt; font-weight:bold; color:#1e3a5f; margin:0 0 1mm 0;">{{ hospital.name }}</h1>
+    {% if hospital.tagline %}<p style="font-size:9pt; color:#64748b; margin:0 0 2mm 0;">{{ hospital.tagline }}</p>{% endif %}
+    <div style="font-size:8.5pt; color:#475569; display:flex; flex-wrap:wrap; gap:0 12px;">
+      {% if hospital.address %}<span>{{ hospital.display_address }}</span>{% endif %}
+      {% if hospital.phone %}<span>Tel: {{ hospital.phone }}</span>{% endif %}
+      {% if hospital.phone_alt %}<span>/ {{ hospital.phone_alt }}</span>{% endif %}
+      {% if hospital.email %}<span>{{ hospital.email }}</span>{% endif %}
+      {% if hospital.website %}<span>{{ hospital.website }}</span>{% endif %}
+    </div>
+    {% if hospital.license_number or hospital.tin %}
+    <div style="font-size:8pt; color:#94a3b8; margin-top:1mm;">
+      {% if hospital.license_number %}License: {{ hospital.license_number }}{% endif %}
+      {% if hospital.license_number and hospital.tin %} &nbsp;|&nbsp; {% endif %}
+      {% if hospital.tin %}TIN: {{ hospital.tin }}{% endif %}
+    </div>
+    {% endif %}
+    {% if hospital.report_header %}
+    <p style="font-size:8pt; color:#64748b; margin-top:1mm; font-style:italic;">{{ hospital.report_header }}</p>
+    {% endif %}
+  </div>
+  {% if hospital.stamp %}
+  <img src="{{ hospital.stamp.url }}" alt="Stamp" style="height:48px; width:auto; opacity:0.85; flex-shrink:0;">
+  {% endif %}
+</div>

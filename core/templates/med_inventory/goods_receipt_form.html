@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}New Goods Receipt{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'batch_receive_select' %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">New Goods Receipt</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Record one supplier invoice with multiple drugs at once</p>
+    </div>
+  </div>
+
+  <form method="post" id="grForm">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <!-- LEFT: Search + Header fields -->
+      <div class="lg:col-span-3 space-y-4">
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Supplier Invoice Details</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Supplier <span class="text-red-500">*</span></label>
+              <select name="supplier" required class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">— Select supplier —</option>
+                {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Supplier Invoice # <span class="text-red-500">*</span></label>
+              <input type="text" name="supplier_invoice_number" required class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Invoice Date</label>
+              <input type="date" name="supplier_invoice_date" value="{{ today }}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">PO Reference</label>
+              <input type="text" name="purchase_order_ref" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Delivery Note #</label>
+              <input type="text" name="delivery_note_number" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Payment Method <span class="text-red-500">*</span></label>
+              <select name="payment_method" id="paymentMethod" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                {% for val, label in payment_methods %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Cash-specific -->
+          <div id="cashFields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Cash Payment Reference</label>
+              <input type="text" name="cash_payment_reference" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+          </div>
+
+          <!-- Credit-specific -->
+          <div id="creditFields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Due Date</label>
+              <input type="date" name="due_date" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Or Credit Period (days)</label>
+              <input type="number" name="credit_period_days" min="1" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+          </div>
+
+          <!-- Consignment-specific -->
+          <div id="consignmentFields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Due Date</label>
+              <input type="date" name="due_date" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Consignment Agreement #</label>
+              <input type="text" name="consignment_agreement_number" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Notes</label>
+            <textarea name="notes" rows="2" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Search Box -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Add Drugs</label>
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input id="searchInput" type="text" autocomplete="off" placeholder="Type drug name, code or barcode…"
+                   class="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition">
+          </div>
+          <div id="searchResults" class="mt-2 space-y-1"></div>
+          <div id="emptyState" class="hidden text-center py-6 text-gray-400 dark:text-gray-500 text-sm">
+            No drugs found for "<span id="emptyQuery"></span>".
+            <div id="emptyHint" class="text-xs mt-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Cart -->
+      <div class="lg:col-span-2">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 sticky top-4">
+          <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <h2 class="font-semibold text-gray-900 dark:text-white text-sm">Receipt Lines</h2>
+            <span id="cartCount" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full">0</span>
+          </div>
+          <div id="cartItems" class="divide-y divide-gray-50 dark:divide-gray-700 max-h-[32rem] overflow-y-auto">
+            <div id="cartEmpty" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+              No drugs added yet.<br><span class="text-xs">Search and click a drug to add it.</span>
+            </div>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Cost</span>
+            <span id="cartTotal" class="text-lg font-bold text-gray-900 dark:text-white">ETB 0.00</span>
+          </div>
+          <div id="hiddenInputs"></div>
+          <div class="px-4 pb-4">
+            <button type="submit" id="submitBtn" disabled
+                    class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition">
+              Confirm Goods Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const searchInput  = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  const emptyState   = document.getElementById('emptyState');
+  const emptyQuery   = document.getElementById('emptyQuery');
+  const emptyHint    = document.getElementById('emptyHint');
+  const cartItems    = document.getElementById('cartItems');
+  const cartEmpty    = document.getElementById('cartEmpty');
+  const cartCount    = document.getElementById('cartCount');
+  const cartTotal    = document.getElementById('cartTotal');
+  const hiddenInputs = document.getElementById('hiddenInputs');
+  const submitBtn    = document.getElementById('submitBtn');
+  const locations    = {{ locations_json|default:"[]"|safe }};
+  const markupPercent = parseFloat('{{ default_markup_percent|default:"25" }}') || 25;
+
+  let cart = [];     // array of line objects, index = position in array
+  let debounceTimer;
+
+  // ── Payment method conditional fields ──────────────────────────────────────
+  const paymentMethod = document.getElementById('paymentMethod');
+  function updatePaymentFields() {
+    const v = paymentMethod.value;
+    document.getElementById('cashFields').classList.toggle('hidden', v !== 'cash');
+    document.getElementById('creditFields').classList.toggle('hidden', v !== 'credit');
+    document.getElementById('consignmentFields').classList.toggle('hidden', v !== 'consignment');
+  }
+  paymentMethod.addEventListener('change', updatePaymentFields);
+  updatePaymentFields();
+
+  // ── Search ──────────────────────────────────────────────────────────────────
+  searchInput.addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    const q = this.value.trim();
+    if (!q) { searchResults.innerHTML = ''; emptyState.classList.add('hidden'); return; }
+    if (q.length < 2) {
+      searchResults.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      emptyQuery.textContent = q;
+      emptyHint.textContent = 'Type at least 2 characters to search.';
+      return;
+    }
+    debounceTimer = setTimeout(() => doSearch(q), 200);
+  });
+
+  function doSearch(q) {
+    fetch(`{% url 'med_inventory_search_api' %}?q=${encodeURIComponent(q)}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const ct = r.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) throw new Error('non-JSON response (session expired or redirected?)');
+        return r.json();
+      })
+      .then(data => renderResults(data.results || [], q))
+      .catch(err => {
+        console.error('Drug search failed:', err);
+        searchResults.innerHTML = `
+          <div class="text-center py-6 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+            Search failed (${err.message}). Try reloading the page — your session may have expired.
+          </div>`;
+        emptyState.classList.add('hidden');
+      });
+  }
+
+  function renderResults(results, q) {
+    searchResults.innerHTML = '';
+    if (!results.length) {
+      emptyState.classList.remove('hidden');
+      emptyQuery.textContent = q;
+      emptyHint.textContent = '';
+      return;
+    }
+    emptyState.classList.add('hidden');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden';
+    results.forEach(m => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-b border-gray-50 dark:border-gray-700 last:border-0';
+      row.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-gray-900 dark:text-white text-sm">${m.name}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">${m.generic_name} &bull; ${m.strength} &bull; Code: ${m.code}${m.manufacturer ? ' &bull; ' + m.manufacturer : ''}</div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-xs text-gray-400">Stock: ${m.current_stock} ${m.dispensing_unit || m.unit_of_measure}</div>
+          <div class="text-xs text-blue-600 dark:text-blue-400 font-medium">Click to add</div>
+        </div>`;
+      row.addEventListener('click', () => addLine(m));
+      wrap.appendChild(row);
+    });
+    searchResults.appendChild(wrap);
+  }
+
+  // ── Cart ────────────────────────────────────────────────────────────────────
+  function computeSellingPrice(cost) {
+    return +(cost + (cost * markupPercent / 100)).toFixed(2);
+  }
+
+  function addLine(m) {
+    const cost = parseFloat(m.purchase_price) || 0;
+    cart.push({
+      id: m.id, name: m.name, generic_name: m.generic_name, code: m.code,
+      unit: m.dispensing_unit || m.unit_of_measure,
+      batch_number: '', lot_number: '', mfg_date: '', expiry: '',
+      qty: 1, cost: cost, selling_price: computeSellingPrice(cost),
+      sellingPriceManual: false,
+      location: '',
+    });
+    renderCart();
+  }
+
+  function removeLine(idx) { cart.splice(idx, 1); renderCart(); }
+
+  function locationOptions(selected) {
+    let opts = '<option value="">— Default —</option>';
+    locations.forEach(l => {
+      opts += `<option value="${l.id}" ${String(l.id) === String(selected) ? 'selected' : ''}>${l.name}</option>`;
+    });
+    return opts;
+  }
+
+  function renderCart() {
+    cartCount.textContent = cart.length;
+    hiddenInputs.innerHTML = '';
+    cartItems.innerHTML = '';
+
+    if (!cart.length) {
+      cartItems.appendChild(cartEmpty);
+      cartTotal.textContent = 'ETB 0.00';
+      submitBtn.disabled = true;
+      return;
+    }
+
+    let total = 0;
+    cart.forEach((line, idx) => {
+      total += line.cost * line.qty;
+      const row = document.createElement('div');
+      row.className = 'px-4 py-3 space-y-2';
+      row.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-sm font-medium text-gray-900 dark:text-white truncate">${line.name}</div>
+          <button type="button" data-remove="${idx}" class="text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 text-xs">
+          <input data-f="batch_number" data-idx="${idx}" placeholder="Batch #" value="${line.batch_number}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input data-f="lot_number" data-idx="${idx}" placeholder="Lot # (optional)" value="${line.lot_number}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="date" data-f="mfg_date" data-idx="${idx}" placeholder="Mfg date" value="${line.mfg_date}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="date" data-f="expiry" data-idx="${idx}" placeholder="Expiry" value="${line.expiry}" required class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="number" min="1" data-f="qty" data-idx="${idx}" placeholder="Qty" value="${line.qty}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <input type="number" step="0.01" min="0" data-f="cost" data-idx="${idx}" placeholder="Unit Cost" value="${line.cost}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <div class="relative">
+            <input type="number" step="0.01" min="0" data-f="selling_price" data-idx="${idx}" placeholder="Selling Price" value="${line.selling_price}" class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 pr-12 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <span data-selling-badge="${idx}" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] ${line.sellingPriceManual ? 'text-amber-500' : 'text-emerald-500'}">${line.sellingPriceManual ? 'manual' : 'auto'}</span>
+          </div>
+          <select data-f="location" data-idx="${idx}" class="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            ${locationOptions(line.location)}
+          </select>
+        </div>
+        <div class="text-right text-xs font-semibold text-gray-700 dark:text-gray-300" data-line-total="${idx}">
+          Line total: ETB ${(line.cost * line.qty).toFixed(2)}
+        </div>`;
+      cartItems.appendChild(row);
+
+      // hidden inputs for submit
+      const fields = {
+        [`med_${idx}`]: line.id,
+        [`batch_number_${idx}`]: line.batch_number,
+        [`lot_number_${idx}`]: line.lot_number,
+        [`mfg_date_${idx}`]: line.mfg_date,
+        [`expiry_${idx}`]: line.expiry,
+        [`qty_${idx}`]: line.qty,
+        [`cost_${idx}`]: line.cost,
+        [`selling_price_${idx}`]: line.selling_price,
+        [`selling_price_overridden_${idx}`]: line.sellingPriceManual ? '1' : '',
+        [`location_${idx}`]: line.location,
+      };
+      Object.entries(fields).forEach(([name, value]) => {
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = name; inp.value = value;
+        hiddenInputs.appendChild(inp);
+      });
+    });
+
+    cartTotal.textContent = `ETB ${total.toFixed(2)}`;
+    submitBtn.disabled = false;
+
+    cartItems.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => removeLine(parseInt(btn.dataset.remove, 10)));
+    });
+    // Field edits update the in-memory cart + hidden input directly (no
+    // full re-render) so typing doesn't lose focus/cursor position on
+    // every keystroke; only qty/cost recompute the visible line/cart totals.
+    cartItems.querySelectorAll('[data-f]').forEach(el => {
+      el.addEventListener('input', () => {
+        const idx = parseInt(el.dataset.idx, 10);
+        const f = el.dataset.f;
+        const value = (f === 'qty') ? (parseInt(el.value, 10) || 0)
+                    : (f === 'cost' || f === 'selling_price') ? (parseFloat(el.value) || 0)
+                    : el.value;
+        cart[idx][f] = value;
+        const hidden = hiddenInputs.querySelector(`input[name="${f}_${idx}"]`);
+        if (hidden) hidden.value = value;
+
+        // Selling Price auto-calculates from Unit Cost unless the user has
+        // directly edited Selling Price for this line (manual override).
+        if (f === 'selling_price') {
+          cart[idx].sellingPriceManual = true;
+          const overriddenHidden = hiddenInputs.querySelector(`input[name="selling_price_overridden_${idx}"]`);
+          if (overriddenHidden) overriddenHidden.value = '1';
+          const badge = cartItems.querySelector(`[data-selling-badge="${idx}"]`);
+          if (badge) { badge.textContent = 'manual'; badge.className = badge.className.replace('text-emerald-500', 'text-amber-500'); }
+        }
+        if (f === 'cost' && !cart[idx].sellingPriceManual) {
+          const newSelling = computeSellingPrice(cart[idx].cost);
+          cart[idx].selling_price = newSelling;
+          const sellingInput = cartItems.querySelector(`input[data-f="selling_price"][data-idx="${idx}"]`);
+          if (sellingInput) sellingInput.value = newSelling;
+          const sellingHidden = hiddenInputs.querySelector(`input[name="selling_price_${idx}"]`);
+          if (sellingHidden) sellingHidden.value = newSelling;
+        }
+
+        if (f === 'qty' || f === 'cost') {
+          const lineTotalEl = cartItems.querySelector(`[data-line-total="${idx}"]`);
+          if (lineTotalEl) lineTotalEl.textContent = `Line total: ETB ${(cart[idx].cost * cart[idx].qty).toFixed(2)}`;
+          const total = cart.reduce((sum, l) => sum + l.cost * l.qty, 0);
+          cartTotal.textContent = `ETB ${total.toFixed(2)}`;
+        }
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

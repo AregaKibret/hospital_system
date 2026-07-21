@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Patient Counselling — {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6">
+
+  <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Surgery Counselling</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.order_number }} &middot; {{ order.patient.full_name }}</p>
+    </div>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">← Back to Order</a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'success' %}bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400{% else %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <!-- Procedure Summary (for counsellor reference) -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Procedure Summary</h2>
+    <div class="grid grid-cols-2 gap-4 text-sm">
+      <div><span class="text-xs text-slate-400 block">Procedure</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ order.planned_procedure }}</span></div>
+      <div><span class="text-xs text-slate-400 block">Surgeon</span><span class="text-slate-700 dark:text-slate-300">Dr. {{ order.surgeon.get_full_name|default:order.surgeon.username }}</span></div>
+      <div><span class="text-xs text-slate-400 block">Anesthesia</span><span class="text-slate-700 dark:text-slate-300">{{ order.anesthesia_type }}</span></div>
+      <div><span class="text-xs text-slate-400 block">Priority</span><span class="text-slate-700 dark:text-slate-300">{{ order.get_priority_display }}</span></div>
+      {% if order.planned_date %}<div><span class="text-xs text-slate-400 block">Planned Date</span><span class="text-slate-700 dark:text-slate-300">{{ order.planned_date|date:"d M Y" }}</span></div>{% endif %}
+      {% if order.department %}<div><span class="text-xs text-slate-400 block">Department</span><span class="text-slate-700 dark:text-slate-300">{{ order.department.name }}</span></div>{% endif %}
+    </div>
+    {% if order.indication %}
+    <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-sm">
+      <p class="text-xs text-slate-400 mb-1">Indication</p>
+      <p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ order.indication }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Estimated Costs -->
+  {% if order.procedure_master %}
+  <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-5 mb-5">
+    <h2 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3">Estimated Surgery Costs</h2>
+    <div class="space-y-1.5 text-sm">
+      {% if order.procedure_master.procedure_price %}<div class="flex justify-between"><span class="text-blue-700 dark:text-blue-400">Procedure fee</span><span class="font-medium text-blue-900 dark:text-blue-200">ETB {{ order.procedure_master.procedure_price|floatformat:2 }}</span></div>{% endif %}
+      {% if order.procedure_master.surgeon_fee %}<div class="flex justify-between"><span class="text-blue-700 dark:text-blue-400">Surgeon fee</span><span class="font-medium text-blue-900 dark:text-blue-200">ETB {{ order.procedure_master.surgeon_fee|floatformat:2 }}</span></div>{% endif %}
+      {% if order.procedure_master.anesthesia_fee %}<div class="flex justify-between"><span class="text-blue-700 dark:text-blue-400">Anesthesia fee</span><span class="font-medium text-blue-900 dark:text-blue-200">ETB {{ order.procedure_master.anesthesia_fee|floatformat:2 }}</span></div>{% endif %}
+      {% if order.procedure_master.facility_fee %}<div class="flex justify-between"><span class="text-blue-700 dark:text-blue-400">Facility fee</span><span class="font-medium text-blue-900 dark:text-blue-200">ETB {{ order.procedure_master.facility_fee|floatformat:2 }}</span></div>{% endif %}
+      {% if order.procedure_master.consumable_charges %}<div class="flex justify-between"><span class="text-blue-700 dark:text-blue-400">Consumables (est.)</span><span class="font-medium text-blue-900 dark:text-blue-200">ETB {{ order.procedure_master.consumable_charges|floatformat:2 }}</span></div>{% endif %}
+      <div class="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-700 font-bold text-blue-900 dark:text-blue-100">
+        <span>Estimated Total</span>
+        <span>ETB {{ order.procedure_master.total_fee|floatformat:2 }}</span>
+      </div>
+    </div>
+    <p class="text-xs text-blue-600 dark:text-blue-400 mt-2">Note: Final charges may vary based on actual consumables, length of stay, and additional services.</p>
+  </div>
+  {% endif %}
+
+  <!-- Counselling Notes Form -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Counselling Notes</h2>
+    <form method="post" action="{% url 'surgery_counsel' order.pk %}">
+      {% csrf_token %}
+      <div class="field-wrapper mb-4">
+        <label class="field-label">Counselling Notes</label>
+        <textarea name="counseling_notes" rows="5" class="field-input" placeholder="Record what was discussed with the patient: costs, risks, consent process, patient questions…">{{ order.counseling_notes }}</textarea>
+      </div>
+      <button type="submit" class="btn-primary">Save Counselling Notes</button>
+    </form>
+  </div>
+
+  <!-- Patient Decision -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">Record Patient Decision</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">After counselling, record whether the patient agreed or declined. This cannot be undone.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Agreed -->
+      <div class="border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 bg-emerald-50 dark:bg-emerald-900/20">
+        <h3 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-3">Patient Agreed</h3>
+        <form method="post" action="{% url 'surgery_patient_decision' order.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="decision" value="agreed" />
+          <div class="field-wrapper mb-3">
+            <label class="field-label text-emerald-700 dark:text-emerald-400">Booking Deposit Required (ETB)</label>
+            <input type="number" name="booking_deposit_amount" min="0" step="0.01" value="{{ order.booking_deposit_amount|default:0 }}"
+                   class="field-input" placeholder="0.00" />
+            <p class="text-xs text-slate-500 mt-1">Enter 0 if no deposit is required before scheduling.</p>
+          </div>
+          <button type="submit" onclick="return confirm('Confirm patient agreed to surgery?')"
+                  class="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+            Confirm: Patient Agreed
+          </button>
+        </form>
+      </div>
+
+      <!-- Declined -->
+      <div class="border border-red-200 dark:border-red-800 rounded-xl p-4 bg-red-50 dark:bg-red-900/20">
+        <h3 class="text-sm font-semibold text-red-800 dark:text-red-300 mb-3">Patient Declined</h3>
+        <form method="post" action="{% url 'surgery_patient_decision' order.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="decision" value="declined" />
+          <div class="field-wrapper mb-3">
+            <label class="field-label text-red-700 dark:text-red-400">Reason for Declining</label>
+            <textarea name="decline_reason" rows="3" class="field-input" placeholder="Patient's stated reason…"></textarea>
+          </div>
+          <button type="submit" onclick="return confirm('Confirm patient declined surgery? This will cancel the surgery order.')"
+                  class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
+            Confirm: Patient Declined
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

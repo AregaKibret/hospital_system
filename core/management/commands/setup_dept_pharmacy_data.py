@@ -73,7 +73,7 @@ class Command(BaseCommand):
                 self.stdout.write(f'  Created store: {name}')
 
         # ── 2. Get pharmacy medications & batches ────────────────────────────
-        medications = list(Medication.objects.filter(is_active=True)[:20])
+        medications = list(Medication.objects.filter(inventory_item__is_active=True)[:20])
         if not medications:
             self.stdout.write(self.style.ERROR('No medications found. Run setup_med_inventory_data first.'))
             return

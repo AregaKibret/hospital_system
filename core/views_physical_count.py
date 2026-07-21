@@ -177,7 +177,7 @@ def _snapshot_closing_balances(period):
             quantity=item.quantity_in_stock, unit_cost=item.unit_cost,
             valuation=item.quantity_in_stock * item.unit_cost,
         ))
-    for med in Medication.objects.filter(is_active=True).select_related('category'):
+    for med in Medication.objects.filter(inventory_item__is_active=True).select_related('inventory_item__category'):
         qty = med.current_stock
         rows.append(InventoryPeriodBalance(
             period=period, balance_type=InventoryPeriodBalance.BalanceType.CLOSING,
@@ -187,7 +187,7 @@ def _snapshot_closing_balances(period):
             quantity=qty, unit_cost=med.purchase_price,
             valuation=qty * med.purchase_price,
         ))
-    for ds in DepartmentStock.objects.select_related('medication', 'medication__category', 'department_store'):
+    for ds in DepartmentStock.objects.select_related('medication', 'medication__inventory_item__category', 'department_store'):
         rows.append(InventoryPeriodBalance(
             period=period, balance_type=InventoryPeriodBalance.BalanceType.CLOSING,
             domain=PhysicalCount.Domain.DEPARTMENT_STORE, department_stock=ds,
@@ -300,9 +300,9 @@ def _populate_count_lines(count):
     elif count.domain == PhysicalCount.Domain.MEDICATION:
         batches_qs = MedicationBatch.objects.filter(
             is_active=True, quantity_available__gt=0,
-        ).select_related('medication', 'medication__category')
+        ).select_related('medication', 'medication__inventory_item__category')
         if count.category:
-            batches_qs = batches_qs.filter(medication__category=count.category)
+            batches_qs = batches_qs.filter(medication__inventory_item__category=count.category)
         for batch in batches_qs:
             med = batch.medication
             lines.append(PhysicalCountLine(
@@ -317,9 +317,9 @@ def _populate_count_lines(count):
     elif count.domain == PhysicalCount.Domain.DEPARTMENT_STORE:
         stock_qs = DepartmentStock.objects.filter(
             department_store=count.department_store,
-        ).select_related('medication', 'medication__category')
+        ).select_related('medication', 'medication__inventory_item__category')
         if count.category:
-            stock_qs = stock_qs.filter(medication__category=count.category)
+            stock_qs = stock_qs.filter(medication__inventory_item__category=count.category)
         for ds in stock_qs:
             med = ds.medication
             lines.append(PhysicalCountLine(

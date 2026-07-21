@@ -15,10 +15,11 @@ from django.utils import timezone
 from .audit import log_action
 from .decorators import hms_permission_required
 from .models import (
-    AuditLog, DepartmentStock, DepartmentStockBatch, DepartmentStore,
+    AuditLog, Department, DepartmentStock, DepartmentStockBatch, DepartmentStore,
     DepartmentTransfer, DepartmentTransferItem, DepartmentUsage,
-    InventoryItem, InventoryTransaction, Medication, MedicationBatch, Patient, StockTransaction,
-    TransferRequest, TransferRequestItem,
+    Invoice, InvoiceItem, InventoryItem, InventoryTransaction,
+    Medication, MedicationBatch, Patient, StockTransaction,
+    TransferRequest, TransferRequestItem, Visit,
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ def dept_store_detail(request, store_id):
     today = date.today()
     d30   = today + timedelta(days=30)
 
-    stock_items = store.stock_items.select_related('medication', 'medication__category').order_by('medication__name')
+    stock_items = store.stock_items.select_related('medication', 'medication__inventory_item__category').order_by('medication__brand_name')
     near_expiry = DepartmentStockBatch.objects.filter(
         dept_stock__department_store=store, is_active=True, quantity_available__gt=0,
         expiration_date__gt=today, expiration_date__lte=d30,
@@ -220,40 +221,54 @@ def dept_store_detail(request, store_id):
 
 @hms_permission_required('core.view_dept_inventory')
 def transfer_request_list(request):
-    qs = TransferRequest.objects.select_related('requesting_store', 'requested_by', 'approved_by')
+    qs = TransferRequest.objects.select_related('requesting_store', 'requested_by', 'approved_by', 'patient')
 
-    status   = request.GET.get('status', '')
-    store_id = request.GET.get('store', '')
-    priority = request.GET.get('priority', '')
+    status      = request.GET.get('status', '')
+    store_id    = request.GET.get('store', '')
+    priority    = request.GET.get('priority', '')
+    req_type    = request.GET.get('req_type', '')
 
-    if status:   qs = qs.filter(status=status)
-    if store_id: qs = qs.filter(requesting_store_id=store_id)
-    if priority: qs = qs.filter(priority=priority)
+    if status:    qs = qs.filter(status=status)
+    if store_id:  qs = qs.filter(requesting_store_id=store_id)
+    if priority:  qs = qs.filter(priority=priority)
+    if req_type:  qs = qs.filter(request_type=req_type)
 
     paginator = Paginator(qs, 25)
     return render(request, 'dept_pharmacy/request_list.html', {
-        'page_obj':   paginator.get_page(request.GET.get('page')),
-        'stores':     DepartmentStore.objects.filter(is_active=True),
-        'statuses':   TransferRequest.Status.choices,
-        'priorities': TransferRequest.Priority.choices,
-        'status':     status,
-        'store_id':   store_id,
-        'priority':   priority,
+        'page_obj':    paginator.get_page(request.GET.get('page')),
+        'stores':      DepartmentStore.objects.filter(is_active=True),
+        'statuses':    TransferRequest.Status.choices,
+        'priorities':  TransferRequest.Priority.choices,
+        'req_types':   TransferRequest.RequestType.choices,
+        'status':      status,
+        'store_id':    store_id,
+        'priority':    priority,
+        'req_type':    req_type,
     })
 
 
 @hms_permission_required('core.request_medication_transfer')
 def transfer_request_create(request):
     stores      = DepartmentStore.objects.filter(is_active=True)
-    medications = Medication.objects.filter(is_active=True).order_by('name')
+    medications = Medication.objects.filter(inventory_item__is_active=True).order_by('brand_name')
     consumables = InventoryItem.objects.filter(is_active=True).order_by('name')
+    from django.contrib.auth import get_user_model
+    from .models import Doctor as DoctorModel
+    doctors = get_user_model().objects.filter(
+        id__in=DoctorModel.objects.values_list('user_id', flat=True)
+    ).order_by('last_name')
 
     if request.method == 'POST':
-        p        = request.POST
-        store_id = p.get('store')
-        priority = p.get('priority', TransferRequest.Priority.NORMAL)
-        required_by = p.get('required_by') or None
-        notes    = p.get('notes', '').strip()
+        p            = request.POST
+        store_id     = p.get('store')
+        priority     = p.get('priority', TransferRequest.Priority.NORMAL)
+        required_by  = p.get('required_by') or None
+        notes        = p.get('notes', '').strip()
+        req_type     = p.get('request_type', TransferRequest.RequestType.DEPT_STOCK)
+        patient_id   = p.get('patient_id', '').strip()
+        visit_id     = p.get('visit_id', '').strip()
+        doctor_id    = p.get('requesting_doctor', '').strip()
+        clinical_reason = p.get('clinical_reason', '').strip()
 
         # Collect medication lines: med_X / qty_X / notes_X
         med_items = []
@@ -280,11 +295,20 @@ def transfer_request_create(request):
             idx += 1
 
         store = DepartmentStore.objects.filter(id=store_id).first() if store_id else None
+        patient = Patient.objects.filter(id=patient_id).first() if patient_id else None
+        visit   = Visit.objects.filter(id=visit_id).first() if visit_id else None
 
+        errors = []
         if not store:
-            messages.error(request, 'Please select a department.')
-        elif not med_items and not consumable_items:
-            messages.error(request, 'Add at least one medication or consumable to the request.')
+            errors.append('Please select a requesting department.')
+        if not med_items and not consumable_items:
+            errors.append('Add at least one medication or consumable to the request.')
+        if req_type == TransferRequest.RequestType.PATIENT_SPECIFIC and not patient:
+            errors.append('A patient must be selected for patient-specific requests.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
         else:
             initial_status = (
                 TransferRequest.Status.PENDING_WARD_APPROVAL if store.requires_ward_supervisor_approval
@@ -298,28 +322,41 @@ def transfer_request_create(request):
                 required_by=required_by,
                 notes=notes,
                 requested_by=request.user,
+                request_type=req_type,
+                patient=patient,
+                visit=visit,
+                requesting_doctor_id=int(doctor_id) if doctor_id else None,
+                clinical_reason=clinical_reason,
             )
             for med_id, qty, item_notes in med_items:
+                med = Medication.objects.get(id=med_id)
                 TransferRequestItem.objects.create(
                     transfer_request=req,
                     medication_id=med_id,
                     quantity_requested=qty,
                     notes=item_notes,
+                    unit_price=med.selling_price,
+                    is_billable=(req_type == TransferRequest.RequestType.PATIENT_SPECIFIC),
                 )
             for inv_id, qty, item_notes in consumable_items:
+                inv = InventoryItem.objects.get(id=inv_id)
                 TransferRequestItem.objects.create(
                     transfer_request=req,
                     inventory_item_id=inv_id,
                     quantity_requested=qty,
                     notes=item_notes,
+                    unit_price=inv.selling_price,
+                    is_billable=(req_type == TransferRequest.RequestType.PATIENT_SPECIFIC),
                 )
             log_action(
-                request.user, AuditLog.Action.CREATE, AuditLog.Module.NURSING if store.store_type == DepartmentStore.StoreType.WARD else AuditLog.Module.DEPT_PHARMACY,
+                request.user, AuditLog.Action.CREATE,
+                AuditLog.Module.NURSING if store.store_type == DepartmentStore.StoreType.WARD else AuditLog.Module.DEPT_PHARMACY,
                 object_type='TransferRequest', object_id=req.pk, object_repr=req.request_number,
-                description=f'Transfer request {req.request_number} submitted for {store.name}',
+                description=f'{req.get_request_type_display()} {req.request_number} submitted for {store.name}'
+                            + (f' — Patient: {patient}' if patient else ''),
                 request=request,
             )
-            messages.success(request, f'Transfer request {req.request_number} submitted.')
+            messages.success(request, f'Requisition {req.request_number} submitted.')
             return redirect('transfer_request_detail', req_id=req.id)
 
     return render(request, 'dept_pharmacy/request_form.html', {
@@ -327,14 +364,19 @@ def transfer_request_create(request):
         'medications': medications,
         'consumables': consumables,
         'priorities':  TransferRequest.Priority.choices,
+        'req_types':   TransferRequest.RequestType.choices,
+        'doctors':     doctors,
         'today':       date.today().isoformat(),
     })
 
 
 @hms_permission_required('core.view_dept_inventory')
 def transfer_request_detail(request, req_id):
-    req = get_object_or_404(TransferRequest, id=req_id)
-    items = req.items.select_related('medication', 'inventory_item')
+    req = get_object_or_404(
+        TransferRequest.objects.select_related('patient', 'visit', 'requesting_doctor', 'invoice'),
+        id=req_id,
+    )
+    items = req.items.select_related('medication', 'inventory_item', 'invoice_item')
     transfers = req.transfers.select_related('prepared_by', 'received_by').prefetch_related('items__medication', 'items__inventory_item')
     return render(request, 'dept_pharmacy/request_detail.html', {
         'req': req, 'items': items, 'transfers': transfers,
@@ -449,6 +491,7 @@ def transfer_request_fulfill(request, req_id):
             medication=item.medication,
             is_active=True,
             quantity_available__gt=0,
+            status=MedicationBatch.BatchStatus.ACTIVE,
             expiration_date__gt=date.today(),
         ).order_by('expiration_date')
         batch_options[item.id] = list(batches)
@@ -568,6 +611,51 @@ def transfer_request_fulfill(request, req_id):
                 description=f'Request {req.request_number} {"fully" if fully_issued else "partially"} fulfilled via {transfer.transfer_number}',
                 request=request,
             )
+
+            # ── Patient-specific: auto-create billing invoice ────────────────
+            if req.request_type == TransferRequest.RequestType.PATIENT_SPECIFIC and req.patient:
+                invoice = Invoice.objects.create(
+                    patient=req.patient,
+                    visit=req.visit,
+                    created_by=request.user,
+                    status=Invoice.Status.DRAFT,
+                    notes=f'Auto-generated from requisition {req.request_number}',
+                )
+                for item, batch, qty in med_line_data:
+                    price = item.unit_price or item.medication.selling_price
+                    inv_item = InvoiceItem.objects.create(
+                        invoice=invoice,
+                        service_type=InvoiceItem.ServiceType.MEDICATION,
+                        description=item.medication.name,
+                        quantity=qty,
+                        unit_price=price,
+                        total=price * qty,
+                    )
+                    item.invoice_item = inv_item
+                    item.save(update_fields=['invoice_item'])
+                for item, qty in consumable_line_data:
+                    price = item.unit_price or item.inventory_item.unit_cost
+                    inv_item = InvoiceItem.objects.create(
+                        invoice=invoice,
+                        service_type=InvoiceItem.ServiceType.OTHER,
+                        description=item.inventory_item.name,
+                        quantity=qty,
+                        unit_price=price,
+                        total=price * qty,
+                    )
+                    item.invoice_item = inv_item
+                    item.save(update_fields=['invoice_item'])
+                from django.db.models import Sum as _Sum
+                invoice.total_amount = invoice.items.aggregate(t=_Sum('total'))['t'] or 0
+                invoice.save(update_fields=['total_amount', 'updated_at'])
+                req.invoice = invoice
+                req.save(update_fields=['invoice'])
+                log_action(
+                    request.user, AuditLog.Action.CREATE, AuditLog.Module.BILLING,
+                    object_type='Invoice', object_id=invoice.pk, object_repr=invoice.invoice_number,
+                    description=f'Invoice {invoice.invoice_number} auto-created from patient requisition {req.request_number}',
+                    request=request,
+                )
 
             messages.success(request, f'Transfer {transfer.transfer_number} created. Awaiting department receipt.')
             return redirect('dept_transfer_detail', transfer_id=transfer.id)
@@ -772,7 +860,7 @@ def dept_usage_list(request):
     if date_from: qs = qs.filter(usage_date__date__gte=date_from)
     if date_to:   qs = qs.filter(usage_date__date__lte=date_to)
     if q:
-        qs = qs.filter(Q(medication__name__icontains=q) | Q(usage_number__icontains=q))
+        qs = qs.filter(Q(medication__brand_name__icontains=q) | Q(usage_number__icontains=q))
 
     paginator = Paginator(qs, 30)
     return render(request, 'dept_pharmacy/usage_list.html', {
@@ -885,7 +973,7 @@ def report_dept_stock_on_hand(request):
     stock_items = []
     if store_id:
         store = get_object_or_404(DepartmentStore, id=store_id)
-        stock_items = list(store.stock_items.select_related('medication', 'medication__category').order_by('medication__name'))
+        stock_items = list(store.stock_items.select_related('medication', 'medication__inventory_item__category').order_by('medication__brand_name'))
         if q:
             stock_items = [s for s in stock_items if q.lower() in s.medication.name.lower() or q.lower() in s.medication.generic_name.lower()]
 
@@ -919,7 +1007,7 @@ def report_dept_stock_card(request):
     if store:
         medications = Medication.objects.filter(
             dept_stocks__department_store=store
-        ).distinct().order_by('name')
+        ).distinct().order_by('brand_name')
 
     transactions = []
     if store and med:
@@ -1057,12 +1145,14 @@ def _export_consumption_csv(usages, store, date_from, date_to):
     name = store.name if store else 'All Departments'
     resp['Content-Disposition'] = f'attachment; filename="consumption_{date.today()}.csv"'
     w = csv.writer(resp)
-    w.writerow([f'Medication Consumption Report — {name} — {date_from} to {date_to}'])
-    w.writerow(['Date', 'Department', 'Medication', 'Generic Name', 'Qty Used', 'Type', 'Patient', 'Staff', 'Reason'])
+    w.writerow([f'Department Consumption Report — {name} — {date_from} to {date_to}'])
+    w.writerow(['Date', 'Department', 'Item', 'Generic Name', 'Qty Used', 'Type', 'Patient', 'Staff', 'Reason'])
     for u in usages:
+        item_name = u.medication.name if u.medication_id else u.inventory_item.name
+        generic_name = u.medication.generic_name if u.medication_id else ''
         w.writerow([
             u.usage_date.strftime('%Y-%m-%d %H:%M'),
-            u.department_store.name, u.medication.name, u.medication.generic_name,
+            u.department_store.name, item_name, generic_name,
             u.quantity_used, u.get_usage_type_display(),
             str(u.patient) if u.patient else '',
             u.responsible_staff.get_full_name() or u.responsible_staff.username if u.responsible_staff else '',
@@ -1087,5 +1177,224 @@ def _export_transfer_csv(transfers):
             t.received_date.strftime('%Y-%m-%d %H:%M') if t.received_date else '',
             t.prepared_by.get_full_name() or t.prepared_by.username if t.prepared_by else '',
             meds,
+        ])
+    return resp
+
+
+# ── Patient Search API ────────────────────────────────────────────────────────
+
+def patient_search_api(request):
+    from django.http import JsonResponse
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+    patients = Patient.objects.filter(
+        Q(first_name__icontains=q) | Q(last_name__icontains=q) |
+        Q(middle_name__icontains=q) | Q(card_number__icontains=q)
+    ).order_by('first_name')[:10]
+    return JsonResponse({'results': [
+        {'id': p.id,
+         'text': f"{p.first_name} {p.middle_name} {p.last_name}".replace('  ', ' ').strip(),
+         'card': p.card_number, 'mobile': p.mobile}
+        for p in patients
+    ]})
+
+
+def patient_visits_api(request, patient_id):
+    from django.http import JsonResponse
+    visits = Visit.objects.filter(
+        patient_id=patient_id,
+    ).exclude(status=Visit.Status.DISCHARGED).select_related('department').order_by('-created_at')[:10]
+    return JsonResponse({'visits': [
+        {'id': v.id,
+         'text': f"Visit #{v.id} — {v.department.name if v.department_id else ''} ({v.get_status_display()})"}
+        for v in visits
+    ]})
+
+
+# ── Patient Requisition Reports ───────────────────────────────────────────────
+
+@hms_permission_required('core.view_patient_requisitions')
+def report_patient_requisitions(request):
+    today     = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to   = request.GET.get('to', today.isoformat())
+    store_id  = request.GET.get('store', '')
+    status    = request.GET.get('status', '')
+    priority  = request.GET.get('priority', '')
+    patient_q = request.GET.get('patient', '').strip()
+
+    qs = (TransferRequest.objects
+          .filter(request_type=TransferRequest.RequestType.PATIENT_SPECIFIC)
+          .select_related('requesting_store', 'patient', 'visit', 'requested_by',
+                          'approved_by', 'requesting_doctor', 'invoice')
+          .prefetch_related('items__medication', 'items__inventory_item')
+          .order_by('-request_date'))
+
+    if date_from: qs = qs.filter(request_date__date__gte=date_from)
+    if date_to:   qs = qs.filter(request_date__date__lte=date_to)
+    if store_id:  qs = qs.filter(requesting_store_id=store_id)
+    if status:    qs = qs.filter(status=status)
+    if priority:  qs = qs.filter(priority=priority)
+    if patient_q:
+        qs = qs.filter(
+            Q(patient__first_name__icontains=patient_q) |
+            Q(patient__last_name__icontains=patient_q) |
+            Q(patient__card_number__icontains=patient_q)
+        )
+
+    reqs = list(qs[:500])
+    for r in reqs:
+        r.calc_item_count = r.items.count()
+        r.calc_total_value = sum(
+            (i.unit_price or 0) * (i.quantity_issued or i.quantity_approved or i.quantity_requested)
+            for i in r.items.all()
+        )
+
+    if request.GET.get('export') == 'csv':
+        return _export_patient_requisitions_csv(reqs, date_from, date_to)
+
+    paginator = Paginator(reqs, 30)
+    return render(request, 'dept_pharmacy/reports/patient_requisitions.html', {
+        'page_obj':   paginator.get_page(request.GET.get('page')),
+        'stores':     DepartmentStore.objects.filter(is_active=True),
+        'statuses':   TransferRequest.Status.choices,
+        'priorities': TransferRequest.Priority.choices,
+        'store_id':   store_id,
+        'status':     status,
+        'priority':   priority,
+        'patient_q':  patient_q,
+        'date_from':  date_from,
+        'date_to':    date_to,
+        'total_reqs': len(reqs),
+        'generated_at': timezone.now(),
+        'generated_by': request.user,
+    })
+
+
+@hms_permission_required('core.view_patient_requisitions')
+def report_outstanding_billing(request):
+    today     = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to   = request.GET.get('to', today.isoformat())
+    store_id  = request.GET.get('store', '')
+
+    qs = (TransferRequest.objects
+          .filter(request_type=TransferRequest.RequestType.PATIENT_SPECIFIC,
+                  invoice__isnull=False)
+          .exclude(invoice__status__in=[Invoice.Status.PAID, Invoice.Status.WAIVED,
+                                        Invoice.Status.CANCELLED])
+          .select_related('requesting_store', 'patient', 'visit', 'invoice', 'requested_by')
+          .order_by('-request_date'))
+
+    if date_from: qs = qs.filter(request_date__date__gte=date_from)
+    if date_to:   qs = qs.filter(request_date__date__lte=date_to)
+    if store_id:  qs = qs.filter(requesting_store_id=store_id)
+
+    reqs = list(qs[:500])
+    total_outstanding = sum(r.invoice.balance for r in reqs if r.invoice)
+
+    return render(request, 'dept_pharmacy/reports/outstanding_billing.html', {
+        'reqs':              reqs,
+        'stores':            DepartmentStore.objects.filter(is_active=True),
+        'total_outstanding': total_outstanding,
+        'store_id':          store_id,
+        'date_from':         date_from,
+        'date_to':           date_to,
+        'generated_at':      timezone.now(),
+        'generated_by':      request.user,
+    })
+
+
+@hms_permission_required('core.view_dept_reports')
+def report_dept_requisitions(request):
+    today     = date.today()
+    date_from = request.GET.get('from', (today - timedelta(days=30)).isoformat())
+    date_to   = request.GET.get('to', today.isoformat())
+    store_id  = request.GET.get('store', '')
+    status    = request.GET.get('status', '')
+    req_type  = request.GET.get('req_type', '')
+
+    qs = (TransferRequest.objects
+          .select_related('requesting_store', 'patient', 'requested_by', 'approved_by', 'invoice')
+          .prefetch_related('items')
+          .order_by('-request_date'))
+
+    if date_from: qs = qs.filter(request_date__date__gte=date_from)
+    if date_to:   qs = qs.filter(request_date__date__lte=date_to)
+    if store_id:  qs = qs.filter(requesting_store_id=store_id)
+    if status:    qs = qs.filter(status=status)
+    if req_type:  qs = qs.filter(request_type=req_type)
+
+    reqs = list(qs[:500])
+    for r in reqs:
+        r.calc_item_count = r.items.count()
+
+    if request.GET.get('export') == 'csv':
+        return _export_dept_requisitions_csv(reqs, date_from, date_to)
+
+    paginator = Paginator(reqs, 30)
+    return render(request, 'dept_pharmacy/reports/dept_requisitions.html', {
+        'page_obj':   paginator.get_page(request.GET.get('page')),
+        'stores':     DepartmentStore.objects.filter(is_active=True),
+        'statuses':   TransferRequest.Status.choices,
+        'req_types':  TransferRequest.RequestType.choices,
+        'store_id':   store_id,
+        'status':     status,
+        'req_type':   req_type,
+        'date_from':  date_from,
+        'date_to':    date_to,
+        'total_reqs': len(reqs),
+        'generated_at': timezone.now(),
+        'generated_by': request.user,
+    })
+
+
+def _export_patient_requisitions_csv(reqs, date_from, date_to):
+    resp = HttpResponse(content_type='text/csv')
+    resp['Content-Disposition'] = f'attachment; filename="patient_requisitions_{date.today()}.csv"'
+    w = csv.writer(resp)
+    w.writerow([f'Patient-Specific Requisitions — {date_from} to {date_to}'])
+    w.writerow([])
+    w.writerow(['Req #', 'Date', 'Department', 'Patient', 'MRN', 'Visit', 'Priority',
+                'Status', 'Requesting Doctor', 'Clinical Reason',
+                'Items', 'Invoice #', 'Invoice Status', 'Total Value (ETB)', 'Requested By'])
+    for r in reqs:
+        items_str = '; '.join(f"{i.item_name} x{i.quantity_requested}" for i in r.items.all())
+        w.writerow([
+            r.request_number, r.request_date.strftime('%Y-%m-%d %H:%M'),
+            r.requesting_store.name,
+            f"{r.patient.first_name} {r.patient.last_name}" if r.patient else '',
+            r.patient.card_number if r.patient else '',
+            str(r.visit.id) if r.visit else '',
+            r.get_priority_display(), r.get_status_display(),
+            r.requesting_doctor.get_full_name() if r.requesting_doctor else '',
+            r.clinical_reason, items_str,
+            r.invoice.invoice_number if r.invoice else '',
+            r.invoice.status if r.invoice else '',
+            float(getattr(r, 'calc_total_value', 0)),
+            r.requested_by.get_full_name() or r.requested_by.username if r.requested_by else '',
+        ])
+    return resp
+
+
+def _export_dept_requisitions_csv(reqs, date_from, date_to):
+    resp = HttpResponse(content_type='text/csv')
+    resp['Content-Disposition'] = f'attachment; filename="dept_requisitions_{date.today()}.csv"'
+    w = csv.writer(resp)
+    w.writerow([f'Department Requisitions — {date_from} to {date_to}'])
+    w.writerow([])
+    w.writerow(['Req #', 'Date', 'Type', 'Department', 'Patient', 'Priority',
+                'Status', 'Items', 'Invoice #', 'Requested By'])
+    for r in reqs:
+        items_str = '; '.join(f"{i.item_name} x{i.quantity_requested}" for i in r.items.all())
+        w.writerow([
+            r.request_number, r.request_date.strftime('%Y-%m-%d %H:%M'),
+            r.get_request_type_display(), r.requesting_store.name,
+            f"{r.patient.first_name} {r.patient.last_name}" if r.patient else '—',
+            r.get_priority_display(), r.get_status_display(),
+            items_str,
+            r.invoice.invoice_number if r.invoice else '',
+            r.requested_by.get_full_name() or r.requested_by.username if r.requested_by else '',
         ])
     return resp

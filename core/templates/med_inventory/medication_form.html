@@ -136,11 +136,16 @@
         {% with v=med %}
         <div class="field-wrapper">
           <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purchase Price</label>
-          <input type="number" name="purchase_price" value="{{ v.purchase_price|default:'0' }}" step="0.01" min="0">
+          <input type="number" id="id_purchase_price" name="purchase_price" value="{{ v.purchase_price|default:'0' }}" step="0.01" min="0">
         </div>
         <div class="field-wrapper">
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Selling Price</label>
-          <input type="number" name="selling_price" value="{{ v.selling_price|default:'0' }}" step="0.01" min="0">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Selling Price
+            <span id="sellingPriceAutoBadge" class="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(auto)</span>
+          </label>
+          <input type="number" id="id_selling_price" name="selling_price" value="{{ v.selling_price|default:'0' }}" step="0.01" min="0">
+          <input type="hidden" id="id_selling_price_overridden" name="selling_price_overridden" value="{% if v.selling_price_is_manual %}1{% else %}{% endif %}">
+          <p class="text-xs text-slate-400 mt-1">Auto-calculated as Purchase Price + {{ default_markup_percent }}% markup. Edit directly to override.</p>
         </div>
         <div class="field-wrapper">
           <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Wholesale Price</label>
@@ -154,6 +159,38 @@
       </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      const purchaseInput   = document.getElementById('id_purchase_price');
+      const sellingInput    = document.getElementById('id_selling_price');
+      const overriddenInput = document.getElementById('id_selling_price_overridden');
+      const autoBadge       = document.getElementById('sellingPriceAutoBadge');
+      const markupPercent   = parseFloat('{{ default_markup_percent|default:"25" }}') || 25;
+
+      function isOverridden() { return overriddenInput.value === '1'; }
+      function setBadge() { autoBadge.style.display = isOverridden() ? 'none' : 'inline'; }
+
+      function recalcSellingPrice() {
+        if (isOverridden()) return;
+        const purchase = parseFloat(purchaseInput.value) || 0;
+        const computed = purchase + (purchase * markupPercent / 100);
+        sellingInput.value = computed.toFixed(2);
+      }
+
+      purchaseInput.addEventListener('input', recalcSellingPrice);
+      // Any direct edit to Selling Price marks it as a manual override, so
+      // future Purchase Price changes stop silently recalculating it.
+      sellingInput.addEventListener('input', function () {
+        overriddenInput.value = '1';
+        setBadge();
+      });
+
+      setBadge();
+      // On create (no existing med), keep Selling Price in sync from the start.
+      {% if not med %}recalcSellingPrice();{% endif %}
+    })();
+  </script>
 
   <!-- Stock Levels & Regulatory -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -180,6 +217,7 @@
         {% with v=med %}
         <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Registration Number</label><input type="text" name="registration_number" value="{{ v.registration_number }}"></div>
         <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Regulatory Approval</label><input type="text" name="regulatory_approval" value="{{ v.regulatory_approval }}"></div>
+        <div class="field-wrapper"><label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">ATC Code <span class="text-xs text-slate-400 font-normal">(optional)</span></label><input type="text" name="atc_code" value="{{ v.atc_code }}" placeholder="e.g. N02BE01"></div>
         <div class="flex gap-6">
           <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
             <input type="checkbox" name="controlled_substance" {% if v.controlled_substance %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600">

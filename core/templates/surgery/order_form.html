@@ -47,7 +47,7 @@
         <label class="field-label">Procedure from Master List</label>
         <select name="procedure_master" class="field-input" id="procedureSelect">
           <option value="">— Select from procedure list (optional) —</option>
-          {% for proc in procedures %}<option value="{{ proc.pk }}" data-name="{{ proc.name }}" data-prep="{{ proc.required_preparation }}" {% if edit_mode and order.procedure_master_id == proc.pk %}selected{% elif post.procedure_master == proc.pk|stringformat:"s" %}selected{% endif %}>{{ proc.code }} — {{ proc.name }}</option>{% endfor %}
+          {% for proc in procedures %}<option value="{{ proc.pk }}" data-name="{{ proc.name }}" data-prep="{{ proc.required_preparation }}" data-proc-fee="{{ proc.procedure_price }}" data-surgeon-fee="{{ proc.surgeon_fee }}" data-anesthesia-fee="{{ proc.anesthesia_fee }}" data-facility-fee="{{ proc.facility_fee }}" {% if edit_mode and order.procedure_master_id == proc.pk %}selected{% elif post.procedure_master == proc.pk|stringformat:"s" %}selected{% endif %}>{{ proc.code }} — {{ proc.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="field-wrapper sm:col-span-2">
@@ -143,6 +143,53 @@
     </div>
   </div>
 
+  <!-- Estimated Costs -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-1">Estimated Costs <span class="text-xs font-normal text-slate-400">(ETB — auto-filled from procedure list, editable)</span></h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3">
+      {% if perms.core.read_billing %}
+      <div class="field-wrapper">
+        <label class="field-label">Procedure Fee</label>
+        <input type="number" name="estimated_procedure_fee" id="estProcFee" min="0" step="0.01" class="field-input"
+               value="{% if edit_mode %}{{ order.estimated_procedure_fee }}{% else %}{{ post.estimated_procedure_fee|default:'0' }}{% endif %}" />
+      </div>
+      {% else %}
+      <input type="hidden" name="estimated_procedure_fee" id="estProcFee"
+             value="{% if edit_mode %}{{ order.estimated_procedure_fee }}{% else %}{{ post.estimated_procedure_fee|default:'0' }}{% endif %}" />
+      {% endif %}
+
+      <div class="field-wrapper">
+        <label class="field-label">Surgeon Fee</label>
+        <input type="number" name="estimated_surgeon_fee" id="estSurgeonFee" min="0" step="0.01" class="field-input"
+               value="{% if edit_mode %}{{ order.estimated_surgeon_fee }}{% else %}{{ post.estimated_surgeon_fee|default:'0' }}{% endif %}" />
+      </div>
+
+      {% if perms.core.read_billing %}
+      <div class="field-wrapper">
+        <label class="field-label">Anesthesia Fee</label>
+        <input type="number" name="estimated_anesthesia_fee" id="estAnesthesiaFee" min="0" step="0.01" class="field-input"
+               value="{% if edit_mode %}{{ order.estimated_anesthesia_fee }}{% else %}{{ post.estimated_anesthesia_fee|default:'0' }}{% endif %}" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Facility Fee</label>
+        <input type="number" name="estimated_facility_fee" id="estFacilityFee" min="0" step="0.01" class="field-input"
+               value="{% if edit_mode %}{{ order.estimated_facility_fee }}{% else %}{{ post.estimated_facility_fee|default:'0' }}{% endif %}" />
+      </div>
+      {% else %}
+      <input type="hidden" name="estimated_anesthesia_fee" id="estAnesthesiaFee"
+             value="{% if edit_mode %}{{ order.estimated_anesthesia_fee }}{% else %}{{ post.estimated_anesthesia_fee|default:'0' }}{% endif %}" />
+      <input type="hidden" name="estimated_facility_fee" id="estFacilityFee"
+             value="{% if edit_mode %}{{ order.estimated_facility_fee }}{% else %}{{ post.estimated_facility_fee|default:'0' }}{% endif %}" />
+      {% endif %}
+    </div>
+    {% if perms.core.read_billing %}
+    <div class="mt-3 flex items-center justify-end gap-2 text-sm">
+      <span class="text-slate-500 dark:text-slate-400">Estimated Total:</span>
+      <span id="estTotal" class="font-bold text-slate-900 dark:text-white">ETB 0.00</span>
+    </div>
+    {% endif %}
+  </div>
+
   <!-- Notes -->
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
     <div class="field-wrapper">
@@ -159,13 +206,32 @@
 </form>
 
 <script>
+const feeFields = ['estProcFee', 'estSurgeonFee', 'estAnesthesiaFee', 'estFacilityFee'];
+
+function updateTotal() {
+  const total = feeFields.reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
+  document.getElementById('estTotal').textContent = 'ETB ' + total.toFixed(2);
+}
+
 document.getElementById('procedureSelect').addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];
   const name = opt.getAttribute('data-name');
   const prep = opt.getAttribute('data-prep');
   if (name) document.getElementById('plannedProcedure').value = name;
   if (prep) document.getElementById('requiredPrep').value = prep;
+  const procFee      = opt.getAttribute('data-proc-fee');
+  const surgeonFee   = opt.getAttribute('data-surgeon-fee');
+  const anesthFee    = opt.getAttribute('data-anesthesia-fee');
+  const facilityFee  = opt.getAttribute('data-facility-fee');
+  if (procFee !== null)     document.getElementById('estProcFee').value      = parseFloat(procFee) || 0;
+  if (surgeonFee !== null)  document.getElementById('estSurgeonFee').value   = parseFloat(surgeonFee) || 0;
+  if (anesthFee !== null)   document.getElementById('estAnesthesiaFee').value = parseFloat(anesthFee) || 0;
+  if (facilityFee !== null) document.getElementById('estFacilityFee').value  = parseFloat(facilityFee) || 0;
+  updateTotal();
 });
+
+feeFields.forEach(id => document.getElementById(id).addEventListener('input', updateTotal));
+updateTotal();
 </script>
 
 {% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Death Certificate — {{ cert.patient.full_name }}{% endblock %}
+{% block content %}
+
+{% url 'visit_detail' cert.visit.pk as back_url %}
+{% include "certificates/_print_style.html" with back_url=back_url %}
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-8 max-w-3xl mx-auto" style="color:#111">
+  {% include "certificates/_print_header.html" with title="DEATH CERTIFICATE" cert=cert patient=cert.patient %}
+
+  <div style="font-size:13px;line-height:1.7">
+    <p>This is to certify that <strong>{{ cert.patient.full_name }}</strong> (Card No. {{ cert.patient.card_number }},
+      Age {{ cert.patient.age_display|default:"—" }}, Sex {{ cert.patient.sex }}) died on
+      <strong>{{ cert.date_of_death|date:"d M Y" }}</strong> at <strong>{{ cert.time_of_death|time:"H:i" }}</strong>
+      {% if cert.place_of_death %}at {{ cert.place_of_death }}{% endif %}.</p>
+
+    {% if cert.ward or cert.room or cert.bed %}
+    <p style="margin-top:10px"><strong>Ward / Room / Bed:</strong> {{ cert.ward|default:"—" }} / {{ cert.room|default:"—" }} / {{ cert.bed|default:"—" }}</p>
+    {% endif %}
+
+    <p style="margin-top:10px"><strong>Immediate Cause of Death:</strong> {{ cert.immediate_cause|linebreaksbr }}</p>
+    {% if cert.underlying_cause %}<p style="margin-top:10px"><strong>Underlying Cause(s) of Death:</strong> {{ cert.underlying_cause|linebreaksbr }}</p>{% endif %}
+    {% if cert.contributing_conditions %}<p style="margin-top:10px"><strong>Contributing Conditions:</strong> {{ cert.contributing_conditions|linebreaksbr }}</p>{% endif %}
+    <p style="margin-top:10px"><strong>Manner of Death:</strong> {{ cert.get_manner_of_death_display }}</p>
+    {% if cert.duration_of_illness %}<p style="margin-top:10px"><strong>Duration of Illness:</strong> {{ cert.duration_of_illness }}</p>{% endif %}
+    {% if cert.attending_physician %}<p style="margin-top:10px"><strong>Attending Physician:</strong> {{ cert.attending_physician.get_full_name|default:cert.attending_physician.username }}</p>{% endif %}
+    {% if cert.clinical_notes %}<p style="margin-top:10px"><strong>Additional Clinical Notes:</strong> {{ cert.clinical_notes|linebreaksbr }}</p>{% endif %}
+  </div>
+
+  {% include "certificates/_signature_block.html" with cert=cert signature_label="Certifying Physician's Signature" %}
+</div>
+
+{% endblock %}

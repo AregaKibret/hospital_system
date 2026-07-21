@@ -18,7 +18,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-from .models import Medication, MedicationBatch, MedicationCategory, StockTransaction
+from .models import InventoryCategory, InventoryItem, Medication, MedicationBatch, StockTransaction
 
 # Dosage forms shared verbatim between PharmacyStock.DosageForm and Medication.DrugType
 _DRUG_TYPE_MAP = {
@@ -29,39 +29,52 @@ _DRUG_TYPE_MAP = {
 
 
 def _next_medication_code():
-    last = Medication.objects.filter(code__startswith='PS-').order_by('-id').first()
+    last = InventoryItem.objects.filter(item_code__startswith='PS-').order_by('-id').first()
     next_id = 1
     if last:
         try:
-            next_id = int(last.code.split('-')[-1]) + 1
+            next_id = int(last.item_code.split('-')[-1]) + 1
         except ValueError:
-            next_id = Medication.objects.count() + 1
+            next_id = InventoryItem.objects.count() + 1
     return f'PS-{next_id:05d}'
 
 
 def ensure_medication_link(stock, user):
     """Return the Medication catalog entry mirroring this PharmacyStock row,
-    creating it (plus its bridge batch and opening balance transaction) on
-    first use."""
+    creating it (plus its linked InventoryItem, bridge batch, and opening
+    balance transaction) on first use. The Item Master (InventoryItem) is the
+    single source of truth for master/catalog data — this creates that row
+    first, then a Medication Details row referencing it, never duplicating
+    data across the two."""
     if stock.medication_id:
         return stock.medication
 
     category = None
     if stock.category:
-        category, _ = MedicationCategory.objects.get_or_create(name=stock.category.strip())
+        category, _ = InventoryCategory.objects.get_or_create(name=stock.category.strip())
 
-    med = Medication.objects.create(
+    item = InventoryItem.objects.create(
         name=stock.drug_name,
         generic_name=stock.generic_name or stock.drug_name,
-        code=_next_medication_code(),
+        item_code=_next_medication_code(),
+        item_type=InventoryItem.ItemType.MEDICATION,
         category=category,
-        drug_type=_DRUG_TYPE_MAP.get(stock.dosage_form, 'Other'),
+        dosage_form=stock.dosage_form or '',
         strength=stock.strength or 'N/A',
-        unit_of_measure=stock.unit or 'Tablet',
-        purchase_price=stock.unit_cost,
+        unit=stock.unit or 'Tablet',
+        unit_cost=stock.unit_cost,
         selling_price=stock.selling_price,
         reorder_level=stock.reorder_level,
         is_active=True,
+        notes=f'Auto-created from Pharmacy Stock #{stock.pk} ({stock.drug_name}).',
+    )
+    med = Medication.objects.create(
+        inventory_item=item,
+        brand_name=stock.drug_name,
+        generic_name=stock.generic_name or stock.drug_name,
+        drug_type=_DRUG_TYPE_MAP.get(stock.dosage_form, 'Other'),
+        strength=stock.strength or 'N/A',
+        dosage_form=stock.dosage_form or '',
         notes=f'Auto-created from Pharmacy Stock #{stock.pk} ({stock.drug_name}).',
     )
 

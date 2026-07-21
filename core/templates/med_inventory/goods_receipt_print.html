@@ -1,0 +1,292 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRN — {{ receipt.goods_receipt_number }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; }
+
+  /* Print layout */
+  @page { size: A4; margin: 18mm 15mm 18mm 15mm; }
+  @media print {
+    .no-print { display: none !important; }
+    body { font-size: 10.5px; }
+    .page-break { page-break-before: always; }
+  }
+
+  /* Screen preview wrapper */
+  .preview-bar { background: #374151; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .preview-bar button { padding: 6px 18px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; }
+  .btn-print { background: #10b981; color: #fff; }
+  .btn-back  { background: #6b7280; color: #fff; }
+  .preview-bar span { color: #d1d5db; font-size: 13px; font-weight: 600; }
+
+  .page { max-width: 210mm; margin: 0 auto; padding: 10mm 0; }
+
+  /* Header */
+  .grn-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 14px; }
+  .hospital-info { flex: 1; }
+  .hospital-name { font-size: 16px; font-weight: 700; color: #1e3a5f; letter-spacing: 0.3px; }
+  .hospital-sub  { font-size: 10px; color: #555; margin-top: 2px; }
+  .grn-title-block { text-align: right; }
+  .grn-badge { display: inline-block; background: #1e3a5f; color: #fff; font-size: 13px; font-weight: 700; padding: 4px 14px; border-radius: 4px; letter-spacing: 1px; margin-bottom: 4px; }
+  .grn-number { font-size: 18px; font-weight: 700; color: #1e3a5f; }
+  .grn-date   { font-size: 10px; color: #666; margin-top: 2px; }
+
+  /* Info grid */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+  .info-section { padding: 8px 12px; }
+  .info-section:nth-child(odd) { border-right: 1px solid #cbd5e1; }
+  .info-section + .info-section { border-top: 1px solid #cbd5e1; }
+  .info-section:nth-child(1), .info-section:nth-child(2) { border-top: none; }
+  .section-title { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1e3a5f; margin-bottom: 5px; }
+  .info-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .info-label { color: #666; min-width: 100px; }
+  .info-value { font-weight: 600; text-align: right; }
+
+  /* Payment badge */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-cash   { background: #d1fae5; color: #065f46; }
+  .badge-credit { background: #fef3c7; color: #92400e; }
+  .badge-consignment { background: #ede9fe; color: #5b21b6; }
+
+  /* Items table */
+  .section-label { font-size: 10px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  thead th { background: #1e3a5f; color: #fff; padding: 6px 7px; text-align: left; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  thead th.right { text-align: right; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody td { padding: 5px 7px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody td.mono  { font-family: monospace; font-size: 10px; }
+  tfoot td { padding: 6px 7px; font-weight: 700; background: #f1f5f9; border-top: 2px solid #1e3a5f; }
+  tfoot td.right { text-align: right; }
+
+  /* Totals */
+  .totals-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+  .totals-box { border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; min-width: 240px; }
+  .totals-line { display: flex; justify-content: space-between; padding: 5px 12px; border-bottom: 1px solid #e2e8f0; }
+  .totals-line:last-child { border-bottom: none; background: #1e3a5f; color: #fff; font-weight: 700; font-size: 12px; }
+  .totals-line:last-child .tl-label,
+  .totals-line:last-child .tl-value { color: #fff; }
+  .tl-label { color: #555; }
+  .tl-value  { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Remarks */
+  .remarks-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; min-height: 40px; }
+  .remarks-box p { color: #374151; line-height: 1.5; }
+
+  /* Signature grid */
+  .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 8px; }
+  .sig-block { border-top: 1px solid #374151; padding-top: 5px; }
+  .sig-label { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.4px; }
+  .sig-name  { font-size: 10px; font-weight: 600; color: #1e3a5f; margin-top: 2px; }
+  .sig-role  { font-size: 9px; color: #888; }
+
+  /* Footer */
+  .grn-footer { border-top: 1px solid #e2e8f0; margin-top: 14px; padding-top: 8px; text-align: center; color: #9ca3af; font-size: 9px; }
+  .page-num::after { content: " — Page 1 of 1"; }
+</style>
+</head>
+<body>
+
+<!-- Screen-only action bar -->
+<div class="preview-bar no-print">
+  <span>Goods Receiving Note — {{ receipt.goods_receipt_number }}</span>
+  <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+  <button class="btn-back" onclick="history.back()">Back</button>
+</div>
+
+<div class="page">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="grn-header">
+    <div class="hospital-info">
+      <div class="hospital-name">Ethio Care General Hospital</div>
+      <div class="hospital-sub">Addis Ababa, Ethiopia &nbsp;|&nbsp; Tel: +251-11-000-0000 &nbsp;|&nbsp; TIN: 0000000000</div>
+    </div>
+    <div class="grn-title-block">
+      <div class="grn-badge">GOODS RECEIVING NOTE</div>
+      <div class="grn-number">{{ receipt.goods_receipt_number }}</div>
+      <div class="grn-date">{{ receipt.received_date|date:"d F Y, H:i" }}</div>
+    </div>
+  </div>
+
+  <!-- ── Reference Info ──────────────────────────────────────────────────── -->
+  <div class="info-grid">
+    <!-- Supplier -->
+    <div class="info-section">
+      <div class="section-title">Supplier Information</div>
+      <div class="info-row"><span class="info-label">Supplier Name</span><span class="info-value">{{ receipt.supplier.name }}</span></div>
+      {% if receipt.supplier.contact_person %}<div class="info-row"><span class="info-label">Contact Person</span><span class="info-value">{{ receipt.supplier.contact_person }}</span></div>{% endif %}
+      {% if receipt.supplier.phone %}<div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ receipt.supplier.phone }}</span></div>{% endif %}
+      {% if receipt.supplier.email %}<div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ receipt.supplier.email }}</span></div>{% endif %}
+      {% if receipt.supplier.address %}<div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ receipt.supplier.address }}</span></div>{% endif %}
+    </div>
+
+    <!-- Receipt Reference -->
+    <div class="info-section">
+      <div class="section-title">Receipt References</div>
+      <div class="info-row"><span class="info-label">GRN Number</span><span class="info-value">{{ receipt.goods_receipt_number }}</span></div>
+      <div class="info-row"><span class="info-label">Supplier Invoice #</span><span class="info-value">{{ receipt.supplier_invoice_number }}</span></div>
+      {% if receipt.supplier_invoice_date %}<div class="info-row"><span class="info-label">Invoice Date</span><span class="info-value">{{ receipt.supplier_invoice_date|date:"d M Y" }}</span></div>{% endif %}
+      {% if receipt.purchase_order_ref %}<div class="info-row"><span class="info-label">PO Reference</span><span class="info-value">{{ receipt.purchase_order_ref }}</span></div>{% endif %}
+      {% if receipt.delivery_note_number %}<div class="info-row"><span class="info-label">Delivery Note #</span><span class="info-value">{{ receipt.delivery_note_number }}</span></div>{% endif %}
+      <div class="info-row">
+        <span class="info-label">Payment Method</span>
+        <span class="info-value">
+          <span class="badge {% if receipt.payment_method == 'cash' %}badge-cash{% elif receipt.payment_method == 'credit' %}badge-credit{% else %}badge-consignment{% endif %}">
+            {{ receipt.get_payment_method_display }}
+          </span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Receiving Info -->
+    <div class="info-section">
+      <div class="section-title">Receiving Details</div>
+      <div class="info-row"><span class="info-label">Date Received</span><span class="info-value">{{ receipt.received_date|date:"d M Y" }}</span></div>
+      <div class="info-row"><span class="info-label">Time Received</span><span class="info-value">{{ receipt.received_date|date:"H:i" }}</span></div>
+      <div class="info-row"><span class="info-label">Received By</span><span class="info-value">{{ receipt.received_by.get_full_name|default:receipt.received_by.username }}</span></div>
+      <div class="info-row"><span class="info-label">Total Items</span><span class="info-value">{{ batches|length }} line(s)</span></div>
+      <div class="info-row"><span class="info-label">Total Qty</span><span class="info-value">{{ total_qty }} units</span></div>
+    </div>
+
+    <!-- Payment Info -->
+    <div class="info-section">
+      <div class="section-title">Payment Information</div>
+      {% if receipt.payment_method == 'cash' %}
+        {% if receipt.cash_payment_date %}<div class="info-row"><span class="info-label">Payment Date</span><span class="info-value">{{ receipt.cash_payment_date|date:"d M Y" }}</span></div>{% endif %}
+        {% if receipt.cash_amount_paid %}<div class="info-row"><span class="info-label">Amount Paid</span><span class="info-value">ETB {{ receipt.cash_amount_paid|floatformat:2 }}</span></div>{% endif %}
+        {% if receipt.cash_cashier %}<div class="info-row"><span class="info-label">Cashier</span><span class="info-value">{{ receipt.cash_cashier.get_full_name|default:receipt.cash_cashier.username }}</span></div>{% endif %}
+        {% if receipt.cash_payment_reference %}<div class="info-row"><span class="info-label">Reference</span><span class="info-value">{{ receipt.cash_payment_reference }}</span></div>{% endif %}
+      {% elif payable %}
+        <div class="info-row"><span class="info-label">Total Owed</span><span class="info-value">ETB {{ payable.total_amount|floatformat:2 }}</span></div>
+        <div class="info-row"><span class="info-label">Amount Paid</span><span class="info-value">ETB {{ payable.amount_paid|floatformat:2 }}</span></div>
+        <div class="info-row"><span class="info-label">Outstanding</span><span class="info-value">ETB {{ payable.outstanding_balance|floatformat:2 }}</span></div>
+        {% if payable.due_date %}<div class="info-row"><span class="info-label">Due Date</span><span class="info-value">{{ payable.due_date|date:"d M Y" }}</span></div>{% endif %}
+        <div class="info-row"><span class="info-label">Status</span><span class="info-value">{{ payable.status }}</span></div>
+      {% else %}
+        <div class="info-row"><span class="info-label">Status</span><span class="info-value">{{ receipt.get_payment_method_display }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Line Items ──────────────────────────────────────────────────────── -->
+  <div class="section-label">Received Items</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:4%">#</th>
+        <th style="width:22%">Medication / Item</th>
+        <th style="width:11%">Batch Number</th>
+        <th style="width:9%">Lot Number</th>
+        <th style="width:9%" class="right">Mfg Date</th>
+        <th style="width:9%" class="right">Expiry Date</th>
+        <th style="width:7%" class="right">Qty</th>
+        <th style="width:5%">Unit</th>
+        <th style="width:10%" class="right">Unit Cost (ETB)</th>
+        <th style="width:11%" class="right">Total Cost (ETB)</th>
+        <th style="width:8%">Storage</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+          <strong>{{ b.medication.brand_name }}</strong>
+          {% if b.medication.generic_name %}<br><span style="color:#555;font-size:9.5px">{{ b.medication.generic_name }}</span>{% endif %}
+          {% if b.medication.strength %}<br><span style="color:#888;font-size:9px">{{ b.medication.strength }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ b.batch_number }}</td>
+        <td class="mono">{{ b.lot_number|default:"—" }}</td>
+        <td class="right">{% if b.manufacturing_date %}{{ b.manufacturing_date|date:"d M Y" }}{% else %}—{% endif %}</td>
+        <td class="right" {% if b.is_expired %}style="color:#dc2626;font-weight:700"{% endif %}>{{ b.expiration_date|date:"d M Y" }}</td>
+        <td class="right">{{ b.quantity_received }}</td>
+        <td>{{ b.medication.unit|default:"pcs" }}</td>
+        <td class="right">{{ b.purchase_price|floatformat:2 }}</td>
+        <td class="right" style="font-weight:700">{% widthratio b.purchase_price 1 b.quantity_received as line_total %}{{ b.purchase_price|floatformat:2|default:0 }}</td>
+        <td>{{ b.location|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;font-size:10px;color:#555">TOTALS</td>
+        <td class="right">{{ total_qty }}</td>
+        <td></td>
+        <td></td>
+        <td class="right">ETB {{ total_cost|floatformat:2 }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- ── Grand Total ─────────────────────────────────────────────────────── -->
+  <div class="totals-row">
+    <div class="totals-box">
+      <div class="totals-line">
+        <span class="tl-label">Total Lines</span>
+        <span class="tl-value">{{ batches|length }}</span>
+      </div>
+      <div class="totals-line">
+        <span class="tl-label">Total Units Received</span>
+        <span class="tl-value">{{ total_qty }}</span>
+      </div>
+      <div class="totals-line">
+        <span class="tl-label">GRAND TOTAL COST</span>
+        <span class="tl-value">ETB {{ total_cost|floatformat:2 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Remarks ─────────────────────────────────────────────────────────── -->
+  <div class="section-label">Remarks / Notes</div>
+  <div class="remarks-box">
+    {% if receipt.notes %}
+    <p>{{ receipt.notes }}</p>
+    {% else %}
+    <p style="color:#aaa;font-style:italic">No remarks.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── Signatures ──────────────────────────────────────────────────────── -->
+  <div class="section-label">Authorisation &amp; Verification</div>
+  <div class="sig-grid">
+    <div class="sig-block">
+      <div class="sig-name">{{ receipt.received_by.get_full_name|default:receipt.received_by.username }}</div>
+      <div class="sig-role">Received By &nbsp;·&nbsp; {{ receipt.received_date|date:"d M Y" }}</div>
+      <div style="margin-top:22px;border-top:1px solid #94a3b8;padding-top:3px;font-size:9px;color:#94a3b8">Signature</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-name">&nbsp;</div>
+      <div class="sig-role">Verified By (Store / Pharmacy Manager)</div>
+      <div style="margin-top:22px;border-top:1px solid #94a3b8;padding-top:3px;font-size:9px;color:#94a3b8">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-name">&nbsp;</div>
+      <div class="sig-role">Approved By (Finance / Admin)</div>
+      <div style="margin-top:22px;border-top:1px solid #94a3b8;padding-top:3px;font-size:9px;color:#94a3b8">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+    </div>
+  </div>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+  <div class="grn-footer">
+    <span class="page-num">GRN {{ receipt.goods_receipt_number }}</span>
+    &nbsp;·&nbsp; Generated {{ receipt.received_date|date:"d M Y H:i" }}
+    &nbsp;·&nbsp; This document is computer generated. Verify with originals before payment.
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// Auto-trigger print if ?print=1 in URL
+if (new URLSearchParams(window.location.search).get('print') === '1') {
+  window.onload = function() { window.print(); };
+}
+</script>
+</body>
+</html>

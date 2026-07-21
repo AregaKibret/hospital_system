@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Surgery Settlement — {{ order.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">Discharge Settlement</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">{{ order.patient.full_name }} · {{ order.patient.card_number }} · {{ order.order_number }}</p>
+    </div>
+  </div>
+
+  <!-- Deposit summary card -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+      <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Deposit Paid</p>
+      {% if pre_dep.is_credit %}
+      <p class="text-xl font-bold text-amber-600 dark:text-amber-400">Credit</p>
+      {% else %}
+      <p class="text-xl font-bold text-blue-700 dark:text-blue-300">ETB {{ deposit|floatformat:2 }}</p>
+      {% endif %}
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+      <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Total Charges</p>
+      <p class="text-xl font-bold text-slate-800 dark:text-white">ETB {{ total_charges|floatformat:2 }}</p>
+    </div>
+    <div class="rounded-xl border p-4 text-center
+      {% if balance_refund > 0 %}bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700
+      {% elif balance_due > 0 %}bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700
+      {% else %}bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700{% endif %}">
+      {% if balance_refund > 0 %}
+      <p class="text-xs text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">Refund to Patient</p>
+      <p class="text-xl font-bold text-green-700 dark:text-green-300">ETB {{ balance_refund|floatformat:2 }}</p>
+      {% elif balance_due > 0 %}
+      <p class="text-xs text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">Additional Payment Due</p>
+      <p class="text-xl font-bold text-red-700 dark:text-red-300">ETB {{ balance_due|floatformat:2 }}</p>
+      {% elif pre_dep.is_credit %}
+      <p class="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Amount to Collect</p>
+      <p class="text-xl font-bold text-amber-700 dark:text-amber-300">ETB {{ total_charges|floatformat:2 }}</p>
+      {% else %}
+      <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Balance</p>
+      <p class="text-xl font-bold text-slate-700 dark:text-slate-300">Settled</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Charge breakdown -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-white">All Charges</h2>
+      <span class="text-xs text-slate-400">{{ charge_items|length }} item{{ charge_items|length|pluralize }}</span>
+    </div>
+    {% if charge_items %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+          <tr>
+            <th class="text-left px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Description</th>
+            <th class="text-left px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+            <th class="text-right px-5 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+          {% for item in charge_items %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <td class="px-5 py-2.5 text-slate-700 dark:text-slate-300">{{ item.description }}</td>
+            <td class="px-5 py-2.5 text-slate-500 dark:text-slate-400 text-xs">{{ item.get_service_type_display }}</td>
+            <td class="px-5 py-2.5 text-right font-medium text-slate-800 dark:text-white">ETB {{ item.total|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="border-t-2 border-slate-300 dark:border-slate-600">
+          <tr class="bg-slate-50 dark:bg-slate-700/40">
+            <td colspan="2" class="px-5 py-3 font-bold text-slate-800 dark:text-white">Total Charges</td>
+            <td class="px-5 py-3 text-right font-bold text-slate-800 dark:text-white">ETB {{ total_charges|floatformat:2 }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="py-10 text-center text-slate-400 dark:text-slate-500 text-sm">No charges found for this visit.</div>
+    {% endif %}
+  </div>
+
+  <!-- Confirm settlement -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Settlement Notes</label>
+        <textarea name="settlement_notes" rows="2"
+                  class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  placeholder="e.g. Refund paid in cash, patient acknowledged…"></textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3 justify-end pb-8">
+      <a href="{% url 'surgery_order_detail' order.pk %}" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
+      <button type="submit" class="px-6 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors">
+        Confirm Settlement &amp; Discharge
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

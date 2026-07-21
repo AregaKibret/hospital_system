@@ -4,20 +4,35 @@
 {% include "reports/_toolbar.html" with title="Doctor Performance Report" %}
 
 <form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 no-print">
-  <div class="flex flex-wrap gap-3 items-end">
-    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
-      <input type="date" name="from_date" value="{{ from_date_str }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
-    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
-      <input type="date" name="to_date" value="{{ to_date_str }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
-    <div><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
-      <select name="department" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
-        <option value="">All Depts</option>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+      <select name="doctor" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Doctors</option>
+        {% for d in all_doctors %}
+        <option value="{{ d.id }}" {% if doctor_id == d.id|stringformat:'s' %}selected{% endif %}>Dr. {{ d.first_name }} {{ d.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Departments</option>
         {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select></div>
-    <div class="flex-1 min-w-36"><label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search Doctor</label>
-      <input type="text" name="q" value="{{ q }}" placeholder="Doctor name…" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white"></div>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+  </div>
+  <div class="flex gap-2">
     <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Apply</button>
-    <a href="{% url 'report_doctor_performance' %}" class="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 underline">Reset</a>
+    <a href="{% url 'report_doctor_performance' %}" class="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline">Reset</a>
   </div>
 </form>
 

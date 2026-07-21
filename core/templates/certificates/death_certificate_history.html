@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Death Certificate History — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+  <a href="{% url 'visit_detail' visit.pk %}" class="btn-secondary text-sm">← Back to Visit</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Death Certificate History — {{ visit.patient.full_name }}</h1>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm divide-y divide-slate-100 dark:divide-slate-700">
+  {% for v in versions %}
+  <div class="p-4 flex items-center justify-between flex-wrap gap-2">
+    <div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-semibold text-slate-800 dark:text-slate-100">Version {{ v.version }}</span>
+        {% if v.certificate_number %}<span class="text-xs text-slate-500 font-mono">{{ v.certificate_number }}</span>{% endif %}
+        {% if v.is_current %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Current</span>
+        {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400">Superseded</span>{% endif %}
+        {% if v.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized</span>
+        {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft</span>{% endif %}
+        {% if v.is_void %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Void</span>{% endif %}
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Created by {{ v.created_by.get_full_name|default:v.created_by.username }} on {{ v.created_at|date:"d M Y H:i" }}</p>
+      {% if v.is_finalized %}<p class="text-xs text-slate-400">Signed by {{ v.signature_name }} on {{ v.finalized_at|date:"d M Y H:i" }}</p>{% endif %}
+      {% if v.revision_reason %}<p class="text-xs text-slate-500 mt-1">Reason: {{ v.revision_reason }}</p>{% endif %}
+    </div>
+    <a href="{% url 'death_certificate_print' v.pk %}" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition font-medium">Print</a>
+  </div>
+  {% empty %}
+  <p class="p-6 text-center text-slate-400 text-sm">No death certificates recorded yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

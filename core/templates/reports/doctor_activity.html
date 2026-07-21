@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Doctor Activity Report — HMS{% endblock %}
+{% block content %}
+{% include "reports/_toolbar.html" with title="Doctor Activity Report" %}
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-5 no-print">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Doctor</label>
+      <select name="doctor" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Doctors</option>
+        {% for d in all_doctors %}
+        <option value="{{ d.id }}" {% if doctor_id == d.id|stringformat:'s' %}selected{% endif %}>Dr. {{ d.first_name }} {{ d.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Department</label>
+      <select name="department" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+        <option value="">All Departments</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if dept_filter == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From</label>
+      <input type="date" name="from_date" value="{{ from_date_str }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">To</label>
+      <input type="date" name="to_date" value="{{ to_date_str }}" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Apply</button>
+    <a href="?export=excel&from_date={{ from_date_str }}&to_date={{ to_date_str }}{% if doctor_id %}&doctor={{ doctor_id }}{% endif %}{% if dept_filter %}&department={{ dept_filter }}{% endif %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">Export Excel</a>
+    <a href="?export=csv&from_date={{ from_date_str }}&to_date={{ to_date_str }}{% if doctor_id %}&doctor={{ doctor_id }}{% endif %}{% if dept_filter %}&department={{ dept_filter }}{% endif %}" class="px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors">Export CSV</a>
+    <a href="{% url 'report_doctor_activity' %}" class="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline self-center">Reset</a>
+  </div>
+</form>
+
+<!-- Summary totals -->
+{% if rows %}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Doctors</p>
+    <p class="text-2xl font-bold text-slate-800 dark:text-white">{{ rows|length }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Total Billed</p>
+    <p class="text-2xl font-bold text-blue-700 dark:text-blue-300">ETB {{ grand_total|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Total Collected</p>
+    <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300">ETB {{ grand_paid|floatformat:2 }}</p>
+  </div>
+</div>
+
+<!-- Doctor rows -->
+{% for row in rows %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4 overflow-hidden">
+
+  <!-- Doctor header -->
+  <div class="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-700/40 border-b border-slate-200 dark:border-slate-700">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300">
+        {{ row.doctor.first_name|first }}{{ row.doctor.last_name|first }}
+      </div>
+      <div>
+        <p class="font-semibold text-slate-800 dark:text-slate-100 text-sm">Dr. {{ row.doctor.first_name }} {{ row.doctor.last_name }}</p>
+        <p class="text-xs text-slate-400 dark:text-slate-500">{{ row.doctor.department.name|default:"—" }} · {{ row.visit_count }} visit{{ row.visit_count|pluralize }}</p>
+      </div>
+    </div>
+    <div class="text-right">
+      <p class="text-xs text-slate-400 uppercase tracking-wide">Total Billed</p>
+      <p class="text-lg font-bold text-blue-700 dark:text-blue-300">ETB {{ row.grand_total|floatformat:2 }}</p>
+      <p class="text-xs text-emerald-600 dark:text-emerald-400">Collected: ETB {{ row.paid|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <!-- Service type breakdown -->
+  {% if row.by_type %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700/50">
+          <th class="px-5 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Service Type</th>
+          <th class="px-5 py-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Items</th>
+          <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount (ETB)</th>
+          <th class="px-5 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">% of Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/40">
+        {% for type_label, type_data in row.by_type.items %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/20">
+          <td class="px-5 py-2.5">
+            <span class="inline-flex items-center gap-1.5">
+              {% if type_label == 'Consultation' %}<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              {% elif type_label == 'Laboratory' %}<span class="w-2 h-2 rounded-full bg-purple-500"></span>
+              {% elif type_label == 'Imaging' %}<span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+              {% elif type_label == 'Medication' %}<span class="w-2 h-2 rounded-full bg-teal-500"></span>
+              {% elif type_label == 'Procedure' %}<span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              {% elif 'Surgery' in type_label %}<span class="w-2 h-2 rounded-full bg-red-500"></span>
+              {% elif type_label == 'Bed / Room' %}<span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+              {% elif type_label == 'Nursing Care' %}<span class="w-2 h-2 rounded-full bg-pink-500"></span>
+              {% else %}<span class="w-2 h-2 rounded-full bg-slate-400"></span>{% endif %}
+              <span class="text-slate-700 dark:text-slate-300 font-medium">{{ type_label }}</span>
+            </span>
+          </td>
+          <td class="px-5 py-2.5 text-center text-slate-500 dark:text-slate-400">{{ type_data.count }}</td>
+          <td class="px-5 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-100">{{ type_data.amount|floatformat:2 }}</td>
+          <td class="px-5 py-2.5 text-right">
+            {% if row.grand_total > 0 %}
+            {% widthratio type_data.amount row.grand_total 100 as pct %}
+            <div class="flex items-center justify-end gap-2">
+              <div class="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                <div class="bg-blue-500 h-1.5 rounded-full" style="width:{{ pct }}%"></div>
+              </div>
+              <span class="text-xs text-slate-500 w-8 text-right">{{ pct }}%</span>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="border-t-2 border-slate-200 dark:border-slate-600">
+        <tr class="bg-slate-50 dark:bg-slate-700/30">
+          <td class="px-5 py-2.5 font-bold text-slate-800 dark:text-white text-sm">Total</td>
+          <td></td>
+          <td class="px-5 py-2.5 text-right font-bold text-blue-700 dark:text-blue-300">{{ row.grand_total|floatformat:2 }}</td>
+          <td class="px-5 py-2.5 text-right text-xs text-slate-500">100%</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% else %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 py-16 text-center text-slate-400 dark:text-slate-500">
+  No doctor activity found for the selected period and filters.
+</div>
+{% endif %}
+
+{% endblock %}

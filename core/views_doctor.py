@@ -1,6 +1,11 @@
+import datetime
+import json
+from collections import OrderedDict
+
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Prefetch
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -11,12 +16,12 @@ from .forms import (
     ClinicalNoteForm, DiagnosisForm,
     MedicationOrderForm, ProcedureOrderForm, VitalSignForm,
 )
-import datetime
 
 from .models import (
     Appointment, AppointmentStatusLog, AuditLog, ClinicalNote, Diagnosis,
-    ImagingOrder, ImagingService, Invoice, InvoiceItem, LabOrder, LabService,
-    Medication, MedicationOrder, Patient, PatientAttachment, ProcedureOrder, Visit, VitalSign,
+    Doctor, ImagingOrder, ImagingService, Invoice, InvoiceItem, LabOrder, LabService,
+    Medication, MedicationOrder, Patient, PatientAttachment, PhysicalExamination,
+    ProcedureOrder, Queue, Visit, VitalSign,
 )
 
 
@@ -29,17 +34,58 @@ def _get_visit(visit_id):
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
+def _get_doctor_profile(user):
+    try:
+        return user.doctor_profile
+    except Doctor.DoesNotExist:
+        return None
+
+
+def _build_queue_visits(doctor):
+    """Return active visits for this doctor with queue/appointment data, ordered by queue number."""
+    active_statuses = [
+        Visit.Status.WAITING_DOCTOR,
+        Visit.Status.CONSULTATION_STARTED,
+        Visit.Status.INVESTIGATION_ORDERED,
+        Visit.Status.INVESTIGATION_COMPLETED,
+        Visit.Status.TREATMENT_STARTED,
+        Visit.Status.PROCEDURE_SCHEDULED,
+        Visit.Status.PAYMENT_COMPLETED,
+        Visit.Status.WAITING_PAYMENT,
+        Visit.Status.REGISTERED,
+        Visit.Status.VISIT_CREATED,
+    ]
+    qs = (
+        Visit.objects
+        .filter(doctor=doctor, status__in=active_statuses)
+        .select_related('patient', 'department')
+        .prefetch_related('queue', 'appointment')
+        .order_by('queue__queue_number', 'created_at')
+    )
+    return qs
+
+
 @hms_permission_required('core.write_clinical_note')
 def doctor_dashboard(request):
     today = timezone.localdate()
-    today_visits = (
-        Visit.objects.filter(created_at__date=today)
-        .select_related('patient', 'doctor', 'department')
-        .prefetch_related('queue')
-        .order_by('-created_at')
-    )
-    pending_labs = LabOrder.objects.filter(status='Pending').count()
-    pending_imaging = ImagingOrder.objects.filter(status='Pending').count()
+    doctor = _get_doctor_profile(request.user)
+
+    if doctor:
+        my_visits = _build_queue_visits(doctor)
+        today_visits = my_visits.filter(created_at__date=today)
+        queue_count = my_visits.count()
+        waiting_count = my_visits.filter(status=Visit.Status.WAITING_DOCTOR).count()
+        in_consult_count = my_visits.filter(status=Visit.Status.CONSULTATION_STARTED).count()
+        pending_labs = LabOrder.objects.filter(visit__doctor=doctor, status='Pending').count()
+        pending_imaging = ImagingOrder.objects.filter(visit__doctor=doctor, status='Pending').count()
+    else:
+        today_visits = Visit.objects.filter(created_at__date=today).select_related('patient', 'department').prefetch_related('queue')
+        queue_count = 0
+        waiting_count = 0
+        in_consult_count = 0
+        pending_labs = LabOrder.objects.filter(status='Pending').count()
+        pending_imaging = ImagingOrder.objects.filter(status='Pending').count()
+
     recent_notes = (
         ClinicalNote.objects.filter(authored_by=request.user)
         .select_related('visit__patient')
@@ -51,8 +97,103 @@ def doctor_dashboard(request):
         'pending_imaging': pending_imaging,
         'recent_notes': recent_notes,
         'today': today,
+        'doctor': doctor,
+        'queue_count': queue_count,
+        'waiting_count': waiting_count,
+        'in_consult_count': in_consult_count,
     }
     return render(request, 'doctor/dashboard.html', context)
+
+
+@hms_permission_required('core.write_clinical_note')
+def doctor_queue_api(request):
+    """JSON endpoint: returns the logged-in doctor's active patient queue."""
+    doctor = _get_doctor_profile(request.user)
+    if not doctor:
+        return JsonResponse({'visits': [], 'total': 0, 'next_visit_id': None})
+
+    q_search = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    sort_by = request.GET.get('sort', 'queue').strip()  # queue | waiting | checkin | appointment
+
+    qs = _build_queue_visits(doctor)
+
+    if q_search:
+        qs = qs.filter(
+            Q(patient__first_name__icontains=q_search)
+            | Q(patient__last_name__icontains=q_search)
+            | Q(patient__card_number__icontains=q_search)
+        )
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    if sort_by == 'waiting':
+        qs = qs.order_by('queue__created_at')
+    elif sort_by == 'checkin':
+        qs = qs.order_by('created_at')
+    else:
+        qs = qs.order_by('queue__queue_number', 'created_at')
+
+    now = timezone.now()
+    visits_data = []
+    next_visit_id = None
+
+    for v in qs:
+        queue = getattr(v, 'queue', None)
+        appt_qs = v.appointment.all()
+        appt = appt_qs.first() if appt_qs.exists() else None
+
+        # Age calculation
+        age = None
+        if v.patient.date_of_birth:
+            dob = v.patient.date_of_birth
+            age = (now.date() - dob).days // 365
+
+        # Waiting time in minutes from queue creation
+        waiting_mins = None
+        if queue:
+            waiting_mins = int((now - queue.created_at).total_seconds() // 60)
+
+        # Priority from appointment if linked
+        priority = appt.priority if appt else 'Normal'
+
+        # Appointment time
+        appt_time = None
+        if appt and appt.appointment_time:
+            appt_time = appt.appointment_time.strftime('%H:%M')
+
+        queue_status = queue.status if queue else None
+
+        item = {
+            'id': v.id,
+            'queue_number': queue.queue_number if queue else None,
+            'queue_status': queue_status,
+            'patient_name': v.patient.full_name,
+            'mrn': v.patient.card_number,
+            'age': age,
+            'sex': v.patient.sex,
+            'visit_type': v.visit_type,
+            'visit_status': v.status,
+            'visit_status_display': v.get_status_display(),
+            'priority': priority,
+            'appointment_time': appt_time,
+            'checkin_time': v.created_at.strftime('%H:%M'),
+            'waiting_minutes': waiting_mins,
+            'department': v.department.name if v.department else '',
+            'url': f'/doctor/visit/{v.id}/',
+        }
+        visits_data.append(item)
+
+        # First waiting/active patient is "next"
+        if next_visit_id is None and v.status in [Visit.Status.WAITING_DOCTOR, Visit.Status.PAYMENT_COMPLETED]:
+            next_visit_id = v.id
+
+    return JsonResponse({
+        'visits': visits_data,
+        'total': len(visits_data),
+        'next_visit_id': next_visit_id,
+    })
 
 
 # ── Patient List ──────────────────────────────────────────────────────────────
@@ -62,11 +203,15 @@ def doctor_patient_list(request):
     query = request.GET.get('q', '').strip()
     date_filter = request.GET.get('date', '').strip()
 
+    doctor = _get_doctor_profile(request.user)
     visits = (
         Visit.objects.select_related('patient', 'doctor', 'department')
         .prefetch_related('queue')
         .order_by('-created_at')
     )
+    if doctor:
+        visits = visits.filter(doctor=doctor)
+
     if query:
         visits = visits.filter(
             Q(patient__first_name__icontains=query)
@@ -92,7 +237,7 @@ def visit_detail(request, visit_id):
     visit = _get_visit(visit_id)
     active_tab = request.GET.get('tab', 'notes')
 
-    clinical_notes = list(visit.clinical_notes.select_related('authored_by').all())
+    clinical_notes = list(visit.clinical_notes.select_related('authored_by', 'physical_exam').order_by('-created_at'))
     diagnoses = list(visit.diagnoses.select_related('authored_by').all())
     lab_orders = list(visit.lab_orders.select_related('ordered_by').all())
     imaging_orders = list(visit.imaging_orders.select_related('ordered_by').all())
@@ -135,8 +280,13 @@ def visit_detail(request, visit_id):
     if not request.user.has_perm('core.view_confidential_attachments'):
         attachments = [a for a in attachments if not a.is_confidential]
 
+    medical_certificates = list(visit.medical_certificates.filter(is_current=True))
+    death_certificates = list(visit.death_certificates.filter(is_current=True))
+    physical_exams = list(visit.physical_exams.select_related('examiner', 'template').order_by('-created_at'))
+
     tab_list = [
         {'id': 'notes',         'label': 'Notes',        'count': len(clinical_notes)},
+        {'id': 'physical_exam', 'label': 'Physical Exam','count': len(physical_exams)},
         {'id': 'vitals',        'label': 'Vitals',       'count': len(vital_signs)},
         {'id': 'diagnosis',     'label': 'Diagnosis',    'count': len(diagnoses)},
         {'id': 'lab',           'label': 'Lab',          'count': len(lab_orders)},
@@ -188,6 +338,9 @@ def visit_detail(request, visit_id):
         'glasgow_coma_scales': glasgow_coma_scales,
         'nursing_care_plans': nursing_care_plans,
         'attachments': attachments,
+        'medical_certificates': medical_certificates,
+        'death_certificates': death_certificates,
+        'physical_exams': physical_exams,
     }
     return render(request, 'doctor/visit_detail.html', context)
 
@@ -196,6 +349,7 @@ def visit_detail(request, visit_id):
 
 @hms_permission_required('core.write_clinical_note')
 def clinical_note_create(request, visit_id):
+    from .views_physical_exam import EXAM_SYSTEMS
     visit = _get_visit(visit_id)
     if request.method == 'POST':
         form = ClinicalNoteForm(request.POST)
@@ -211,11 +365,37 @@ def clinical_note_create(request, visit_id):
                 description=f'Clinical note added for {visit.patient.full_name}',
                 request=request,
             )
+            # Save linked physical examination if any systems were documented
+            findings = {}
+            for key, label, group, qn, qf in EXAM_SYSTEMS:
+                status = request.POST.get(f'exam_{key}_status', '').strip()
+                comment = request.POST.get(f'exam_{key}_comment', '').strip()
+                if status or comment:
+                    findings[key] = {'status': status, 'comment': comment}
+            overall_summary = request.POST.get('exam_overall_summary', '').strip()
+            if findings or overall_summary:
+                PhysicalExamination.objects.create(
+                    visit=visit,
+                    clinical_note=note,
+                    examiner=request.user,
+                    findings=findings,
+                    overall_summary=overall_summary,
+                    is_complete='exam_complete' in request.POST,
+                )
             messages.success(request, 'Clinical note saved.')
             return redirect('visit_detail', visit_id=visit_id)
     else:
         form = ClinicalNoteForm()
-    return render(request, 'doctor/clinical_note_form.html', {'form': form, 'visit': visit})
+    grouped = OrderedDict()
+    for key, label, group, qn, qf in EXAM_SYSTEMS:
+        if group not in grouped:
+            grouped[group] = []
+        grouped[group].append((key, label, qn))
+    return render(request, 'doctor/clinical_note_form.html', {
+        'form': form,
+        'visit': visit,
+        'grouped_exam_systems': grouped,
+    })
 
 
 # ── Diagnosis ─────────────────────────────────────────────────────────────────

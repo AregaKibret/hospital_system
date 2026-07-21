@@ -1,28 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Request {{ req.request_number }}{% endblock %}
+{% block title %}{{ req.request_number }}{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6">
-  <div class="flex items-center justify-between">
+<div class="max-w-4xl mx-auto space-y-6">
+  <div class="flex items-center justify-between flex-wrap gap-3">
     <div>
-      <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Requests</a>
+      <a href="{% url 'transfer_request_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Requisitions</a>
       <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ req.request_number }}</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400">{{ req.requesting_store.name }} · {{ req.request_date|date:"M d, Y H:i" }}</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        {{ req.requesting_store.name }} &middot; {{ req.request_date|date:"M d, Y H:i" }}
+        &middot;
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+          {% if req.request_type == 'patient_specific' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300
+          {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300{% endif %}">
+          {{ req.get_request_type_display }}
+        </span>
+      </p>
     </div>
     <div class="flex gap-2">
       {% if req.status == 'pending_ward_approval' and perms.core.ward_supervisor_approve %}
       <a href="{% url 'transfer_request_ward_approve' req.id %}" class="btn-primary text-sm">Ward Supervisor Review</a>
       {% endif %}
       {% if req.status == 'pending' and perms.core.approve_medication_transfer %}
-      <a href="{% url 'transfer_request_approve' req.id %}" class="btn-primary text-sm">Review</a>
+      <a href="{% url 'transfer_request_approve' req.id %}" class="btn-primary text-sm">Review & Approve</a>
       {% endif %}
       {% if req.status == 'approved' and perms.core.approve_medication_transfer %}
-      <a href="{% url 'transfer_request_fulfill' req.id %}" class="btn-primary text-sm">Fulfill</a>
+      <a href="{% url 'transfer_request_fulfill' req.id %}" class="btn-primary text-sm">Dispense</a>
       {% endif %}
     </div>
   </div>
 
-  <!-- Meta -->
+  <!-- Status Cards -->
   <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
     <div>
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Status</p>
@@ -39,7 +47,12 @@
     </div>
     <div>
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Priority</p>
-      <p class="mt-1 font-semibold text-slate-800 dark:text-slate-100">{{ req.get_priority_display }}</p>
+      <p class="mt-1 font-semibold
+        {% if req.priority == 'emergency' %}text-red-600 dark:text-red-400
+        {% elif req.priority == 'urgent' %}text-amber-600 dark:text-amber-400
+        {% else %}text-slate-800 dark:text-slate-100{% endif %}">
+        {{ req.get_priority_display }}
+      </p>
     </div>
     <div>
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Requested By</p>
@@ -53,7 +66,7 @@
     {% endif %}
     {% if req.ward_supervisor_approved_by %}
     <div>
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Ward Supervisor Approved By</p>
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Ward Supervisor</p>
       <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.ward_supervisor_approved_by.get_full_name|default:req.ward_supervisor_approved_by.username }}</p>
     </div>
     {% endif %}
@@ -77,40 +90,138 @@
     {% endif %}
   </div>
 
+  <!-- Patient Section -->
+  {% if req.request_type == 'patient_specific' %}
+  <div class="bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-700 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-4">Patient Information</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+      {% if req.patient %}
+      <div>
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">Patient</p>
+        <p class="mt-1 font-semibold text-slate-800 dark:text-slate-100">{{ req.patient.first_name }} {{ req.patient.last_name }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">MRN</p>
+        <p class="mt-1 font-mono text-slate-700 dark:text-slate-300">{{ req.patient.card_number }}</p>
+      </div>
+      {% endif %}
+      {% if req.visit %}
+      <div>
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">Visit</p>
+        <p class="mt-1 text-slate-700 dark:text-slate-300">#{{ req.visit.id }}</p>
+      </div>
+      {% endif %}
+      {% if req.requesting_doctor %}
+      <div>
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">Requesting Doctor</p>
+        <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.requesting_doctor.get_full_name }}</p>
+      </div>
+      {% endif %}
+      {% if req.clinical_reason %}
+      <div class="col-span-4">
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">Clinical Reason</p>
+        <p class="mt-1 text-slate-700 dark:text-slate-300">{{ req.clinical_reason }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Billing Status -->
+  {% if req.invoice %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Billing</h3>
+      <a href="{% url 'invoice_detail' req.invoice.id %}" class="text-xs text-indigo-600 hover:underline">View Invoice →</a>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wide">Invoice</p>
+        <p class="mt-1 font-semibold text-slate-800 dark:text-slate-100">{{ req.invoice.invoice_number }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wide">Status</p>
+        <span class="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+          {% if req.invoice.status == 'Paid' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+          {% elif req.invoice.status == 'Draft' %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300
+          {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+          {{ req.invoice.status }}
+        </span>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wide">Total</p>
+        <p class="mt-1 font-semibold text-slate-800 dark:text-slate-100">ETB {{ req.invoice.total_amount|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 uppercase tracking-wide">Balance</p>
+        <p class="mt-1 font-semibold {% if req.invoice.balance > 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+          ETB {{ req.invoice.balance|floatformat:2 }}
+        </p>
+      </div>
+    </div>
+  </div>
+  {% elif req.status in 'fulfilled,partial' %}
+  <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300">
+    No billing invoice was generated for this requisition.
+  </div>
+  {% endif %}
+  {% endif %}
+
   <!-- Items -->
   <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
     <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
       <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Requested Items</h3>
     </div>
-    <table class="min-w-full text-sm">
-      <thead>
-        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
-          <th class="px-5 py-3 font-medium">Item</th>
-          <th class="px-5 py-3 font-medium text-right">Requested</th>
-          <th class="px-5 py-3 font-medium text-right">Approved</th>
-          <th class="px-5 py-3 font-medium">Item Note</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-        {% for item in items %}
-        <tr>
-          <td class="px-5 py-3">
-            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.item_name }}</p>
-            {% if item.medication %}<p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
-            {% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300">Consumable</span>{% endif %}
-          </td>
-          <td class="px-5 py-3 text-right text-slate-700 dark:text-slate-300">{{ item.quantity_requested }}</td>
-          <td class="px-5 py-3 text-right">
-            {% if item.quantity_approved is not None %}
-            <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ item.quantity_approved }}</span>
-            {% if item.quantity_issued %} <span class="text-xs text-slate-400">({{ item.quantity_issued }} issued)</span>{% endif %}
-            {% else %}<span class="text-slate-400 dark:text-slate-500">—</span>{% endif %}
-          </td>
-          <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ item.notes|default:"—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+            <th class="px-5 py-3 font-medium">Item</th>
+            <th class="px-5 py-3 font-medium text-right">Requested</th>
+            <th class="px-5 py-3 font-medium text-right">Approved</th>
+            <th class="px-5 py-3 font-medium text-right">Issued</th>
+            {% if req.request_type == 'patient_specific' %}
+            <th class="px-5 py-3 font-medium text-right">Unit Price</th>
+            <th class="px-5 py-3 font-medium text-center">Billed</th>
+            {% endif %}
+            <th class="px-5 py-3 font-medium">Note</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for item in items %}
+          <tr>
+            <td class="px-5 py-3">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.item_name }}</p>
+              {% if item.medication %}<p class="text-xs text-slate-500 dark:text-slate-400">{{ item.medication.generic_name }}</p>
+              {% else %}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300">Consumable</span>{% endif %}
+            </td>
+            <td class="px-5 py-3 text-right text-slate-700 dark:text-slate-300">{{ item.quantity_requested }}</td>
+            <td class="px-5 py-3 text-right">
+              {% if item.quantity_approved is not None %}
+              <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ item.quantity_approved }}</span>
+              {% else %}<span class="text-slate-400">—</span>{% endif %}
+            </td>
+            <td class="px-5 py-3 text-right">
+              {% if item.quantity_issued %}<span class="font-semibold text-blue-600 dark:text-blue-400">{{ item.quantity_issued }}</span>
+              {% else %}<span class="text-slate-400">—</span>{% endif %}
+            </td>
+            {% if req.request_type == 'patient_specific' %}
+            <td class="px-5 py-3 text-right text-slate-700 dark:text-slate-300">ETB {{ item.unit_price|floatformat:2 }}</td>
+            <td class="px-5 py-3 text-center">
+              {% if item.invoice_item %}
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Billed</span>
+              {% elif item.is_billable %}
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Pending</span>
+              {% else %}
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500">Exempt</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="px-5 py-3 text-slate-500 dark:text-slate-400">{{ item.notes|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Associated transfers -->
@@ -124,7 +235,7 @@
       <div class="px-5 py-4 flex items-center justify-between">
         <div>
           <a href="{% url 'dept_transfer_detail' t.id %}" class="font-medium text-indigo-600 hover:underline">{{ t.transfer_number }}</a>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ t.get_status_display }} · {{ t.items.count }} items</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ t.get_status_display }} &middot; {{ t.items.count }} items</p>
         </div>
         <span class="text-xs text-slate-500 dark:text-slate-400">{{ t.created_at|date:"M d, H:i" }}</span>
       </div>

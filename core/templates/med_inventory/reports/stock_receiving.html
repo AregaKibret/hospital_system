@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  {% include "reports/_toolbar.html" with title=title qp=qp %}
+
+  <form method="get" class="flex flex-wrap gap-2 mb-4 no-print">
+    <input type="date" name="from" value="{{ date_from }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <input type="date" name="to" value="{{ date_to }}" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+    <select name="supplier" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All suppliers</option>
+      {% for s in suppliers %}<option value="{{ s.id }}" {% if supplier_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+    {% if not fixed_payment_method %}
+    <select name="payment_method" class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+      <option value="">All payment methods</option>
+      {% for val, label in payment_methods %}<option value="{{ val }}" {% if payment_method == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button type="submit" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded-lg">Filter</button>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+      <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ receipts|length }} receipt(s)</h3>
+      <span class="text-sm font-bold text-slate-900 dark:text-white">Total: ETB {{ grand_total|floatformat:2 }}</span>
+    </div>
+    {% if receipts %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">Receipt #</th>
+          <th class="text-left px-4 py-3">Date</th>
+          <th class="text-left px-4 py-3">Supplier</th>
+          <th class="text-left px-4 py-3">Invoice #</th>
+          <th class="text-left px-4 py-3">Payment Method</th>
+          <th class="text-right px-4 py-3">Lines</th>
+          <th class="text-right px-4 py-3">Total Value</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for r in receipts %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer" onclick="window.location='{% url 'goods_receipt_detail' r.id %}'">
+          <td class="px-4 py-3 font-medium text-slate-900 dark:text-white">{{ r.goods_receipt_number }}</td>
+          <td class="px-4 py-3 text-slate-500">{{ r.received_date|date:"d M Y" }}</td>
+          <td class="px-4 py-3">{{ r.supplier.name }}</td>
+          <td class="px-4 py-3 text-slate-500">{{ r.supplier_invoice_number }}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs
+              {% if r.payment_method == 'cash' %}bg-emerald-100 text-emerald-700
+              {% elif r.payment_method == 'credit' %}bg-amber-100 text-amber-700
+              {% else %}bg-violet-100 text-violet-700{% endif %}">
+              {{ r.get_payment_method_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right">{{ r.calc_line_count }}</td>
+          <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">ETB {{ r.calc_total_value|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+      <p class="text-sm">No goods receipts found for this filter.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

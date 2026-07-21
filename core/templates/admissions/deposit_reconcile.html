@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Discharge Settlement — {{ admission.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-5">
+    <a href="{% url 'deposit_account_detail' admission_id=admission.pk %}" class="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">&larr; Back to Deposit Account</a>
+    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">Discharge Settlement</h1>
+    <p class="text-sm text-slate-500 mt-0.5">{{ admission.patient.full_name }} &middot; Bed {{ admission.bed.bed_code }}</p>
+  </div>
+
+  <!-- Financial Summary -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 mb-5">
+    <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4">Financial Summary</h2>
+    <div class="space-y-3">
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+        <span class="text-slate-600 dark:text-slate-300">Initial Deposit</span>
+        <span class="font-medium tabular-nums">ETB {{ account.initial_deposit|floatformat:2 }}</span>
+      </div>
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+        <span class="text-slate-600 dark:text-slate-300">Additional Deposits</span>
+        <span class="font-medium tabular-nums">ETB {{ account.additional_deposits|floatformat:2 }}</span>
+      </div>
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2 font-semibold">
+        <span class="text-slate-800 dark:text-slate-100">Total Deposited</span>
+        <span class="tabular-nums">ETB {{ account.total_deposited|floatformat:2 }}</span>
+      </div>
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+        <span class="text-slate-600 dark:text-slate-300">Total Charges Deducted</span>
+        <span class="font-medium tabular-nums text-red-600 dark:text-red-400">ETB {{ account.total_charges|floatformat:2 }}</span>
+      </div>
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+        <span class="text-slate-600 dark:text-slate-300">Remaining Pending Charges</span>
+        <span class="font-medium tabular-nums text-amber-600 dark:text-amber-400">ETB {{ total_unpaid|floatformat:2 }}</span>
+      </div>
+      <div class="flex justify-between text-sm border-b border-slate-100 dark:border-slate-700 pb-2">
+        <span class="text-slate-600 dark:text-slate-300">Current Available Balance</span>
+        <span class="font-semibold tabular-nums {% if account.available_balance < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">
+          ETB {{ account.available_balance|floatformat:2 }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Outcome -->
+    <div class="mt-5 rounded-xl p-4 {% if refund_after > 0 %}bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700{% elif outstanding_after > 0 %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700{% else %}bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700{% endif %}">
+      {% if refund_after > 0 %}
+        <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Refund Due to Patient</p>
+        <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">ETB {{ refund_after|floatformat:2 }}</p>
+        <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Deposit exceeds total charges. Issue a refund of this amount to the patient.</p>
+      {% elif outstanding_after > 0 %}
+        <p class="text-sm font-semibold text-red-700 dark:text-red-400">Outstanding Amount</p>
+        <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">ETB {{ outstanding_after|floatformat:2 }}</p>
+        <p class="text-xs text-red-600 dark:text-red-400 mt-1">Charges exceed the deposit. Collect this amount before discharge.</p>
+      {% else %}
+        <p class="text-sm font-semibold text-blue-700 dark:text-blue-400">Account Balanced</p>
+        <p class="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">ETB 0.00</p>
+        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Total deposit equals total charges. No refund or additional payment required.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Unpaid Items -->
+  {% if unpaid_items %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-5">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Pending Invoice Items ({{ unpaid_items|length }})</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="bg-slate-50 dark:bg-slate-700/50 text-left text-xs text-slate-500 uppercase border-b border-slate-200 dark:border-slate-700">
+          <th class="px-4 py-3 font-semibold">Description</th>
+          <th class="px-4 py-3 font-semibold">Type</th>
+          <th class="px-4 py-3 font-semibold text-right">Amount (ETB)</th>
+          <th class="px-4 py-3 font-semibold text-right">Paid</th>
+          <th class="px-4 py-3 font-semibold text-right">Balance</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for item in unpaid_items %}
+          <tr>
+            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ item.description }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ item.get_service_type_display }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ item.total|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums text-emerald-600">{{ item.paid_amount|floatformat:2 }}</td>
+            <td class="px-4 py-3 text-right tabular-nums font-medium text-red-600">{{ item.balance|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Action -->
+  {% if account.status == 'active' %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
+    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Confirm Settlement</h2>
+    <p class="text-sm text-slate-500 mb-4">
+      Settling will use the available deposit balance to pay off all pending charges.
+      {% if refund_after > 0 %}A refund of <strong>ETB {{ refund_after|floatformat:2 }}</strong> should be issued to the patient.{% endif %}
+      {% if outstanding_after > 0 %}An outstanding amount of <strong class="text-red-600">ETB {{ outstanding_after|floatformat:2 }}</strong> must be collected first.{% endif %}
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="settle">
+      <div class="flex gap-3">
+        <button type="submit" class="btn-primary flex-1"
+          onclick="return confirm('Confirm discharge settlement? This cannot be undone.')">
+          Confirm Settlement
+        </button>
+        <a href="{% url 'deposit_account_detail' admission_id=admission.pk %}" class="btn-secondary flex-1 text-center">Cancel</a>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <div class="bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-200 dark:border-slate-600 p-5 text-center text-sm text-slate-500">
+    This account has already been settled.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

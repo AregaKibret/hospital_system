@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}About — System Information{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">About This System</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">System version, license, and deployment information.</p>
+  </div>
+
+  <!-- Version card -->
+  {% if current_version %}
+  <div class="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white mb-5 shadow-lg">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="text-blue-200 text-xs uppercase tracking-widest mb-1">Current Version</p>
+        <h2 class="text-4xl font-bold">v{{ current_version.version }}</h2>
+        {% if current_version.build %}
+        <p class="text-blue-200 text-sm mt-1">Build {{ current_version.build }}</p>
+        {% endif %}
+      </div>
+      <div class="text-right text-sm">
+        <p class="text-blue-200">Released</p>
+        <p class="font-semibold">{{ current_version.release_date|date:"d M Y" }}</p>
+        {% if current_version.db_schema_ver %}
+        <p class="text-blue-200 mt-2">DB Schema</p>
+        <p class="font-semibold">{{ current_version.db_schema_ver }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% if current_version.release_notes %}
+    <div class="mt-4 pt-4 border-t border-blue-500/50">
+      <p class="text-blue-200 text-xs uppercase tracking-wider mb-2">Release Notes</p>
+      <p class="text-sm leading-relaxed whitespace-pre-line">{{ current_version.release_notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Hospital info -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Deployed For</h2>
+    </div>
+    <div class="p-5 grid grid-cols-2 gap-3 text-sm">
+      {% if profile.logo %}
+      <div class="col-span-2 mb-2">
+        <img src="{{ profile.logo.url }}" alt="{{ profile.name }}" class="h-12 w-auto">
+      </div>
+      {% endif %}
+      <div><span class="text-slate-400 text-xs">Hospital</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.name }}</p></div>
+      {% if profile.license_number %}<div><span class="text-slate-400 text-xs">License No.</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.license_number }}</p></div>{% endif %}
+      {% if profile.tin %}<div><span class="text-slate-400 text-xs">TIN</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.tin }}</p></div>{% endif %}
+      {% if profile.phone %}<div><span class="text-slate-400 text-xs">Phone</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.phone }}</p></div>{% endif %}
+      {% if profile.email %}<div><span class="text-slate-400 text-xs">Email</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.email }}</p></div>{% endif %}
+      {% if profile.address %}<div class="col-span-2"><span class="text-slate-400 text-xs">Address</span><p class="font-semibold text-slate-800 dark:text-white">{{ profile.display_address }}</p></div>{% endif %}
+    </div>
+  </div>
+
+  <!-- License -->
+  {% if license %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-white">License</h2>
+      {% if license.is_active %}
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">Active</span>
+      {% else %}
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{{ license.get_status_display }}</span>
+      {% endif %}
+    </div>
+    <div class="p-5 grid grid-cols-2 gap-3 text-sm">
+      <div><span class="text-slate-400 text-xs">Type</span><p class="font-semibold text-slate-800 dark:text-white">{{ license.get_license_type_display }}</p></div>
+      <div><span class="text-slate-400 text-xs">Max Users</span><p class="font-semibold text-slate-800 dark:text-white">{% if license.max_users == 0 %}Unlimited{% else %}{{ license.max_users }}{% endif %}</p></div>
+      {% if license.expiration_date %}<div><span class="text-slate-400 text-xs">Expires</span><p class="font-semibold text-slate-800 dark:text-white">{{ license.expiration_date|date:"d M Y" }}</p></div>{% endif %}
+      {% if license.support_expiration %}<div><span class="text-slate-400 text-xs">Support Until</span><p class="font-semibold text-slate-800 dark:text-white">{{ license.support_expiration|date:"d M Y" }}</p></div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tech stack -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
+    <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Technology Stack</h2>
+    </div>
+    <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+      {% for label, val in tech_stack %}
+      <div><span class="text-slate-400 text-xs">{{ label }}</span><p class="font-medium text-slate-700 dark:text-slate-200">{{ val }}</p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  {% if perms.core.manage_system_config %}
+  <div class="flex flex-wrap gap-3 pb-8">
+    <a href="{% url 'hospital_profile' %}" class="btn-primary text-sm">Edit Hospital Profile</a>
+    <a href="{% url 'module_management' %}" class="btn-secondary text-sm">Module Management</a>
+    <a href="{% url 'version_history' %}" class="btn-secondary text-sm">Version History</a>
+    <a href="{% url 'license_info' %}" class="btn-secondary text-sm">License Details</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

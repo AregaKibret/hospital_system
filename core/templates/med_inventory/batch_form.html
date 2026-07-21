@@ -57,12 +57,27 @@
       </div>
       <div class="field-wrapper">
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Purchase Price (ETB / unit)</label>
-        <input type="number" name="purchase_price" step="0.01" min="0" value="{{ med.purchase_price }}">
+        <input type="number" id="id_purchase_price" name="purchase_price" step="0.01" min="0" value="{{ med.purchase_price }}">
       </div>
       <div class="field-wrapper">
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier</label>
-        <select name="supplier">
-          <option value="">— Default supplier —</option>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Selling Price (ETB / unit)
+          <span id="sellingPriceAutoBadge" class="ml-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">(auto)</span>
+        </label>
+        <input type="number" id="id_selling_price" name="selling_price" step="0.01" min="0" value="{{ med.selling_price }}">
+        <input type="hidden" id="id_selling_price_overridden" name="selling_price_overridden" value="">
+        <p class="text-xs text-slate-400 mt-1">Auto-calculated as Purchase Price + {{ default_markup_percent }}% markup. Edit directly to override.</p>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Batch Status</label>
+        <select name="status">
+          {% for val, label in batch_statuses %}<option value="{{ val }}" {% if val == 'active' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier <span class="text-red-500">*</span></label>
+        <select name="supplier" required>
+          <option value="">— Select supplier —</option>
           {% for s in suppliers %}<option value="{{ s.id }}" {% if med.supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
         </select>
       </div>
@@ -78,8 +93,12 @@
         <input type="text" name="po_ref" placeholder="Purchase order #">
       </div>
       <div class="field-wrapper">
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Invoice Number</label>
-        <input type="text" name="invoice_number" placeholder="Supplier invoice #">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier Invoice Number <span class="text-red-500">*</span></label>
+        <input type="text" name="invoice_number" required placeholder="Supplier invoice #">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Supplier Invoice Date</label>
+        <input type="date" name="supplier_invoice_date">
       </div>
       <div class="field-wrapper sm:col-span-2 lg:col-span-3">
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Notes</label>
@@ -87,6 +106,79 @@
       </div>
     </div>
   </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-blue-50/50 dark:bg-blue-900/10">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Payment</h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Payment Method</label>
+        <select name="payment_method" id="paymentMethod">
+          {% for val, label in payment_methods %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper" id="cashRefField">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Cash Payment Reference</label>
+        <input type="text" name="cash_payment_reference">
+      </div>
+      <div class="field-wrapper hidden" id="dueDateField">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Due Date</label>
+        <input type="date" name="due_date">
+      </div>
+      <div class="field-wrapper hidden" id="creditDaysField">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Or Credit Period (days)</label>
+        <input type="number" name="credit_period_days" min="1">
+      </div>
+      <div class="field-wrapper hidden" id="consignmentField">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Consignment Agreement #</label>
+        <input type="text" name="consignment_agreement_number">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const sel = document.getElementById('paymentMethod');
+      function update() {
+        const v = sel.value;
+        document.getElementById('cashRefField').classList.toggle('hidden', v !== 'cash');
+        document.getElementById('dueDateField').classList.toggle('hidden', v === 'cash');
+        document.getElementById('creditDaysField').classList.toggle('hidden', v === 'cash');
+        document.getElementById('consignmentField').classList.toggle('hidden', v !== 'consignment');
+      }
+      sel.addEventListener('change', update);
+      update();
+    })();
+  </script>
+
+  <script>
+    (function () {
+      const purchaseInput   = document.getElementById('id_purchase_price');
+      const sellingInput    = document.getElementById('id_selling_price');
+      const overriddenInput = document.getElementById('id_selling_price_overridden');
+      const autoBadge       = document.getElementById('sellingPriceAutoBadge');
+      const markupPercent   = parseFloat('{{ default_markup_percent|default:"25" }}') || 25;
+
+      function isOverridden() { return overriddenInput.value === '1'; }
+      function setBadge() { autoBadge.style.display = isOverridden() ? 'none' : 'inline'; }
+
+      function recalcSellingPrice() {
+        if (isOverridden()) return;
+        const purchase = parseFloat(purchaseInput.value) || 0;
+        const computed = purchase + (purchase * markupPercent / 100);
+        sellingInput.value = computed.toFixed(2);
+      }
+
+      purchaseInput.addEventListener('input', recalcSellingPrice);
+      sellingInput.addEventListener('input', function () {
+        overriddenInput.value = '1';
+        setBadge();
+      });
+
+      setBadge();
+    })();
+  </script>
 
   <div class="flex justify-end gap-3">
     <a href="{% url 'medication_detail' med.id %}" class="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 transition-colors">Cancel</a>

@@ -23,6 +23,9 @@
   </div>
   <div class="flex items-center gap-2">
     <a href="{% url 'patient_history' patient.pk %}" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">Patient History</a>
+    {% if perms.core.read_medical_certificate %}
+    <a href="{% url 'certificate_dashboard' %}?mc_q={{ patient.card_number }}&dc_q={{ patient.card_number }}" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">Certificates</a>
+    {% endif %}
     {% if perms.core.delete_attachment %}
     <a href="{% url 'patient_attachment_deleted_list' patient.pk %}" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium transition-colors">Deleted</a>
     {% endif %}

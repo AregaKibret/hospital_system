@@ -7,12 +7,29 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from decimal import Decimal
+
 from .audit import log_action
 from .decorators import hms_permission_required
 from .models import (
     AuditLog, InventoryCategory, InventoryItem, InventoryTransaction, ItemGroup,
-    PurchaseOrder, PurchaseOrderItem, UnitOfMeasure,
+    Medication, PricingSettings, PurchaseOrder, PurchaseOrderItem, UnitOfMeasure,
 )
+
+
+def _resolve_selling_price(purchase_price, submitted_selling_price, is_overridden):
+    """Applies the global default markup (Purchase/Unit Cost + markup%)
+    unless the user explicitly overrode the Selling Price field. Mirrors
+    views_med_inventory._resolve_selling_price for the Inventory module.
+    Returns (final_price, is_manual, computed_price)."""
+    computed = PricingSettings.get_solo().compute_selling_price(purchase_price)
+    if is_overridden:
+        try:
+            final = Decimal(submitted_selling_price)
+        except Exception:
+            final = computed
+        return final, True, computed
+    return computed, False, computed
 
 
 # ── Inventory Dashboard ───────────────────────────────────────────────────────
@@ -99,6 +116,11 @@ def inventory_item_create(request):
             messages.error(request, 'Item name is required.')
         else:
             category_id = request.POST.get('category') or None
+            unit_cost = Decimal(request.POST.get('unit_cost') or '0')
+            is_overridden = bool(request.POST.get('selling_price_overridden'))
+            selling_price, is_manual, computed_price = _resolve_selling_price(
+                unit_cost, request.POST.get('selling_price'), is_overridden,
+            )
             inv_item = InventoryItem.objects.create(
                 name=name,
                 item_code=request.POST.get('item_code', '').strip() or None,
@@ -114,8 +136,9 @@ def inventory_item_create(request):
                 unit_purchase=request.POST.get('unit_purchase', '').strip(),
                 dispensing_unit=request.POST.get('dispensing_unit', '').strip(),
                 quantity_in_stock=int(request.POST.get('quantity_in_stock', 0) or 0),
-                unit_cost=request.POST.get('unit_cost', 0) or 0,
-                selling_price=request.POST.get('selling_price', 0) or 0,
+                unit_cost=unit_cost,
+                selling_price=selling_price,
+                selling_price_is_manual=is_manual,
                 inpatient_price=request.POST.get('inpatient_price', 0) or 0,
                 tax_type=request.POST.get('tax_type', '').strip(),
                 reorder_level=int(request.POST.get('reorder_level', 10) or 10),
@@ -143,6 +166,25 @@ def inventory_item_create(request):
                 description=f'Inventory item "{inv_item.name}" created — qty {inv_item.quantity_in_stock}',
                 request=request,
             )
+            if is_manual:
+                log_action(
+                    request.user, AuditLog.Action.ADJUST, AuditLog.Module.INVENTORY,
+                    object_type='InventoryItem', object_id=inv_item.pk, object_repr=inv_item.name,
+                    description=(
+                        f'Selling price manually overridden for {inv_item.name}: '
+                        f'ETB {computed_price} (auto) → ETB {selling_price} (manual)'
+                    ),
+                    changes={'selling_price': {'old': str(computed_price), 'new': str(selling_price)}},
+                    extra_data={'auto_calculated': str(computed_price), 'manual_override': str(selling_price)},
+                    request=request,
+                )
+            if inv_item.item_type == InventoryItem.ItemType.MEDICATION:
+                messages.success(
+                    request,
+                    f'Inventory item "{inv_item.name}" created. Complete its Medication Details '
+                    f'below to make it available for prescribing/dispensing.',
+                )
+                return redirect('medication_details_complete', item_id=inv_item.id)
             messages.success(request, 'Inventory item created successfully.')
             return redirect('inventory_item_list')
     return render(request, 'inventory/item_form.html', {
@@ -152,6 +194,7 @@ def inventory_item_create(request):
         'item_types': InventoryItem.ItemType.choices,
         'action': 'Create',
         'item': None,
+        'default_markup_percent': PricingSettings.get_solo().default_markup_percent,
     })
 
 
@@ -168,6 +211,13 @@ def inventory_item_edit(request, item_id):
         if not name:
             messages.error(request, 'Item name is required.')
         else:
+            old_selling_price = item.selling_price
+            unit_cost = Decimal(request.POST.get('unit_cost') or '0')
+            is_overridden = bool(request.POST.get('selling_price_overridden'))
+            selling_price, is_manual, computed_price = _resolve_selling_price(
+                unit_cost, request.POST.get('selling_price'), is_overridden,
+            )
+
             item.name = name
             item.item_code = request.POST.get('item_code', '').strip() or None
             item.generic_name = request.POST.get('generic_name', '').strip()
@@ -181,8 +231,9 @@ def inventory_item_edit(request, item_id):
             item.unit = request.POST.get('unit', 'units').strip() or 'units'
             item.unit_purchase = request.POST.get('unit_purchase', '').strip()
             item.dispensing_unit = request.POST.get('dispensing_unit', '').strip()
-            item.unit_cost = request.POST.get('unit_cost', 0) or 0
-            item.selling_price = request.POST.get('selling_price', 0) or 0
+            item.unit_cost = unit_cost
+            item.selling_price = selling_price
+            item.selling_price_is_manual = is_manual
             item.inpatient_price = request.POST.get('inpatient_price', 0) or 0
             item.tax_type = request.POST.get('tax_type', '').strip()
             item.reorder_level = int(request.POST.get('reorder_level', 10) or 10)
@@ -198,6 +249,25 @@ def inventory_item_edit(request, item_id):
                 object_type='InventoryItem', object_id=item.pk, object_repr=item.name,
                 description=f'Inventory item "{item.name}" updated', request=request,
             )
+            if is_manual and str(selling_price) != str(old_selling_price):
+                log_action(
+                    request.user, AuditLog.Action.ADJUST, AuditLog.Module.INVENTORY,
+                    object_type='InventoryItem', object_id=item.pk, object_repr=item.name,
+                    description=(
+                        f'Selling price manually overridden for {item.name}: '
+                        f'ETB {old_selling_price} → ETB {selling_price} (auto would be ETB {computed_price})'
+                    ),
+                    changes={'selling_price': {'old': str(old_selling_price), 'new': str(selling_price)}},
+                    extra_data={'auto_calculated': str(computed_price), 'manual_override': str(selling_price)},
+                    request=request,
+                )
+            if item.item_type == InventoryItem.ItemType.MEDICATION and not Medication.objects.filter(inventory_item=item).exists():
+                messages.success(
+                    request,
+                    f'Item "{item.name}" updated. It is now typed as Medication — complete its '
+                    f'Medication Details below to make it available for prescribing/dispensing.',
+                )
+                return redirect('medication_details_complete', item_id=item.id)
             messages.success(request, 'Item updated successfully.')
             return redirect('inventory_item_list')
     return render(request, 'inventory/item_form.html', {
@@ -207,6 +277,7 @@ def inventory_item_edit(request, item_id):
         'units': units,
         'item_types': InventoryItem.ItemType.choices,
         'action': 'Edit',
+        'default_markup_percent': PricingSettings.get_solo().default_markup_percent,
     })
 
 

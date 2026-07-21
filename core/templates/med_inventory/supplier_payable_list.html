@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Supplier Payables{% endblock %}
+{% block content %}
+<div class="mb-5">
+  <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Supplier Payables</h1>
+  <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Credit and consignment amounts owed to suppliers</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Outstanding</p>
+    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">ETB {{ total_outstanding|floatformat:2 }}</p>
+  </div>
+  <a href="{% url 'report_credit_due' %}" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Due Soon Report</p>
+    <p class="text-sm font-semibold text-amber-600 mt-1">View →</p>
+  </a>
+  <a href="{% url 'report_overdue_supplier_payments' %}" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Overdue Report</p>
+    <p class="text-sm font-semibold text-red-600 mt-1">View →</p>
+  </a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 mb-5">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Search</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Supplier, receipt #, invoice #" class="field-input text-sm py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Supplier</label>
+      <select name="supplier" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        {% for s in suppliers %}<option value="{{ s.id }}" {% if supplier_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Status</label>
+      <select name="status" class="field-input text-sm py-1.5">
+        <option value="">All</option>
+        <option value="unpaid" {% if status_f == 'unpaid' %}selected{% endif %}>Unpaid</option>
+        <option value="partial" {% if status_f == 'partial' %}selected{% endif %}>Partially Paid</option>
+        <option value="paid" {% if status_f == 'paid' %}selected{% endif %}>Fully Paid</option>
+        <option value="overdue" {% if status_f == 'overdue' %}selected{% endif %}>Overdue</option>
+      </select>
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="btn-primary text-sm w-full py-1.5">Filter</button>
+    </div>
+  </div>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+          <th class="px-5 py-3 font-medium">Supplier</th>
+          <th class="px-5 py-3 font-medium">Receipt #</th>
+          <th class="px-5 py-3 font-medium text-right">Total</th>
+          <th class="px-5 py-3 font-medium text-right">Paid</th>
+          <th class="px-5 py-3 font-medium text-right">Outstanding</th>
+          <th class="px-5 py-3 font-medium">Due Date</th>
+          <th class="px-5 py-3 font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for p in page_obj %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition cursor-pointer" onclick="window.location='{% url 'supplier_payable_detail' p.id %}'">
+          <td class="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">{{ p.supplier.name }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ p.goods_receipt.goods_receipt_number }}</td>
+          <td class="px-5 py-3 text-right">{{ p.total_amount }}</td>
+          <td class="px-5 py-3 text-right text-emerald-600">{{ p.amount_paid }}</td>
+          <td class="px-5 py-3 text-right font-semibold">{{ p.outstanding_balance }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ p.due_date|default:"—" }}</td>
+          <td class="px-5 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs
+              {% if p.status == 'Overdue' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+              {% elif p.status == 'Fully Paid' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400
+              {% elif p.status == 'Partially Paid' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+              {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+              {{ p.status }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400">No supplier payables found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex justify-center gap-2">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="text-xs text-blue-600 hover:underline">Prev</a>{% endif %}
+    <span class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="text-xs text-blue-600 hover:underline">Next</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

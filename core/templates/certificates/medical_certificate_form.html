@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Medical Certificate — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6 flex-wrap">
+  <a href="{% url 'visit_detail' visit.pk %}" class="btn-secondary text-sm">← Back to Visit</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Medical Certificate — {{ visit.patient.full_name }}</h1>
+  {% if cert %}
+  <a href="{% url 'medical_certificate_history' visit.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View Version History</a>
+  {% endif %}
+</div>
+
+<!-- Auto-filled from EMR -->
+<div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 mb-5 text-sm grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div><span class="text-xs text-slate-400 block">Patient</span><span class="font-semibold text-slate-800 dark:text-slate-100">{{ visit.patient.full_name }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Card No. / MRN</span><span class="text-slate-700 dark:text-slate-200">{{ visit.patient.card_number }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Age / Sex</span><span class="text-slate-700 dark:text-slate-200">{{ visit.patient.age_display|default:"—" }} / {{ visit.patient.sex }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Date of Birth</span><span class="text-slate-700 dark:text-slate-200">{{ visit.patient.date_of_birth|date:"d M Y"|default:"—" }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Address</span><span class="text-slate-700 dark:text-slate-200">{{ visit.patient.city|default:"—" }}{% if visit.patient.subcity %}, {{ visit.patient.subcity }}{% endif %}</span></div>
+  <div><span class="text-xs text-slate-400 block">Visit Date</span><span class="text-slate-700 dark:text-slate-200">{{ visit.created_at|date:"d M Y" }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Treating Doctor</span><span class="text-slate-700 dark:text-slate-200">Dr. {{ visit.doctor.first_name }} {{ visit.doctor.last_name }}</span></div>
+  <div><span class="text-xs text-slate-400 block">Department</span><span class="text-slate-700 dark:text-slate-200">{{ visit.department.name }}</span></div>
+</div>
+
+{% if cert and cert.is_finalized %}
+<div class="mb-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+  <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">This medical certificate ({{ cert.certificate_number }}, v{{ cert.version }}) is finalized and signed by {{ cert.signature_name }} on {{ cert.finalized_at|date:"d M Y H:i" }}.</p>
+  <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Editing below will create Version {{ cert.version|add:1 }} — the signed original is preserved permanently. A reason is required.</p>
+</div>
+{% endif %}
+
+<form method="post">{% csrf_token %}
+
+  {% if cert and cert.is_finalized %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-amber-300 dark:border-amber-700 shadow-sm p-5 mb-5">
+    <label class="field-label">Reason for Revision <span class="text-red-500">*</span></label>
+    <textarea name="revision_reason" rows="2" required class="field-input" placeholder="Explain what changed and why…"></textarea>
+  </div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Examination Details</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Date of Examination <span class="text-red-500">*</span></label>
+        <input type="date" name="date_of_examination" value="{{ cert.date_of_examination|date:'Y-m-d' }}" required class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Follow-up Date</label>
+        <input type="date" name="follow_up_date" value="{{ cert.follow_up_date|date:'Y-m-d' }}" class="field-input" />
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Medical Findings</label>
+        <textarea name="medical_findings" rows="3" class="field-input">{{ cert.medical_findings }}</textarea>
+      </div>
+      <div class="field-wrapper sm:col-span-2">
+        <label class="field-label">Diagnosis <span class="text-slate-400 font-normal">(optional)</span></label>
+        <textarea name="diagnosis" rows="2" class="field-input">{{ cert.diagnosis }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Rest &amp; Fitness</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="field-label">Recommended Rest From</label>
+        <input type="date" name="rest_from" value="{{ cert.rest_from|date:'Y-m-d' }}" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Recommended Rest To</label>
+        <input type="date" name="rest_to" value="{{ cert.rest_to|date:'Y-m-d' }}" class="field-input" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Number of Days Off</label>
+        <input type="number" min="0" name="days_off" value="{{ cert.days_off|default_if_none:'' }}" class="field-input" placeholder="Auto-calculated if blank" />
+      </div>
+      <div class="field-wrapper">
+        <label class="field-label">Fitness Status</label>
+        <select name="fitness_status" class="field-input">
+          {% for val, label in fitness_choices %}<option value="{{ val }}" {% if cert.fitness_status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper sm:col-span-2 lg:col-span-4">
+        <label class="field-label">Work / School Restrictions <span class="text-slate-400 font-normal">(if applicable)</span></label>
+        <textarea name="work_restrictions" rows="2" class="field-input">{{ cert.work_restrictions }}</textarea>
+      </div>
+      <div class="field-wrapper sm:col-span-2 lg:col-span-4">
+        <label class="field-label">Additional Remarks</label>
+        <textarea name="remarks" rows="2" class="field-input">{{ cert.remarks }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn-primary">Save as Draft</button>
+    <a href="{% url 'visit_detail' visit.pk %}" class="btn-secondary">Cancel</a>
+    {% if cert %}
+    <a href="{% url 'medical_certificate_print' cert.pk %}" class="btn-secondary">Preview / Print</a>
+    {% endif %}
+  </div>
+
+</form>
+
+{% if cert and not cert.is_finalized %}
+<form method="post" action="{% url 'medical_certificate_finalize' cert.pk %}" class="mt-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+  {% csrf_token %}
+  <label class="flex items-start gap-2 text-sm text-purple-800 dark:text-purple-300 mb-3">
+    <input type="checkbox" name="certify" required class="mt-0.5 rounded border-purple-300">
+    I certify this record is accurate and complete.
+  </label>
+  <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">Finalize &amp; Sign</button>
+</form>
+{% endif %}
+
+{% if cert and cert.is_finalized and not cert.is_void and perms.core.void_medical_certificate %}
+<form method="post" action="{% url 'medical_certificate_void' cert.pk %}" class="mt-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4" onsubmit="return confirm('Void this certificate? This cannot be undone.');">
+  {% csrf_token %}
+  <label class="field-label">Void Reason <span class="text-red-500">*</span></label>
+  <textarea name="void_reason" rows="2" required class="field-input mb-3" placeholder="Reason this certificate must be voided…"></textarea>
+  <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition">Void Certificate</button>
+</form>
+{% endif %}
+
+{% endblock %}

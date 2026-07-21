@@ -14,7 +14,7 @@ from .audit import log_action
 from .card_utils import perform_checkin_billing
 from .decorators import hms_permission_required
 from .forms import PatientForm
-from .models import AuditLog, Appointment, Department, Doctor, DoctorSchedule, Invoice, Patient, Visit, Queue
+from .models import AuditLog, Appointment, Department, Doctor, DoctorSchedule, Invoice, Patient, Visit, Queue, SurgeryOrder
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +53,17 @@ def receptionist_dashboard(request):
 
     recent_registrations = Patient.objects.order_by('-created_at')[:5]
 
+    surgery_pending_reception = (
+        SurgeryOrder.objects
+        .filter(status__in=[
+            SurgeryOrder.Status.ORDERED,
+            SurgeryOrder.Status.PENDING_REVIEW,
+            SurgeryOrder.Status.AWAITING_DECISION,
+        ])
+        .select_related('patient', 'surgeon')
+        .order_by('ordered_at')
+    )
+
     context = {
         'today': today,
         'today_appointments': today_appointments,
@@ -63,6 +74,7 @@ def receptionist_dashboard(request):
         'new_patients_today': new_patients_today,
         'upcoming_appointments': upcoming_appointments,
         'recent_registrations': recent_registrations,
+        'surgery_pending_reception': surgery_pending_reception,
     }
     return render(request, 'receptionist/dashboard.html', context)
 

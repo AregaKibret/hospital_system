@@ -116,10 +116,10 @@
               <button onclick="clearPatient()" class="text-xs text-teal-500 hover:text-teal-700">✕ Change</button>
             </div>
           </div>
-          <!-- Billing notice (shown when patient selected) -->
+          <!-- Billing notice always shown for registered patient -->
           <div id="billingNotice" class="mt-2 hidden flex items-start gap-1.5 text-xs text-blue-600 dark:text-blue-400">
             <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span>Charges will route to the central Billing module.</span>
+            <span>Charges will route to the central Billing module. Payment collected at cashier counter.</span>
           </div>
         </div>
 
@@ -130,6 +130,11 @@
               class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
             <input type="text" id="walkinPhone" placeholder="Phone (optional)"
               class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
+          </div>
+          <!-- Walk-in billing notice — always shown in walk-in mode -->
+          <div class="mt-2 flex items-start gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2 border border-blue-200 dark:border-blue-700">
+            <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>This sale will be sent to the <strong>Billing / Cashier</strong> counter for payment collection. Pharmacy will dispense after payment is confirmed.</span>
           </div>
         </div>
 
@@ -166,57 +171,17 @@
         </div>
       </div>
 
-      <!-- Payment (walk-in only) -->
-      <div id="paymentSection" class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 hidden">
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <label class="text-xs text-slate-500 block mb-1">Payment Method</label>
-            <select id="paymentMethod" onchange="toggleCashFields()"
-              class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
-              <option value="Cash">Cash</option>
-              <option value="Card">Bank Card</option>
-              <option value="Mobile">Mobile Payment</option>
-              <option value="Transfer">Bank Transfer</option>
-              <option value="Insurance">Insurance</option>
-              <option value="Credit">Credit (Deferred)</option>
-            </select>
-          </div>
-          <div id="cashReceivedBox">
-            <label class="text-xs text-slate-500 block mb-1">Cash Received (ETB)</label>
-            <input type="number" id="cashReceived" value="0" min="0" step="0.01"
-              class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400"
-              oninput="updateChange()">
-          </div>
-        </div>
-        <div id="changeBox" class="text-sm font-semibold text-emerald-600 text-right hidden">
-          Change: ETB <span id="changeDisplay">0.00</span>
-        </div>
-        <div id="creditDueDateBox" class="hidden mt-2">
-          <label class="text-xs text-slate-500 block mb-1">Credit Due Date</label>
-          <input type="date" id="creditDueDate"
-            class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400">
-        </div>
-      </div>
-
       <!-- Notes + Submit -->
       <div class="px-4 py-3">
         <textarea id="saleNotes" rows="2" placeholder="Notes (optional)"
           class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-teal-400 mb-3"></textarea>
 
-        <!-- Walk-in submit -->
-        <button onclick="submitSale()" id="submitBtnWalkin"
+        <button onclick="submitSale()"
           class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Complete Sale
-        </button>
-
-        <!-- Patient / billing submit -->
-        <button onclick="submitSale()" id="submitBtnBilling"
-          class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition text-sm shadow-sm hidden flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           Send to Billing
         </button>
-        <p id="billingHint" class="hidden text-xs text-slate-400 text-center mt-2">Cashier collects payment · Confirm dispensing after payment</p>
+        <p class="text-xs text-slate-400 text-center mt-2">Cashier collects payment · Pharmacy dispenses after confirmation</p>
       </div>
 
     </div>
@@ -230,10 +195,7 @@
   <input type="hidden" name="patient_id" id="formPatientId">
   <input type="hidden" name="customer_name" id="formCustomerName">
   <input type="hidden" name="customer_phone" id="formCustomerPhone">
-  <input type="hidden" name="payment_method" id="formPaymentMethod">
   <input type="hidden" name="discount_amount" id="formDiscount">
-  <input type="hidden" name="cash_received" id="formCashReceived">
-  <input type="hidden" name="credit_due_date" id="formCreditDueDate">
   <input type="hidden" name="notes" id="formNotes">
 </form>
 
@@ -249,10 +211,6 @@ function setMode(m) {
 
   document.getElementById('panelPatient').classList.toggle('hidden', !isPatient);
   document.getElementById('panelWalkin').classList.toggle('hidden', isPatient);
-  document.getElementById('paymentSection').classList.toggle('hidden', isPatient);
-  document.getElementById('submitBtnWalkin').classList.toggle('hidden', isPatient);
-  document.getElementById('submitBtnBilling').classList.toggle('hidden', !isPatient);
-  document.getElementById('billingHint').classList.toggle('hidden', !isPatient);
 
   document.getElementById('btnPatient').className = 'px-3 py-1.5 font-semibold transition ' +
     (isPatient ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700');
@@ -260,11 +218,9 @@ function setMode(m) {
     (!isPatient ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700');
 
   if (isPatient) {
-    // If patient already selected show billing notice
     const hasPt = !!document.getElementById('selectedPatientId').value;
     document.getElementById('billingNotice').classList.toggle('hidden', !hasPt);
   }
-  updateChange();
 }
 
 // ── Product search ──────────────────────────────────────────────────────────
@@ -366,24 +322,6 @@ function updateTotals() {
   updateChange();
 }
 
-function updateChange() {
-  if (mode !== 'walkin') return;
-  const total = parseFloat(document.getElementById('totalDisplay').textContent) || 0;
-  const cash = parseFloat(document.getElementById('cashReceived').value) || 0;
-  const chg = Math.max(cash - total, 0);
-  document.getElementById('changeDisplay').textContent = chg.toFixed(2);
-  const box = document.getElementById('changeBox');
-  if (document.getElementById('paymentMethod').value === 'Cash' && cash > 0) {
-    box.classList.remove('hidden');
-  } else { box.classList.add('hidden'); }
-}
-
-function toggleCashFields() {
-  const pm = document.getElementById('paymentMethod').value;
-  document.getElementById('cashReceivedBox').style.display = pm === 'Cash' ? '' : 'none';
-  document.getElementById('creditDueDateBox').classList.toggle('hidden', pm !== 'Credit');
-  updateChange();
-}
 
 // ── Patient search ──────────────────────────────────────────────────────────
 let patientTimeout = null;
@@ -443,10 +381,7 @@ function submitSale() {
   document.getElementById('formPatientId').value = document.getElementById('selectedPatientId').value;
   document.getElementById('formCustomerName').value = mode === 'walkin' ? document.getElementById('walkinName').value : '';
   document.getElementById('formCustomerPhone').value = mode === 'walkin' ? document.getElementById('walkinPhone').value : '';
-  document.getElementById('formPaymentMethod').value = mode === 'walkin' ? document.getElementById('paymentMethod').value : 'Cash';
   document.getElementById('formDiscount').value = document.getElementById('discountInput').value || '0';
-  document.getElementById('formCashReceived').value = mode === 'walkin' ? (document.getElementById('cashReceived').value || '0') : '0';
-  document.getElementById('formCreditDueDate').value = mode === 'walkin' ? (document.getElementById('creditDueDate').value || '') : '';
   document.getElementById('formNotes').value = document.getElementById('saleNotes').value;
   document.getElementById('saleForm').submit();
 }
@@ -461,6 +396,5 @@ document.addEventListener('click', function(e) {
 
 // init
 setMode('patient');
-toggleCashFields();
 </script>
 {% endblock %}

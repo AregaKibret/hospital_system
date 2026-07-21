@@ -96,6 +96,37 @@
         </svg>
         Patients
       </a>
+      {% if perms.core.write_clinical_note %}
+      <button type="button" id="nextPatientBtn"
+              onclick="goNextPatient()"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Next Patient
+      </button>
+      <script>
+      function goNextPatient() {
+        const btn = document.getElementById('nextPatientBtn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>';
+        fetch('{% url "doctor_queue_api" %}?sort=queue')
+          .then(r => r.json())
+          .then(data => {
+            if (data.next_visit_id && data.next_visit_id !== {{ visit.id }}) {
+              window.location.href = '/doctor/visit/' + data.next_visit_id + '/';
+            } else {
+              btn.innerHTML = 'No next patient';
+              btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+              btn.classList.add('bg-slate-400','cursor-not-allowed');
+              setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; btn.classList.add('bg-blue-600','hover:bg-blue-700'); btn.classList.remove('bg-slate-400','cursor-not-allowed'); }, 2000);
+            }
+          })
+          .catch(() => { btn.innerHTML = orig; btn.disabled = false; });
+      }
+      </script>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -155,19 +186,69 @@
           <div class="space-y-3">
             {% for note in clinical_notes %}
             <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              <!-- Note header -->
               <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50">
                 <div class="flex items-center gap-2">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{{ note.note_type }}</span>
                   <span class="text-xs text-slate-500 dark:text-slate-400">Dr. {{ note.authored_by.get_full_name|default:note.authored_by.username }} · {{ note.created_at|date:"M j, Y H:i" }}</span>
                 </div>
               </div>
+              <!-- Note body: CC / HPI / Physical Exam / Assessment / Plan -->
               <div class="px-4 py-3 space-y-2">
                 {% if note.chief_complaint %}
                 <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Chief Complaint</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ note.chief_complaint }}</p></div>
                 {% endif %}
                 {% if note.content %}
-                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Note</p><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ note.content }}</p></div>
+                <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">History of Present Illness</p><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ note.content }}</p></div>
                 {% endif %}
+
+                <!-- Physical Examination (linked to this note) -->
+                {% with exam=note.physical_exam %}
+                {% if exam %}
+                <div class="border border-teal-200 dark:border-teal-800/50 rounded-lg overflow-hidden mt-1">
+                  <div class="flex items-center justify-between px-3 py-2 bg-teal-50 dark:bg-teal-900/20 border-b border-teal-100 dark:border-teal-800/40">
+                    <div class="flex items-center gap-2">
+                      <p class="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wide">Physical Examination</p>
+                      {% if exam.is_complete %}
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Complete</span>
+                      {% else %}
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Draft</span>
+                      {% endif %}
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <a href="{% url 'physical_exam_print' visit.id exam.id %}" target="_blank" class="text-teal-500 hover:text-teal-700 dark:hover:text-teal-300" title="Print">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                      </a>
+                      {% if perms.core.write_clinical_note %}
+                      <a href="{% url 'physical_exam_edit' visit.id exam.id %}" class="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline">Edit</a>
+                      {% endif %}
+                      <a href="{% url 'physical_exam_detail' visit.id exam.id %}" class="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline">Full view</a>
+                    </div>
+                  </div>
+                  <div class="px-3 py-2.5 space-y-1.5">
+                    {% if exam.overall_summary %}
+                    <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ exam.overall_summary }}</p>
+                    {% endif %}
+                    {% if exam.findings %}
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      {% for sys_key, sys_data in exam.findings.items %}
+                        {% if sys_data.status == 'normal' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">{{ sys_key|title }}: Normal</span>
+                        {% elif sys_data.status == 'mild' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{{ sys_key|title }}: Mild</span>
+                        {% elif sys_data.status == 'moderate' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">{{ sys_key|title }}: Moderate</span>
+                        {% elif sys_data.status == 'severe' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{{ sys_key|title }}: Severe</span>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+
                 {% if note.assessment %}
                 <div><p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-0.5">Assessment</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ note.assessment }}</p></div>
                 {% endif %}
@@ -182,6 +263,104 @@
           <div class="py-12 text-center">
             <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             <p class="text-sm text-slate-400 dark:text-slate-500">No clinical notes yet</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- PHYSICAL EXAM -->
+        <div id="tab-physical_exam" class="tab-pane {% if active_tab != 'physical_exam' %}hidden{% endif %}">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Physical Examination</h3>
+            {% if perms.core.write_clinical_note %}
+            <a href="{% url 'physical_exam_create' visit.id %}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              New Physical Exam
+            </a>
+            {% endif %}
+          </div>
+
+          {% if physical_exams %}
+          <div class="space-y-3">
+            {% for exam in physical_exams %}
+            {% with findings=exam.findings %}
+            {% comment %}Count abnormal findings{% endcomment %}
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700/60">
+                <div class="flex items-center gap-2 min-w-0">
+                  {% if exam.is_complete %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Complete</span>
+                  {% else %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Draft</span>
+                  {% endif %}
+                  <span class="text-xs text-slate-500 dark:text-slate-400">
+                    {{ exam.created_at|date:"M j, Y H:i" }} &middot; Dr. {{ exam.examiner.get_full_name|default:exam.examiner.username }}
+                  </span>
+                  {% if exam.template %}
+                  <span class="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">&middot; {{ exam.template.name }}</span>
+                  {% endif %}
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <a href="{% url 'physical_exam_print' visit.id exam.id %}" target="_blank"
+                     class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                     title="Print">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                  </a>
+                  {% if perms.core.write_clinical_note %}
+                  <a href="{% url 'physical_exam_edit' visit.id exam.id %}"
+                     class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">Edit</a>
+                  {% endif %}
+                  <a href="{% url 'physical_exam_detail' visit.id exam.id %}"
+                     class="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:underline">View</a>
+                </div>
+              </div>
+
+              {% if exam.overall_summary %}
+              <div class="px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-100 dark:border-slate-700/50">
+                {{ exam.overall_summary|truncatechars:200 }}
+              </div>
+              {% endif %}
+
+              <!-- Abnormal findings summary -->
+              {% if findings %}
+              <div class="px-4 py-2.5 flex flex-wrap gap-1.5">
+                {% for sys_key, sys_data in findings.items %}
+                  {% if sys_data.status and sys_data.status != 'normal' and sys_data.status != 'not_examined' %}
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                    {% if sys_data.status == 'mild' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+                    {% elif sys_data.status == 'moderate' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+                    {% elif sys_data.status == 'severe' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                    {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+                    {{ sys_key|title }}
+                  </span>
+                  {% endif %}
+                {% endfor %}
+                {% comment %}If no abnormal findings, show all normal message{% endcomment %}
+                {% with has_abnormal=False %}{% endwith %}
+              </div>
+              {% else %}
+              <div class="px-4 py-2.5 text-xs text-slate-400 dark:text-slate-500 italic">No findings documented yet</div>
+              {% endif %}
+            </div>
+            {% endwith %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="py-12 text-center">
+            <svg class="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="text-sm text-slate-400 dark:text-slate-500">No physical examinations recorded yet</p>
+            {% if perms.core.write_clinical_note %}
+            <a href="{% url 'physical_exam_create' visit.id %}"
+               class="mt-2 inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Start physical examination
+            </a>
+            {% endif %}
           </div>
           {% endif %}
         </div>
@@ -553,18 +732,11 @@
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-slate-800 dark:text-white">Procedure & Surgery Orders</h3>
             <div class="flex gap-2">
-            {% if perms.core.write_clinical_note %}
-            <a href="{% url 'procedure_order_create' visit.id %}"
-               class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              New Procedure
-            </a>
-            {% endif %}
             {% if perms.core.order_surgery %}
             <a href="{% url 'surgery_order_create_visit' visit.id %}"
                class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              Order Surgery
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              New Procedure / Surgery Order
             </a>
             {% endif %}
             </div>
@@ -641,6 +813,46 @@
             </div>
           </div>
           {% endif %}
+
+          <div class="mt-6">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Medical &amp; Death Certificates</h4>
+              <div class="flex gap-2">
+                {% if perms.core.write_medical_certificate %}
+                <a href="{% url 'medical_certificate_create' visit.id %}" class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  New Medical Certificate
+                </a>
+                {% endif %}
+              </div>
+            </div>
+            {% if medical_certificates or death_certificates %}
+            <div class="space-y-2">
+              {% for c in medical_certificates %}
+              <a href="{% url 'medical_certificate_print' c.pk %}" class="block bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-sm font-medium text-slate-800 dark:text-slate-100">Medical Certificate — {{ c.certificate_number|default:"(draft)" }}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full {% if c.is_void %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% elif c.is_finalized %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+                    {% if c.is_void %}Void{% elif c.is_finalized %}Finalized{% else %}Draft{% endif %}
+                  </span>
+                </div>
+              </a>
+              {% endfor %}
+              {% for c in death_certificates %}
+              <a href="{% url 'death_certificate_print' c.pk %}" class="block bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-sm font-medium text-slate-800 dark:text-slate-100">Death Certificate — {{ c.certificate_number|default:"(draft)" }}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full {% if c.is_void %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% elif c.is_finalized %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+                    {% if c.is_void %}Void{% elif c.is_finalized %}Finalized{% else %}Draft{% endif %}
+                  </span>
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 dark:text-slate-500 py-3">No certificates issued for this visit yet.</p>
+            {% endif %}
+          </div>
         </div>
 
         <!-- NURSING -->
@@ -832,10 +1044,22 @@
           <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Medication</span>
         </a>
         {% endif %}
-        {% if perms.core.write_clinical_note %}
-        <a href="{% url 'procedure_order_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
-          <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Procedure/Surgery</span>
+        {% if perms.core.order_surgery %}
+        <a href="{% url 'surgery_order_create_visit' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">New Procedure / Surgery Order</span>
+        </a>
+        {% endif %}
+        {% if perms.core.write_medical_certificate %}
+        <a href="{% url 'medical_certificate_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm">
+          <svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Medical Certificate</span>
+        </a>
+        {% endif %}
+        {% if perms.core.write_death_certificate %}
+        <a href="{% url 'death_certificate_create' visit.id %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group text-sm hidden">
+          <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Death Certificate</span>
         </a>
         {% endif %}
         {% if perms.core.record_vital_signs %}

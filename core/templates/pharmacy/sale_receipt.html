@@ -17,8 +17,9 @@
   </style>
 </head>
 <body>
-  <div class="center bold" style="font-size:16px; margin-bottom:4px;">HOSPITAL PHARMACY</div>
-  <div class="center" style="font-size:11px; margin-bottom:12px;">Sales Receipt</div>
+  <div class="center bold" style="font-size:16px; margin-bottom:2px;">{{ hospital.short_name|default:hospital.name|default:"HOSPITAL" }}</div>
+  {% if hospital.address %}<div class="center" style="font-size:10px; margin-bottom:2px;">{{ hospital.city|default:"" }}{% if hospital.phone %} | Tel: {{ hospital.phone }}{% endif %}</div>{% endif %}
+  <div class="center" style="font-size:11px; margin-bottom:12px;">PHARMACY — Sales Receipt</div>
 
   <div class="divider"></div>
   <div class="row"><span>Receipt #:</span><span class="bold">{{ sale.sale_number }}</span></div>

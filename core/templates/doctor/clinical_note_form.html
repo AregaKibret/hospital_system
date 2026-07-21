@@ -2,7 +2,7 @@
 {% block title %}New Clinical Note — {{ visit.patient.full_name }}{% endblock %}
 {% block content %}
 
-<div class="max-w-2xl mx-auto">
+<div class="max-w-3xl mx-auto">
   <div class="flex items-center justify-between mb-5">
     <div>
       <h1 class="text-xl font-bold text-slate-900 dark:text-white">New Clinical Note</h1>
@@ -15,47 +15,193 @@
     </a>
   </div>
 
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-    <form method="post">
-      {% csrf_token %}
+  <form method="post" id="noteForm">
+    {% csrf_token %}
 
-      <div class="mb-4 field-wrapper">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+
+      <!-- Note Type -->
+      <div class="field-wrapper">
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Note Type</label>
         {{ form.note_type }}
-        {% if form.note_type.errors %}<ul class="errorlist">{% for e in form.note_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        {% if form.note_type.errors %}<p class="text-xs text-red-500 mt-1">{{ form.note_type.errors|join:", " }}</p>{% endif %}
       </div>
 
-      <div class="mb-4 field-wrapper">
+      <!-- Chief Complaint -->
+      <div class="field-wrapper">
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Chief Complaint</label>
         {{ form.chief_complaint }}
-        {% if form.chief_complaint.errors %}<ul class="errorlist">{% for e in form.chief_complaint.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        {% if form.chief_complaint.errors %}<p class="text-xs text-red-500 mt-1">{{ form.chief_complaint.errors|join:", " }}</p>{% endif %}
       </div>
 
-      <div class="mb-4 field-wrapper">
-        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Clinical Note / Findings <span class="text-red-500">*</span></label>
+      <!-- HPI / Clinical Findings -->
+      <div class="field-wrapper">
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">History of Present Illness / Clinical Findings <span class="text-red-500">*</span></label>
         {{ form.content }}
-        {% if form.content.errors %}<ul class="errorlist">{% for e in form.content.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        {% if form.content.errors %}<p class="text-xs text-red-500 mt-1">{{ form.content.errors|join:", " }}</p>{% endif %}
       </div>
 
-      <div class="mb-4 field-wrapper">
+    </div>
+
+    <!-- ── Physical Examination ─────────────────────────────────────────────── -->
+    <div class="mt-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <h2 class="text-sm font-semibold text-slate-800 dark:text-white">Physical Examination</h2>
+          <span class="text-xs text-slate-400 dark:text-slate-500">(optional)</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <button type="button" id="markAllNormalBtn"
+                  class="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+            Mark All Normal
+          </button>
+          <button type="button" id="examToggleBtn"
+                  onclick="toggleExam()"
+                  class="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1">
+            <svg id="examChevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+            <span id="examToggleLabel">Hide</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="examBody">
+        <!-- Systems by group -->
+        {% for group_name, systems in grouped_exam_systems.items %}
+        <div class="exam-group">
+          <div class="px-5 py-1.5 bg-slate-50 dark:bg-slate-700/40 text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-700/60">
+            {{ group_name }}
+          </div>
+          {% for key, label, quick_normal in systems %}
+          <div class="flex items-start gap-3 px-5 py-2 border-b border-slate-50 dark:border-slate-700/30 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-700/20 transition-colors">
+            <span class="text-xs text-slate-700 dark:text-slate-300 w-44 shrink-0 pt-1.5 leading-snug">{{ label }}</span>
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <select name="exam_{{ key }}_status"
+                      class="exam-status w-full sm:w-56 text-xs px-2.5 py-1.5 border rounded-lg outline-none transition-colors border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-teal-500"
+                      data-key="{{ key }}"
+                      data-normal="{{ quick_normal }}"
+                      onchange="onStatusChange(this)">
+                <option value="">— not documented —</option>
+                <option value="normal">Normal</option>
+                <option value="mild">Mild Abnormality</option>
+                <option value="moderate">Moderate Abnormality</option>
+                <option value="severe">Severe Abnormality</option>
+                <option value="not_examined">Not Examined</option>
+              </select>
+              <textarea name="exam_{{ key }}_comment"
+                        rows="2"
+                        class="exam-comment w-full text-xs px-2.5 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-teal-500 outline-none resize-none hidden"
+                        placeholder="Describe findings…"
+                        data-key="{{ key }}"></textarea>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+
+        <!-- Overall Summary + Complete -->
+        <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-700 space-y-3 bg-slate-50/50 dark:bg-slate-700/20">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Overall Summary / Impression</label>
+            <textarea name="exam_overall_summary" rows="2"
+                      class="w-full text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-teal-500 outline-none resize-none"
+                      placeholder="General impression, pertinent findings, or abnormal summary…"></textarea>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="exam_complete"
+                   class="w-4 h-4 text-teal-600 border-slate-300 dark:border-slate-600 rounded">
+            <span class="text-xs text-slate-600 dark:text-slate-400">Mark examination as complete</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Assessment & Plan ───────────────────────────────────────────────── -->
+    <div class="mt-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-5">
+
+      <div class="field-wrapper">
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Assessment</label>
         {{ form.assessment }}
-        {% if form.assessment.errors %}<ul class="errorlist">{% for e in form.assessment.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        {% if form.assessment.errors %}<p class="text-xs text-red-500 mt-1">{{ form.assessment.errors|join:", " }}</p>{% endif %}
       </div>
 
-      <div class="mb-6 field-wrapper">
+      <div class="field-wrapper">
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Plan</label>
         {{ form.plan }}
-        {% if form.plan.errors %}<ul class="errorlist">{% for e in form.plan.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        {% if form.plan.errors %}<p class="text-xs text-red-500 mt-1">{{ form.plan.errors|join:", " }}</p>{% endif %}
       </div>
 
-      <div class="flex gap-3 justify-end">
+      <div class="flex gap-3 justify-end pt-1">
         <a href="{% url 'visit_detail' visit.id %}?tab=notes"
-           class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Cancel</a>
-        <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save Note</button>
+           class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+          Cancel
+        </a>
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+          Save Note
+        </button>
       </div>
-    </form>
-  </div>
+    </div>
+
+  </form>
 </div>
+
+<script>
+(function () {
+  const STATUS_COLORS = {
+    normal:       'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10',
+    mild:         'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/10',
+    moderate:     'border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/10',
+    severe:       'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10',
+    not_examined: 'border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800',
+    '':           'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700',
+  };
+
+  window.onStatusChange = function (sel) {
+    const key = sel.dataset.key;
+    const val = sel.value;
+    const row = sel.closest('.flex.items-start');
+    const comment = row ? row.querySelector('.exam-comment') : null;
+
+    // Color the select border
+    sel.className = sel.className.replace(/border-\S+ bg-\S+/g, '').trim();
+    const colors = STATUS_COLORS[val] || STATUS_COLORS[''];
+    sel.classList.add(...colors.split(' '));
+
+    if (!comment) return;
+    if (val && val !== 'normal' && val !== 'not_examined') {
+      comment.classList.remove('hidden');
+    } else {
+      if (val === 'normal' && !comment.value) {
+        comment.value = sel.dataset.normal || '';
+      }
+      // keep visible if user already typed something
+      if (!comment.value) comment.classList.add('hidden');
+    }
+  };
+
+  // Mark All Normal
+  document.getElementById('markAllNormalBtn').addEventListener('click', function () {
+    document.querySelectorAll('.exam-status').forEach(sel => {
+      sel.value = 'normal';
+      onStatusChange(sel);
+    });
+  });
+
+  // Toggle exam section
+  let examVisible = true;
+  window.toggleExam = function () {
+    examVisible = !examVisible;
+    document.getElementById('examBody').style.display = examVisible ? '' : 'none';
+    document.getElementById('examToggleLabel').textContent = examVisible ? 'Hide' : 'Show';
+    document.getElementById('examChevron').style.transform = examVisible ? '' : 'rotate(-90deg)';
+  };
+})();
+</script>
 
 {% endblock %}

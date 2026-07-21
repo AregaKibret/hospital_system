@@ -83,6 +83,9 @@
     {% endif %}
     {% if req.admission %}
     <span class="text-sm text-emerald-600 dark:text-emerald-400 self-center">Admitted to bed {{ req.admission.bed.bed_code }}</span>
+    {% if perms.core.view_inpatient_deposit %}
+    <a href="{% url 'deposit_account_detail' admission_id=req.admission.pk %}" class="btn-secondary text-sm">View Deposit Account</a>
+    {% endif %}
     {% endif %}
   </div>
 </div>

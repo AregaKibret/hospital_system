@@ -70,13 +70,13 @@ def pharmacy_product_search(request):
             MedicationBatch.objects
             .select_related('medication')
             .filter(
-                Q(medication__name__icontains=q)
+                Q(medication__brand_name__icontains=q)
                 | Q(medication__generic_name__icontains=q)
                 | Q(batch_number__icontains=q),
                 quantity_available__gt=0,
                 expiration_date__gte=timezone.localdate(),
             )
-            .order_by('medication__name', 'expiration_date')[:20]
+            .order_by('medication__brand_name', 'expiration_date')[:20]
         )
         for b in batches:
             results.append({
@@ -182,43 +182,55 @@ def pharmacy_sale_create(request):
         patient_id = request.POST.get('patient_id') or None
         customer_name = request.POST.get('customer_name', '').strip()
         customer_phone = request.POST.get('customer_phone', '').strip()
-        payment_method = request.POST.get('payment_method', 'Cash')
         discount_amount = _d(request.POST.get('discount_amount', '0'))
-        cash_received = _d(request.POST.get('cash_received', '0'))
         notes = request.POST.get('notes', '').strip()
-        credit_due_date = request.POST.get('credit_due_date') or None
-        via_billing = bool(patient_id)
+        # ALL sales (walk-in AND registered patient) go through central billing
+        via_billing = True
 
         with transaction.atomic():
             patient = Patient.objects.get(pk=patient_id) if patient_id else None
+
+            # For walk-in without a patient record, use a sentinel patient so Invoice FK is satisfied
+            invoice_patient = patient
+            if not invoice_patient:
+                invoice_patient, _ = Patient.objects.get_or_create(
+                    card_number='WALKIN-OTC',
+                    defaults={
+                        'first_name': 'Walk-in',
+                        'last_name': 'Customer',
+                        'sex': 'Other',
+                        'mobile': '0000000000',
+                    }
+                )
 
             sale = PharmacySale(
                 sale_type=PharmacySale.SaleType.WALK_IN,
                 patient=patient,
                 customer_name=customer_name if not patient else '',
                 customer_phone=customer_phone,
-                payment_method=payment_method if not via_billing else 'Cash',
+                payment_method='Cash',
                 discount_amount=discount_amount,
                 cashier=request.user,
                 notes=notes,
-                credit_due_date=credit_due_date if not via_billing else None,
                 status=PharmacySale.Status.PENDING,
             )
             sale.save()
 
-            invoice = None
-            if via_billing:
-                # Always create a fresh invoice for this sale so billing can identify it
-                invoice = Invoice.objects.create(
-                    patient=patient,
-                    visit=None,
-                    created_by=request.user,
-                    status='Draft',
-                    payment_type='Cash',
-                    total_amount=Decimal('0'),
-                    notes=f'Pharmacy OTC Sale — {sale.sale_number}',
-                )
-                sale.invoice = invoice
+            # Always create a billing invoice — cashier collects payment, pharmacy dispenses after
+            invoice = Invoice.objects.create(
+                patient=invoice_patient,
+                visit=None,
+                created_by=request.user,
+                status='Draft',
+                payment_type='Cash',
+                total_amount=Decimal('0'),
+                notes=(
+                    f'Pharmacy OTC Sale — {sale.sale_number}'
+                    + (f' | Customer: {customer_name}' if customer_name else '')
+                    + (f' | Phone: {customer_phone}' if customer_phone else '')
+                ),
+            )
+            sale.invoice = invoice
 
             subtotal = Decimal('0')
             for row in items_data:
@@ -305,34 +317,12 @@ def pharmacy_sale_create(request):
             sale.subtotal = subtotal
             sale.total_amount = max(subtotal - discount_amount, Decimal('0'))
 
-            if via_billing:
-                # Payment collected at central billing counter
-                sale.status = PharmacySale.Status.PENDING
-                invoice.total_amount = (
-                    invoice.items.aggregate(t=Sum('total'))['t'] or Decimal('0')
-                )
-                invoice.save(update_fields=['total_amount', 'updated_at'])
-            else:
-                # Walk-in: collect payment directly
-                if payment_method == PharmacySale.PaymentMethod.CREDIT:
-                    sale.status = PharmacySale.Status.CREDIT
-                    sale.paid_amount = Decimal('0')
-                elif payment_method == PharmacySale.PaymentMethod.CASH:
-                    sale.cash_received = cash_received
-                    sale.change_given = max(cash_received - sale.total_amount, Decimal('0'))
-                    sale.paid_amount = min(cash_received, sale.total_amount)
-                    sale.status = (
-                        PharmacySale.Status.DISPENSED
-                        if cash_received >= sale.total_amount
-                        else PharmacySale.Status.PENDING
-                    )
-                else:
-                    sale.paid_amount = sale.total_amount
-                    sale.status = PharmacySale.Status.DISPENSED
-
-                if sale.status == PharmacySale.Status.DISPENSED:
-                    sale.dispensed_by = request.user
-                    sale.dispensed_at = timezone.now()
+            # Payment is always collected at the central billing/cashier counter
+            sale.status = PharmacySale.Status.PENDING
+            invoice.total_amount = (
+                invoice.items.aggregate(t=Sum('total'))['t'] or Decimal('0')
+            )
+            invoice.save(update_fields=['total_amount', 'updated_at'])
 
             sale.save()
 
@@ -349,14 +339,12 @@ def pharmacy_sale_create(request):
                 request=request,
             )
 
-        if via_billing:
-            messages.success(
-                request,
-                f'Sale {sale.sale_number} created. Charges (ETB {sale.total_amount}) '
-                f'added to billing invoice #{invoice.pk}. Confirm dispensing after payment.'
-            )
-        else:
-            messages.success(request, f'Sale {sale.sale_number} completed successfully.')
+        messages.success(
+            request,
+            f'Sale {sale.sale_number} sent to billing. '
+            f'ETB {sale.total_amount:,.2f} — Invoice #{invoice.invoice_number}. '
+            f'Dispense after cashier confirms payment.'
+        )
         return redirect('pharmacy_sale_detail', sale_id=sale.pk)
 
     except Patient.DoesNotExist:

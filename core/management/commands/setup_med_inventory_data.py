@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import (
-    MedicationBatch, MedicationCategory, Medication,
+    InventoryCategory, InventoryItem, MedicationBatch, Medication,
     StockTransaction, StorageLocation, Supplier,
 )
 
@@ -25,8 +25,8 @@ class Command(BaseCommand):
             self.stdout.write('Clearing existing data...')
             StockTransaction.objects.all().delete()
             MedicationBatch.objects.all().delete()
+            InventoryItem.objects.filter(medication_details__isnull=False).delete()
             Medication.objects.all().delete()
-            MedicationCategory.objects.all().delete()
             StorageLocation.objects.all().delete()
             Supplier.objects.all().delete()
             self.stdout.write(self.style.WARNING('Cleared.'))
@@ -76,7 +76,7 @@ class Command(BaseCommand):
         ]
         categories = {}
         for name in category_names:
-            cat, _ = MedicationCategory.objects.get_or_create(name=name)
+            cat, _ = InventoryCategory.objects.get_or_create(name=name)
             categories[name] = cat
         self.stdout.write(self.style.SUCCESS(f'  {len(categories)} categories ready'))
 
@@ -137,37 +137,47 @@ class Command(BaseCommand):
         sup_list = list(suppliers.values())
         for (name, generic, code, strength, drug_type, route, cat_key, manuf,
              purchase_price, selling_price, min_stock, reorder_level, reorder_qty) in medications_data:
-            med, _ = Medication.objects.get_or_create(
-                code=code,
-                defaults=dict(
+            med = Medication.objects.filter(inventory_item__item_code=code).first()
+            if not med:
+                item = InventoryItem.objects.create(
                     name=name,
+                    item_code=code,
+                    generic_name=generic,
+                    item_type=InventoryItem.ItemType.MEDICATION,
+                    category=categories.get(cat_key),
+                    dosage_form=drug_type,
+                    strength=strength,
+                    manufacturer=manuf,
+                    supplier=random.choice(sup_list),
+                    unit='Unit',
+                    unit_purchase='Pack',
+                    dispensing_unit='Tablet' if drug_type in ('tablet', 'capsule') else 'Unit',
+                    consumption_factor=100,
+                    unit_cost=purchase_price,
+                    selling_price=selling_price,
+                    min_stock=min_stock // 2,
+                    max_stock=min_stock * 10,
+                    reorder_level=reorder_level,
+                    reorder_quantity=reorder_qty,
+                    safety_stock=min_stock,
+                    storage_location=random.choice(locations),
+                    is_active=True,
+                )
+                med = Medication.objects.create(
+                    inventory_item=item,
+                    brand_name=name,
                     generic_name=generic,
                     strength=strength,
                     drug_type=drug_type,
                     route=route,
-                    category=categories.get(cat_key),
-                    manufacturer=manuf,
-                    supplier=random.choice(sup_list),
-                    unit_of_measure='Unit',
-                    pack_description=f'1 Pack',
+                    dosage_form=drug_type,
+                    pack_description='1 Pack',
                     units_per_pack=100,
-                    purchase_unit='Pack',
-                    dispensing_unit='Tablet' if drug_type in ('tablet', 'capsule') else 'Unit',
-                    conversion_factor=100,
-                    purchase_price=purchase_price,
-                    selling_price=selling_price,
-                    minimum_stock=min_stock // 2,
-                    maximum_stock=min_stock * 10,
-                    reorder_level=reorder_level,
-                    reorder_quantity=reorder_qty,
-                    safety_stock=min_stock,
-                    location=random.choice(locations),
                     storage_condition='refrigerated' if 'Insulin' in name or 'Eye Drops' in name else 'room_temp',
                     prescription_required=drug_type in ('injection', 'inhaler') or 'Diazepam' in name or 'Phenobarb' in name,
                     controlled_substance='Diazepam' in name or 'Phenobarb' in name,
                     registration_number=f'REG-ETH-{code}',
                 )
-            )
             med_objects[code] = med
 
         self.stdout.write(self.style.SUCCESS(f'  {len(med_objects)} medications ready'))
@@ -286,13 +296,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Medication Inventory Data Setup Complete'))
         self.stdout.write(self.style.SUCCESS('=' * 50))
         self.stdout.write(f'  Suppliers:     {Supplier.objects.count()}')
-        self.stdout.write(f'  Categories:    {MedicationCategory.objects.count()}')
+        self.stdout.write(f'  Categories:    {InventoryCategory.objects.count()}')
         self.stdout.write(f'  Locations:     {StorageLocation.objects.count()}')
         self.stdout.write(f'  Medications:   {Medication.objects.count()}')
         self.stdout.write(f'  Batches:       {MedicationBatch.objects.count()}')
         self.stdout.write(f'  Transactions:  {StockTransaction.objects.count()}')
 
-        low = sum(1 for m in Medication.objects.filter(is_active=True) if m.is_low_stock)
+        low = sum(1 for m in Medication.objects.filter(inventory_item__is_active=True) if m.is_low_stock)
         exp = MedicationBatch.objects.filter(
             is_active=True, quantity_available__gt=0, expiration_date__lt=date.today()
         ).count()

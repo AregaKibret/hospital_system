@@ -56,6 +56,59 @@
       </div>
     </div>
 
+    {# ── Booking Workflow Status Panel ─────────────────────────────── #}
+    {% if order.status in "awaiting_decision booking_deposit" or order.patient_decision == 'agreed' or order.counseling_done_at or order.booking_deposit_paid %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Booking Workflow</h2>
+      </div>
+      <div class="p-5 space-y-3 text-sm">
+        {% if order.counseling_done_at %}
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs shrink-0 mt-0.5">✓</div>
+          <div>
+            <p class="font-medium text-slate-800 dark:text-slate-100">Counselling Completed</p>
+            <p class="text-xs text-slate-400">{{ order.counseling_done_at|date:"d M Y H:i" }} by {{ order.counseling_done_by.get_full_name|default:order.counseling_done_by.username }}</p>
+            {% if order.counseling_notes %}<p class="text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line text-xs bg-slate-50 dark:bg-slate-700/40 rounded p-2">{{ order.counseling_notes }}</p>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% if order.patient_decision != 'pending' %}
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full {% if order.patient_decision == 'agreed' %}bg-emerald-100 text-emerald-600{% else %}bg-red-100 text-red-600{% endif %} flex items-center justify-center text-xs shrink-0 mt-0.5">{% if order.patient_decision == 'agreed' %}✓{% else %}✗{% endif %}</div>
+          <div>
+            <p class="font-medium text-slate-800 dark:text-slate-100">Patient {{ order.get_patient_decision_display }}</p>
+            {% if order.patient_decision_at %}<p class="text-xs text-slate-400">{{ order.patient_decision_at|date:"d M Y H:i" }}{% if order.patient_decision_by %} by {{ order.patient_decision_by.get_full_name|default:order.patient_decision_by.username }}{% endif %}</p>{% endif %}
+            {% if order.patient_decline_reason %}<p class="text-xs text-slate-500 italic mt-0.5">Reason: {{ order.patient_decline_reason }}</p>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% if order.booking_deposit_amount %}
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full {% if order.booking_deposit_paid %}bg-emerald-100 text-emerald-600{% else %}bg-amber-100 text-amber-600{% endif %} flex items-center justify-center text-xs shrink-0 mt-0.5">{% if order.booking_deposit_paid %}✓{% else %}!{% endif %}</div>
+          <div>
+            <p class="font-medium text-slate-800 dark:text-slate-100">Booking Deposit: ETB {{ order.booking_deposit_amount|floatformat:2 }}</p>
+            {% if order.booking_deposit_paid %}
+            <p class="text-xs text-emerald-600 dark:text-emerald-400">Paid on {{ order.booking_deposit_paid_at|date:"d M Y H:i" }}</p>
+            {% else %}
+            <p class="text-xs text-amber-600 dark:text-amber-400">Pending payment</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% if order.surgery_admission_request %}
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full bg-cyan-100 text-cyan-600 flex items-center justify-center text-xs shrink-0 mt-0.5">↗</div>
+          <div>
+            <p class="font-medium text-slate-800 dark:text-slate-100">Admission Request Created</p>
+            <a href="{% url 'admission_request_detail' order.surgery_admission_request.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">View Admission Request →</a>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {% if order.indication or order.special_instructions or order.previous_history or order.required_preparation %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
@@ -172,7 +225,7 @@
       </div>
       {% include "surgery/_nursing_addendum_panel.html" with doc_type="postop" doc_label="Post-Op Note" %}
     </div>
-    {% elif perms.core.write_postop_note and order.status in "completed post_op" %}
+    {% elif perms.core.write_postop_note and order.status in "completed recovery post_op discharged" %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 shadow-sm p-5 text-center">
       <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">No post-operative note recorded yet.</p>
       <a href="{% url 'postop_note_create' order.pk %}" class="btn-primary text-sm">Write Post-Operative Note</a>
@@ -231,6 +284,7 @@
       </div>
       <div class="p-4 space-y-2">
 
+        {# ── Step 1: Approve Order ───────────────────────────────────────── #}
         {% if perms.core.approve_surgery_order and order.can_approve %}
         <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
           <input type="hidden" name="action" value="approve" />
@@ -238,17 +292,75 @@
         </form>
         {% endif %}
 
+        {# ── Step 2: Send to Reception (Patient Counselling) ─────────────── #}
+        {% if perms.core.approve_surgery_order and order.can_send_to_reception %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="send_to_reception" />
+          <button type="submit" class="w-full btn-secondary text-sm">Send to Reception (Counselling)</button>
+        </form>
+        {% endif %}
+
+        {% if perms.core.counsel_surgery_patient and order.status == 'awaiting_decision' %}
+        <a href="{% url 'surgery_counsel' order.pk %}" class="block w-full text-center btn-primary text-sm bg-amber-600 hover:bg-amber-700">Patient Counselling &amp; Decision</a>
+        {% endif %}
+
+        {# ── Step 4: Collect Booking Deposit ────────────────────────────── #}
+        {% if perms.core.process_surgery_booking_deposit and order.status == 'booking_deposit' %}
+        <a href="{% url 'surgery_booking_deposit' order.pk %}" class="block w-full text-center btn-primary text-sm bg-orange-600 hover:bg-orange-700">Collect Booking Deposit (ETB {{ order.booking_deposit_amount|floatformat:0 }})</a>
+        {% endif %}
+
+        {% if order.booking_deposit_paid and order.booking_deposit_invoice_item %}
+        <a href="{% url 'surgery_booking_deposit_receipt' order.pk %}" class="block w-full text-center btn-secondary text-sm border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300">View Booking Deposit Receipt</a>
+        {% endif %}
+
+        {# ── Step 5: Schedule Surgery ────────────────────────────────────── #}
         {% if perms.core.manage_or_schedule and order.status == 'approved' %}
         <a href="{% url 'surgery_schedule_create' order.pk %}" class="block w-full text-center btn-primary text-sm bg-indigo-600 hover:bg-indigo-700">Schedule Surgery</a>
         {% endif %}
 
-        {% if perms.core.manage_or_schedule and order.status == 'scheduled' %}
+        {# ── Step 6: Initiate Inpatient Admission ────────────────────────── #}
+        {% if perms.core.initiate_surgery_admission and order.status == 'scheduled' and not order.surgery_admission_request %}
+        <a href="{% url 'surgery_initiate_admission' order.pk %}" class="block w-full text-center btn-secondary text-sm border-cyan-300 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20">Initiate Inpatient Admission</a>
+        {% endif %}
+
+        {% if order.surgery_admission_request %}
+        <a href="{% url 'admission_request_detail' order.surgery_admission_request.pk %}" class="block w-full text-center btn-secondary text-sm border-cyan-300 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300">View Admission Request</a>
+        {% endif %}
+
+        {# ── Surgery Deposit (patient arrives for surgery) ───────────────── #}
+        {% if perms.core.collect_surgery_pre_deposit and order.status in "scheduled awaiting_admission approved patient_prepared" %}
+          {% if order.pre_deposit %}
+            {# Deposit already collected — show summary badge #}
+            {% if order.pre_deposit.is_credit %}
+            <div class="w-full text-center text-xs font-semibold py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300">
+              Credit Patient — Surgery Deposit Waived
+            </div>
+            {% else %}
+            <div class="w-full text-center text-xs font-semibold py-2 px-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
+              Surgery Deposit Collected: ETB {{ order.pre_deposit.deposit_amount|floatformat:2 }}
+            </div>
+            <a href="{% url 'surgery_pre_deposit_receipt' order.pk %}" target="_blank"
+               class="block w-full text-center btn-secondary text-sm border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
+              View Deposit Receipt
+            </a>
+            {% endif %}
+          {% else %}
+            <a href="{% url 'surgery_pre_deposit' order.pk %}"
+               class="block w-full text-center btn-primary text-sm bg-teal-600 hover:bg-teal-700">
+              Collect Surgery Deposit / Admit Patient
+            </a>
+          {% endif %}
+        {% endif %}
+
+        {# ── Step 7: Mark Patient Prepared (Pre-op) ──────────────────────── #}
+        {% if perms.core.manage_or_schedule and order.status in "scheduled awaiting_admission" and not order.pre_deposit %}
         <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
           <input type="hidden" name="action" value="patient_prepared" />
-          <button type="submit" class="w-full btn-secondary text-sm">Mark Patient Prepared</button>
+          <button type="submit" class="w-full btn-secondary text-sm">Mark Patient Prepared (Pre-op)</button>
         </form>
         {% endif %}
 
+        {# ── Step 8: Start Surgery ────────────────────────────────────────── #}
         {% if perms.core.manage_or_schedule and order.status == 'patient_prepared' %}
         {% if order.payment_cleared %}
         <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
@@ -257,32 +369,86 @@
         </form>
         {% else %}
         <button type="button" disabled class="w-full text-sm bg-slate-200 dark:bg-slate-700 text-slate-400 rounded-lg py-2 cursor-not-allowed">Start Surgery (In OR)</button>
-        <p class="text-xs text-red-500 mt-1">Payment must be cleared (Paid, Credit Approved, or Waived) before starting surgery.</p>
+        <p class="text-xs text-red-500 mt-1">Surgery billing must be paid, credit-approved, or waived before entering OR.</p>
         {% endif %}
         {% endif %}
 
+        {# ── Surgery end → mark completed ────────────────────────────────── #}
         {% if perms.core.approve_surgery_order and order.status == 'in_or' %}
         <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
           <input type="hidden" name="action" value="complete" />
-          <button type="submit" class="w-full btn-primary text-sm bg-emerald-600 hover:bg-emerald-700">Mark Completed</button>
+          <button type="submit" class="w-full btn-primary text-sm bg-emerald-600 hover:bg-emerald-700">Mark Surgery Completed</button>
         </form>
         {% endif %}
 
-        {% if perms.core.write_surgery_anesthesia and order.status in "approved scheduled patient_prepared in_or completed post_op" %}
+        {# ── Step 9a: Move to Recovery ────────────────────────────────────── #}
+        {% if perms.core.manage_or_schedule and order.status == 'completed' %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="recovery" />
+          <button type="submit" class="w-full btn-secondary text-sm border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/20">Move to Recovery Room</button>
+        </form>
+        {% endif %}
+
+        {# ── Step 9b: Move to Post-op Ward ───────────────────────────────── #}
+        {% if perms.core.approve_surgery_order and order.status in "completed recovery" %}
+        <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="post_op" />
+          <button type="submit" class="w-full btn-secondary text-sm">Move to Post-operative Care</button>
+        </form>
+        {% endif %}
+
+        {# ── Step 10: Discharge — settlement first if pre-deposit exists ─── #}
+        {% if order.status == 'post_op' %}
+          {% if order.pre_deposit and order.pre_deposit.status != 'settled' %}
+            {% if perms.core.settle_surgery_account %}
+            <a href="{% url 'surgery_deposit_settlement' order.pk %}"
+               class="block w-full text-center btn-primary text-sm bg-green-600 hover:bg-green-700">
+              Settle Account &amp; Discharge
+            </a>
+            {% endif %}
+          {% elif perms.core.approve_surgery_order %}
+            {% if order.pre_deposit and order.pre_deposit.status == 'settled' %}
+            <div class="w-full text-center text-xs py-2 px-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 font-semibold">
+              Account Settled — Patient Discharged
+            </div>
+            <a href="{% url 'surgery_deposit_settlement_receipt' order.pk %}" target="_blank"
+               class="block w-full text-center btn-secondary text-sm border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
+              Print Settlement Receipt
+            </a>
+            {% else %}
+            <form method="post" action="{% url 'surgery_order_update_status' order.pk %}">{% csrf_token %}
+              <input type="hidden" name="action" value="discharge_surgery" />
+              <button type="submit" onclick="return confirm('Confirm surgical discharge for {{ order.patient.full_name }}?')"
+                      class="w-full btn-secondary text-sm border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Discharge Patient</button>
+            </form>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+
+        {# ── Discharged — show settlement receipt ────────────────────────── #}
+        {% if order.status == 'discharged' and order.pre_deposit %}
+        <a href="{% url 'surgery_deposit_settlement_receipt' order.pk %}" target="_blank"
+           class="block w-full text-center btn-secondary text-sm border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
+          Print Settlement Receipt
+        </a>
+        {% endif %}
+
+        {# ── Periop Documents ────────────────────────────────────────────── #}
+        {% if perms.core.write_surgery_anesthesia and order.status in "approved scheduled awaiting_admission patient_prepared in_or completed recovery post_op" %}
         <a href="{% url 'surgery_anesthesia_create' order.pk %}" class="block w-full text-center btn-secondary text-sm">{% if anesthesia_record %}Edit Anesthesia Record{% else %}Add Anesthesia Record{% endif %}</a>
         {% endif %}
 
-        {% if perms.core.write_operative_note and order.status in "completed post_op" %}
+        {% if perms.core.write_operative_note and order.status in "completed recovery post_op discharged" %}
         <a href="{% url 'operative_note_create' order.pk %}" class="block w-full text-center btn-secondary text-sm">{% if operative_note %}Edit Operative Note{% else %}Write Operative Note{% endif %}</a>
         {% endif %}
 
-        {% if perms.core.manage_surgery_consumables and order.status in "scheduled patient_prepared in_or completed" %}
+        {% if perms.core.manage_surgery_consumables and order.status in "scheduled awaiting_admission patient_prepared in_or completed" %}
         <button onclick="document.getElementById('consumableModal').classList.remove('hidden')" class="w-full btn-secondary text-sm">+ Add Consumable</button>
         {% endif %}
 
-        {% if perms.core.generate_surgery_billing and not order.invoice and order.status in "approved scheduled in_or completed post_op" %}
+        {% if perms.core.generate_surgery_billing and not order.invoice and order.status in "approved scheduled awaiting_admission in_or completed post_op" %}
         <form method="post" action="{% url 'surgery_billing_generate' order.pk %}">{% csrf_token %}
-          <button type="submit" class="w-full btn-secondary text-sm border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">Generate Billing</button>
+          <button type="submit" class="w-full btn-secondary text-sm border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">Generate Surgery Billing</button>
         </form>
         {% endif %}
 
@@ -330,9 +496,15 @@
       <div class="p-4 space-y-2.5 text-xs">
         <div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-blue-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Ordered</p><p class="text-slate-400">{{ order.ordered_at|date:"d M Y H:i" }} by {{ order.ordered_by.get_full_name|default:order.ordered_by.username }}</p></div></div>
         {% if order.approved_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Approved</p><p class="text-slate-400">{{ order.approved_at|date:"d M Y H:i" }} by {{ order.approved_by.get_full_name }}</p></div></div>{% endif %}
+        {% if order.counseling_done_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Counselling Done</p><p class="text-slate-400">{{ order.counseling_done_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.patient_decision != 'pending' %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full {% if order.patient_decision == 'agreed' %}bg-emerald-500{% else %}bg-red-500{% endif %} mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Patient {{ order.get_patient_decision_display }}</p>{% if order.patient_decision_at %}<p class="text-slate-400">{{ order.patient_decision_at|date:"d M Y H:i" }}</p>{% endif %}</div></div>{% endif %}
+        {% if order.booking_deposit_paid_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Booking Deposit Paid</p><p class="text-slate-400">ETB {{ order.booking_deposit_amount|floatformat:2 }} on {{ order.booking_deposit_paid_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
         {% if schedule %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-indigo-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Scheduled</p><p class="text-slate-400">{{ schedule.scheduled_date|date:"d M Y" }} at {{ schedule.scheduled_start_time|time:"H:i" }} in {{ schedule.or_room.name }}</p></div></div>{% endif %}
+        {% if order.surgery_admission_request %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-cyan-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Admission Request Created</p><p class="text-slate-400">Status: {{ order.surgery_admission_request.get_status_display }}</p></div></div>{% endif %}
         {% if schedule.actual_start_time %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-orange-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Surgery Started</p><p class="text-slate-400">{{ schedule.actual_start_time|date:"d M Y H:i" }}</p></div></div>{% endif %}
-        {% if order.completed_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-600 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Completed</p><p class="text-slate-400">{{ order.completed_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.completed_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-emerald-600 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Surgery Completed</p><p class="text-slate-400">{{ order.completed_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.recovered_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-sky-500 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Moved to Recovery</p><p class="text-slate-400">{{ order.recovered_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
+        {% if order.discharged_surgery_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-slate-400 mt-1 shrink-0"></div><div><p class="font-medium text-slate-700 dark:text-slate-300">Discharged</p><p class="text-slate-400">{{ order.discharged_surgery_at|date:"d M Y H:i" }}</p></div></div>{% endif %}
         {% if order.cancelled_at %}<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-red-500 mt-1 shrink-0"></div><div><p class="font-medium text-red-600 dark:text-red-400">Cancelled</p><p class="text-slate-400">{{ order.cancelled_at|date:"d M Y H:i" }} by {{ order.cancelled_by.get_full_name }}</p>{% if order.cancellation_reason %}<p class="text-slate-500 italic">Reason: {{ order.cancellation_reason }}</p>{% endif %}</div></div>{% endif %}
       </div>
     </div>
