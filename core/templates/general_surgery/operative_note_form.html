@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{% if op_note %}Edit Operative Note{% else %}Operative Note{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{% if op_note %}Edit Operative Note{% else %}New Operative Note{% endif %}</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }} · {{ consultation.proposed_procedure|default:"Procedure" }}</p>
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    <!-- Theatre team & timing -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Theatre Details</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Procedure Date *</label><input type="date" name="procedure_date" required value="{{ op_note.procedure_date|default:today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Start Time *</label><input type="time" name="start_time" required value="{{ op_note.start_time|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">End Time *</label><input type="time" name="end_time" required value="{{ op_note.end_time|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Surgeon</label><input type="text" name="surgeon" value="{{ op_note.surgeon|default:'' }}" class="form-input w-full" placeholder="Primary surgeon"></div>
+        <div><label class="form-label">Assistant Surgeon</label><input type="text" name="assistant_surgeon" value="{{ op_note.assistant_surgeon|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Anaesthetist</label><input type="text" name="anaesthetist" value="{{ op_note.anaesthetist|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Scrub Nurse</label><input type="text" name="scrub_nurse" value="{{ op_note.scrub_nurse|default:'' }}" class="form-input w-full"></div>
+        <div>
+          <label class="form-label">Anaesthesia Type</label>
+          <select name="anaesthesia_type" class="form-input w-full">
+            {% for val,label in anaesthesia_choices %}<option value="{{ val }}" {% if op_note.anaesthesia_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Wound Class</label>
+          <select name="wound_class" class="form-input w-full">
+            {% for val,label in wound_class_choices %}<option value="{{ val }}" {% if op_note.wound_class == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operative details -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Operative Details</h2>
+      <div><label class="form-label">Procedure Performed *</label><textarea name="procedure_performed" rows="2" required class="form-input w-full" placeholder="Full name of procedure(s)…">{{ op_note.procedure_performed|default:'' }}</textarea></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Position</label><input type="text" name="position" value="{{ op_note.position|default:'' }}" class="form-input w-full" placeholder="Supine, lithotomy, lateral…"></div>
+        <div><label class="form-label">Incision</label><input type="text" name="incision" value="{{ op_note.incision|default:'' }}" class="form-input w-full" placeholder="Midline, Pfannenstiel, McBurney's…"></div>
+      </div>
+      <div><label class="form-label">Intra-operative Findings</label><textarea name="findings" rows="4" class="form-input w-full" placeholder="Describe what was found…">{{ op_note.findings|default:'' }}</textarea></div>
+      <div><label class="form-label">Procedure Description</label><textarea name="procedure_details" rows="5" class="form-input w-full" placeholder="Step-by-step operative description…">{{ op_note.procedure_details|default:'' }}</textarea></div>
+      <div><label class="form-label">Closure</label><textarea name="closure" rows="2" class="form-input w-full" placeholder="Layers closed, suture material…">{{ op_note.closure|default:'' }}</textarea></div>
+    </div>
+
+    <!-- Post-op -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Post-operative</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">EBL (mL)</label><input type="number" name="ebl" value="{{ op_note.ebl|default:'' }}" class="form-input w-full" placeholder="0"></div>
+        <div class="flex items-center gap-2 pt-5">
+          <input type="checkbox" name="specimens_sent" id="specimens_sent" class="w-4 h-4" {% if op_note.specimens_sent %}checked{% endif %}>
+          <label for="specimens_sent" class="text-sm text-slate-700 dark:text-slate-300">Specimens sent</label>
+        </div>
+        <div class="flex items-center gap-2 pt-5">
+          <input type="checkbox" name="drains_placed" id="drains_placed" class="w-4 h-4" {% if op_note.drains_placed %}checked{% endif %}>
+          <label for="drains_placed" class="text-sm text-slate-700 dark:text-slate-300">Drains placed</label>
+        </div>
+      </div>
+      <div><label class="form-label">Complications (if any)</label><textarea name="complications" rows="2" class="form-input w-full" placeholder="None / describe…">{{ op_note.complications|default:'' }}</textarea></div>
+      <div><label class="form-label">Post-op Orders</label><textarea name="post_op_orders" rows="3" class="form-input w-full" placeholder="Observations, analgesia, IV fluids, diet, antibiotics…">{{ op_note.post_op_orders|default:'' }}</textarea></div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full">{{ op_note.notes|default:'' }}</textarea></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        {% if op_note %}Save Changes{% else %}Save Operative Note{% endif %}
+      </button>
+      <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

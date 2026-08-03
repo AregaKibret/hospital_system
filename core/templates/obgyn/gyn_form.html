@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Gynecology Consultation{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'gyn_consultation_list' %}" class="text-slate-400 hover:text-slate-600 text-sm">← Consultations</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ action }} Gynecology Consultation</h1>
+</div>
+
+{% if messages %}{% for m in messages %}<div class="mb-3 p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200">{{ m }}</div>{% endfor %}{% endif %}
+
+<!-- Patient Search (new only) -->
+{% if action == 'New' %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+  <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Select Patient</h2>
+  <form method="get" class="flex gap-2 mb-4">
+    <input name="q" value="{{ q }}" placeholder="Search patient…" class="flex-1 text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+    {% if selected_patient %}<input type="hidden" name="patient" value="{{ selected_patient.pk }}">{% endif %}
+    <button type="submit" class="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg">Search</button>
+  </form>
+  {% if patients %}
+  <div class="space-y-1">
+    {% for pt in patients %}
+    <a href="?patient={{ pt.pk }}" class="flex items-center justify-between px-4 py-2.5 rounded-lg border {% if selected_patient.pk == pt.pk %}border-purple-400 bg-purple-50 dark:bg-purple-900/20{% else %}border-slate-100 dark:border-slate-700 hover:border-purple-300{% endif %} transition-colors">
+      <div><p class="text-sm font-medium text-slate-800 dark:text-white">{{ pt.full_name }}</p><p class="text-xs text-slate-400">{{ pt.card_number }}</p></div>
+      {% if selected_patient.pk == pt.pk %}<span class="text-xs text-purple-600 font-semibold">Selected ✓</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if selected_patient or gyn %}
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+  {% if selected_patient and action == 'New' %}<input type="hidden" name="patient_id" value="{{ selected_patient.pk }}">{% endif %}
+
+  {% if selected_patient %}
+  <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-xl p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">{{ selected_patient.first_name|first }}</div>
+    <div>
+      <p class="font-semibold text-slate-800 dark:text-white">{{ selected_patient.full_name }}</p>
+      <p class="text-xs text-slate-500">{{ selected_patient.card_number }} · Age: {{ selected_patient.age_display|default:"—" }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Basic Info -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Consultation Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Date *</label>
+        <input name="consultation_date" type="date" value="{{ gyn.consultation_date|default:today }}" required class="date-picker">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Category</label>
+        <select name="category">
+          {% for val, label in category_choices %}
+          <option value="{{ val }}" {% if gyn.category == val %}selected{% elif not gyn and val == 'other' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="mt-4 field-wrapper">
+      <label class="block text-xs text-slate-500 mb-1">Chief Complaint *</label>
+      <textarea name="chief_complaint" rows="2" required>{{ gyn.chief_complaint|default:'' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Menstrual & Obstetric History -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Menstrual &amp; Obstetric History</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Menarche Age</label>
+        <input name="menarche_age" type="number" value="{{ gyn.menarche_age|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Cycle Length (days)</label>
+        <input name="cycle_length_days" type="number" value="{{ gyn.cycle_length_days|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Duration (days)</label>
+        <input name="menstrual_duration_days" type="number" value="{{ gyn.menstrual_duration_days|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">LMP</label>
+        <input name="lmp" type="date" value="{{ gyn.lmp|default:'' }}" class="date-picker">
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="block text-xs text-slate-500 mb-1">Menstrual Pattern</label>
+        <input name="menstrual_pattern" type="text" value="{{ gyn.menstrual_pattern|default:'' }}" placeholder="e.g. Regular, irregular, heavy">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Dysmenorrhoea</label>
+        <select name="dysmenorrhoea">
+          <option value="">Not Assessed</option>
+          <option value="1" {% if gyn.dysmenorrhoea %}selected{% endif %}>Yes</option>
+          <option value="0" {% if gyn.dysmenorrhoea is False %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Gravida</label>
+        <input name="gravida" type="number" value="{{ gyn.gravida|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Para</label>
+        <input name="para" type="number" value="{{ gyn.para|default:'' }}">
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="block text-xs text-slate-500 mb-1">Current Contraception</label>
+        <input name="current_contraception" type="text" value="{{ gyn.current_contraception|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Vitals & Examination -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Examination</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Systolic</label>
+        <input name="bp_systolic" type="number" value="{{ gyn.bp_systolic|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Diastolic</label>
+        <input name="bp_diastolic" type="number" value="{{ gyn.bp_diastolic|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BMI</label>
+        <input name="bmi" type="number" step="0.1" value="{{ gyn.bmi|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Uterus Size</label>
+        <input name="uterus_size" type="text" value="{{ gyn.uterus_size|default:'' }}" placeholder="e.g. 10-wk size">
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="block text-xs text-slate-500 mb-1">Adnexa</label>
+        <input name="adnexa" type="text" value="{{ gyn.adnexa|default:'' }}" placeholder="e.g. No masses">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Per Speculum</label>
+        <textarea name="per_speculum" rows="2">{{ gyn.per_speculum|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Per Vaginum</label>
+        <textarea name="per_vaginum" rows="2">{{ gyn.per_vaginum|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diagnosis & Plan -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Investigations, Diagnosis &amp; Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Investigations Ordered</label>
+        <textarea name="investigations_ordered" rows="2">{{ gyn.investigations_ordered|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Diagnosis</label>
+        <textarea name="diagnosis" rows="2">{{ gyn.diagnosis|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="block text-xs text-slate-500 mb-1">Treatment Plan</label>
+        <textarea name="treatment_plan" rows="3">{{ gyn.treatment_plan|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">VIA/VILI Result</label>
+        <input name="via_result" type="text" value="{{ gyn.via_result|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Pap Smear Result</label>
+        <input name="pap_result" type="text" value="{{ gyn.pap_result|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Referral</label>
+        <input name="referral" type="text" value="{{ gyn.referral|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Follow-up Date</label>
+        <input name="follow_up_date" type="date" value="{{ gyn.follow_up_date|default:'' }}" class="date-picker">
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn btn-primary" data-loading>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      Save Consultation
+    </button>
+    <a href="{% url 'gyn_consultation_list' %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>flatpickr('.date-picker', { dateFormat: 'Y-m-d', allowInput: true });</script>
+{% endblock %}

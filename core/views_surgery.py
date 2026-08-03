@@ -16,11 +16,12 @@ from django.views.decorators.http import require_POST
 from .audit import build_changes, log_action
 from .decorators import hms_permission_required
 from .models import (
-    AdmissionRequest, AuditLog, Department, Invoice, InventoryItem, InventoryTransaction,
-    InvoiceItem, OperativeNote, ORRoom, Patient, Payment, PeriopNursingAddendum,
-    PostOperativeNote, ProcedureCategory, ProcedureMaster, SurgeryAnesthesiaRecord,
-    SurgeryConsumable, SurgeryOrder, SurgeryPreDeposit, SurgerySchedule, VitalSign, Visit,
-    Ward,
+    AdmissionRequest, Admission, AuditLog, Department, Invoice, InventoryItem, InventoryTransaction,
+    InvoiceItem, InpatientDepositAccount, OperativeNote, ORRoom, Patient, Payment,
+    PeriopNursingAddendum, PostOperativeNote, ProcedureCategory, ProcedureMaster,
+    SurgeryAnesthesiaRecord, SurgeryConsumable, SurgeryOrder, SurgeryPACURecord,
+    SurgeryPreOpChecklist, SurgeryPreDeposit, SurgerySchedule,
+    VitalSign, Visit, Ward,
 )
 from .report_export import export_excel
 
@@ -177,53 +178,84 @@ def _pbool(post, name):
 def surgery_dashboard(request):
     today = timezone.localdate()
 
-    orders = SurgeryOrder.objects.select_related('patient', 'surgeon', 'department')
+    orders = SurgeryOrder.objects.select_related('patient', 'surgeon', 'department', 'procedure_master')
 
-    # KPIs
-    total_orders   = orders.count()
-    pending        = orders.filter(status__in=['ordered', 'pending_review']).count()
-    approved       = orders.filter(status='approved').count()
-    scheduled_today = SurgerySchedule.objects.filter(scheduled_date=today).count()
-    in_or          = orders.filter(status='in_or').count()
-    completed_month = orders.filter(
+    # ── KPIs ──────────────────────────────────────────────────────────────────
+    total_orders     = orders.count()
+    pending          = orders.filter(status__in=['ordered', 'pending_review']).count()
+    approved         = orders.filter(status='approved').count()
+    scheduled_today  = SurgerySchedule.objects.filter(scheduled_date=today).count()
+    in_or            = orders.filter(status='in_or').count()
+    recovery         = orders.filter(status='recovery').count()
+    post_op_ward     = orders.filter(status='post_op').count()
+    completed_month  = orders.filter(
         status='completed',
         completed_at__year=today.year,
         completed_at__month=today.month,
     ).count()
-    cancelled_month = orders.filter(
+    cancelled_month  = orders.filter(
         cancelled_at__year=today.year,
         cancelled_at__month=today.month,
     ).count()
 
-    # Today's schedule
+    # ── Pipeline buckets (for Kanban-style command center) ─────────────────────
+    pipeline_ordered = orders.filter(status__in=['ordered', 'pending_review']).order_by('-ordered_at')[:8]
+    pipeline_approved = orders.filter(status__in=['approved', 'awaiting_decision', 'booking_deposit']).order_by('-ordered_at')[:8]
+    pipeline_scheduled = (
+        SurgerySchedule.objects
+        .filter(scheduled_date__gte=today)
+        .select_related('surgery_order__patient', 'surgery_order__surgeon',
+                        'surgery_order__procedure_master', 'or_room')
+        .order_by('scheduled_date', 'scheduled_start_time')[:10]
+    )
+    pipeline_admission = orders.filter(status='awaiting_admission').select_related('patient')[:8]
+    pipeline_in_or     = orders.filter(status='in_or').select_related('patient', 'surgeon')[:6]
+    pipeline_recovery  = orders.filter(status='recovery').select_related('patient')[:6]
+    pipeline_ward      = orders.filter(status='post_op').select_related('patient', 'surgeon')[:8]
+
+    # ── Today's schedule ───────────────────────────────────────────────────────
     todays_schedule = (
         SurgerySchedule.objects
         .filter(scheduled_date=today)
-        .select_related('surgery_order__patient', 'surgery_order__surgeon', 'or_room')
+        .select_related('surgery_order__patient', 'surgery_order__surgeon',
+                        'surgery_order__procedure_master', 'or_room')
         .order_by('scheduled_start_time')
     )
 
-    # Emergency/urgent orders needing attention
+    # ── Urgent / Emergency needing attention ───────────────────────────────────
     urgent = orders.filter(
         priority__in=['emergency', 'urgent'],
         status__in=['ordered', 'pending_review', 'approved'],
     ).order_by('priority', '-ordered_at')[:10]
 
-    # Recent orders
-    recent = orders.order_by('-ordered_at')[:10]
+    # ── Recent orders ──────────────────────────────────────────────────────────
+    recent = orders.order_by('-ordered_at')[:8]
+
+    # ── OR rooms with today's load ─────────────────────────────────────────────
+    or_rooms = ORRoom.objects.filter(is_active=True).order_by('name')
 
     return render(request, 'surgery/dashboard.html', {
-        'total_orders':    total_orders,
-        'pending':         pending,
-        'approved':        approved,
-        'scheduled_today': scheduled_today,
-        'in_or':           in_or,
-        'completed_month': completed_month,
-        'cancelled_month': cancelled_month,
-        'todays_schedule': todays_schedule,
-        'urgent':          urgent,
-        'recent':          recent,
-        'today':           today,
+        'total_orders':       total_orders,
+        'pending':            pending,
+        'approved':           approved,
+        'scheduled_today':    scheduled_today,
+        'in_or':              in_or,
+        'recovery':           recovery,
+        'post_op_ward':       post_op_ward,
+        'completed_month':    completed_month,
+        'cancelled_month':    cancelled_month,
+        'pipeline_ordered':   pipeline_ordered,
+        'pipeline_approved':  pipeline_approved,
+        'pipeline_scheduled': pipeline_scheduled,
+        'pipeline_admission': pipeline_admission,
+        'pipeline_in_or':     pipeline_in_or,
+        'pipeline_recovery':  pipeline_recovery,
+        'pipeline_ward':      pipeline_ward,
+        'todays_schedule':    todays_schedule,
+        'urgent':             urgent,
+        'recent':             recent,
+        'today':              today,
+        'or_rooms':           or_rooms,
     })
 
 
@@ -384,7 +416,7 @@ def surgery_order_detail(request, order_id):
         SurgeryOrder.objects.select_related(
             'patient', 'visit', 'surgeon', 'assistant_surgeon',
             'department', 'procedure_master', 'ordered_by',
-            'approved_by', 'cancelled_by', 'invoice',
+            'approved_by', 'cancelled_by', 'invoice', 'invoice_item',
             'surgery_admission_request', 'booking_deposit_invoice_item',
             'counseling_done_by', 'patient_decision_by',
         ),
@@ -399,6 +431,17 @@ def surgery_order_detail(request, order_id):
     consumable_total  = consumables.aggregate(t=Sum('total_cost'))['t'] or 0
     nursing_addenda   = order.nursing_addenda.select_related('created_by').all()
 
+    # Pre-op checklist (if exists)
+    try:
+        preop_checklist = order.preop_checklist
+    except SurgeryPreOpChecklist.DoesNotExist:
+        preop_checklist = None
+
+    # PACU record
+    pacu_record = SurgeryPACURecord.objects.filter(
+        surgery_order=order, is_current=True,
+    ).first()
+
     log_action(
         request.user, AuditLog.Action.ACCESS, AuditLog.Module.SURGERY,
         object_type='SurgeryOrder', object_id=order.pk,
@@ -412,17 +455,19 @@ def surgery_order_detail(request, order_id):
     ).order_by('name')
 
     return render(request, 'surgery/order_detail.html', {
-        'order':            order,
-        'schedule':         schedule,
-        'anesthesia_record': anesthesia_record,
-        'operative_note':   operative_note,
-        'postop_note':      postop_note,
-        'nursing_addenda':  nursing_addenda,
-        'nursing_doc_types': PeriopNursingAddendum.DocumentType.choices,
-        'consumables':      consumables,
-        'consumable_total': consumable_total,
-        'status_choices':   SurgeryOrder.Status.choices,
-        'or_items':         or_items,
+        'order':              order,
+        'schedule':           schedule,
+        'anesthesia_record':  anesthesia_record,
+        'operative_note':     operative_note,
+        'postop_note':        postop_note,
+        'nursing_addenda':    nursing_addenda,
+        'nursing_doc_types':  PeriopNursingAddendum.DocumentType.choices,
+        'consumables':        consumables,
+        'consumable_total':   consumable_total,
+        'status_choices':     SurgeryOrder.Status.choices,
+        'or_items':           or_items,
+        'preop_checklist':    preop_checklist,
+        'pacu_record':        pacu_record,
     })
 
 
@@ -552,9 +597,25 @@ def surgery_order_update_status(request, order_id):
         )
         messages.warning(request, f'Order {order.order_number} cancelled.')
 
-    elif action == 'in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED and not order.payment_cleared:
-        messages.error(request, 'Payment must be cleared (Paid, Credit Approved, or Waived) before starting surgery.')
-        return redirect('surgery_order_detail', order_id=order_id)
+    elif action == 'mark_credit_and_in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED:
+        if not (request.user.has_perm('core.approve_surgery_order') or request.user.has_perm('core.manage_or_schedule')):
+            messages.error(request, 'You do not have permission to override the payment gate.')
+            return redirect('surgery_order_detail', order_id=order_id)
+        order.payment_status = SurgeryOrder.PaymentStatus.CREDIT
+        order.status = SurgeryOrder.Status.IN_OR
+        order.save()
+        if hasattr(order, 'schedule') and not order.schedule.actual_start_time:
+            order.schedule.actual_start_time = now
+            order.schedule.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryOrder', object_id=order.pk,
+            object_repr=order.order_number,
+            description=f'Surgery started with credit payment override: {order.order_number}',
+            severity=AuditLog.Severity.WARNING,
+            request=request,
+        )
+        messages.warning(request, 'Payment marked as Credit — patient moved to OR. Ensure billing is settled post-surgery.')
 
     elif action == 'in_or' and order.status == SurgeryOrder.Status.PATIENT_PREPARED:
         order.status = SurgeryOrder.Status.IN_OR
@@ -1248,17 +1309,27 @@ def operative_note_create(request, order_id):
                 note.save()
                 note.assistant_surgeons.set(assistant_ids)
 
+                submitting = p.get('action') == 'submit'
+                if submitting:
+                    if not p.get('certify'):
+                        raise ValueError('You must check the certification box before submitting.')
+                    _finalize_periop_document(note, request.user)
+
             changes = build_changes(old_snapshot, note, OPNOTE_ALL_FIELDS) if old_snapshot else None
+            is_submit = p.get('action') == 'submit'
             log_action(
-                request.user, AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE,
+                request.user, AuditLog.Action.APPROVE if is_submit else (AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE),
                 AuditLog.Module.SURGERY,
                 object_type='OperativeNote', object_id=note.pk,
                 object_repr=f'{order.order_number} v{note.version}',
-                description=f'Operative note {"revised (new version)" if is_new and existing else "saved"} for {order.order_number}',
+                description=f'Operative note {"submitted & signed" if is_submit else ("revised (new version)" if is_new and existing else "saved as draft")} for {order.order_number}',
                 changes=changes,
                 request=request,
             )
-            messages.success(request, 'Operative note saved as draft.')
+            if is_submit:
+                messages.success(request, 'Operative note submitted and signed. Nurses can now view it.')
+            else:
+                messages.success(request, 'Operative note saved as draft.')
             return redirect('surgery_order_detail', order_id=order_id)
         except Exception as exc:
             messages.error(request, f'Error: {exc}')
@@ -1386,17 +1457,27 @@ def postop_note_create(request, order_id):
                 note.updated_by = request.user
                 note.save()
 
+                submitting = p.get('action') == 'submit'
+                if submitting:
+                    if not p.get('certify'):
+                        raise ValueError('You must check the certification box before submitting.')
+                    _finalize_periop_document(note, request.user)
+
             changes = build_changes(old_snapshot, note, POSTOP_ALL_FIELDS) if old_snapshot else None
+            is_submit = p.get('action') == 'submit'
             log_action(
-                request.user, AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE,
+                request.user, AuditLog.Action.APPROVE if is_submit else (AuditLog.Action.CREATE if is_new or not existing else AuditLog.Action.UPDATE),
                 AuditLog.Module.SURGERY,
                 object_type='PostOperativeNote', object_id=note.pk,
                 object_repr=f'{order.order_number} v{note.version}',
-                description=f'Post-operative note {"revised (new version)" if is_new and existing else "saved"} for {order.order_number}',
+                description=f'Post-operative note {"submitted & signed" if is_submit else ("revised (new version)" if is_new and existing else "saved as draft")} for {order.order_number}',
                 changes=changes,
                 request=request,
             )
-            messages.success(request, 'Post-operative note saved as draft.')
+            if is_submit:
+                messages.success(request, 'Post-operative note submitted and signed. Nurses can now view it.')
+            else:
+                messages.success(request, 'Post-operative note saved as draft.')
             return redirect('surgery_order_detail', order_id=order_id)
         except Exception as exc:
             messages.error(request, f'Error: {exc}')
@@ -2489,3 +2570,237 @@ def surgery_deposit_settlement_receipt(request, order_id):
         'pre_dep':     pre_dep,
         'charge_items': charge_items,
     })
+
+
+# ── Pre-Operative Checklist ────────────────────────────────────────────────────
+
+@hms_permission_required('core.read_surgery')
+def preop_checklist(request, order_id):
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'procedure_master', 'surgeon'),
+        pk=order_id,
+    )
+    checklist, _ = SurgeryPreOpChecklist.objects.get_or_create(
+        surgery_order=order,
+        defaults={'created_by': request.user},
+    )
+
+    if request.method == 'POST':
+        bool_fields = [
+            'cbc_done', 'coagulation_done', 'blood_group_done', 'blood_sugar_done',
+            'rft_done', 'lft_done', 'electrolytes_done',
+            'cxr_done', 'ecg_done', 'other_imaging_done',
+            'anesthesia_clearance', 'medical_clearance', 'surgical_consent_signed',
+            'anesthesia_consent_signed',
+            'blood_required', 'blood_available',
+            'npo_confirmed', 'iv_access', 'site_marked', 'patient_identified',
+            'pre_medication_given', 'antibiotic_prophylaxis', 'dvt_prophylaxis',
+            'allergies_reviewed', 'implants_available',
+            'who_sign_in_done', 'who_time_out_done', 'who_sign_out_done',
+            'emergency_override',
+        ]
+        for f in bool_fields:
+            setattr(checklist, f, request.POST.get(f) in ('on', '1', 'true'))
+
+        checklist.units_prepared = int(request.POST.get('units_prepared') or 0)
+        checklist.override_reason = request.POST.get('override_reason', '').strip()
+        checklist.notes = request.POST.get('notes', '').strip()
+        checklist.updated_by = request.user
+
+        if checklist.emergency_override and not checklist.override_by:
+            checklist.override_by = request.user
+            checklist.override_at = timezone.now()
+
+        checklist.save()
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.SURGERY,
+            object_type='SurgeryPreOpChecklist', object_id=checklist.pk,
+            object_repr=str(checklist),
+            description=f'Pre-op checklist updated for {order.order_number} ({checklist.completion_percent}% complete)',
+            request=request,
+        )
+        messages.success(request, f'Pre-op checklist saved ({checklist.completion_percent}% complete).')
+        return redirect('surgery_order_detail', order_id=order.pk)
+
+    return render(request, 'surgery/preop_checklist.html', {
+        'order':     order,
+        'checklist': checklist,
+    })
+
+
+# ── PACU / Recovery Room Record ────────────────────────────────────────────────
+
+@hms_permission_required('core.read_surgery')
+def pacu_record_create(request, order_id):
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'procedure_master', 'surgeon'),
+        pk=order_id,
+    )
+
+    # Get existing current record or start fresh
+    existing = SurgeryPACURecord.objects.filter(surgery_order=order, is_current=True).first()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'draft')
+
+        def _pdts(name):
+            v = request.POST.get(name, '').strip()
+            if not v:
+                return None
+            try:
+                parsed = dt.fromisoformat(v)
+                return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
+            except ValueError:
+                return None
+
+        def _psmall(name):
+            try:
+                return int(request.POST.get(name, ''))
+            except (ValueError, TypeError):
+                return None
+
+        def _pdec_local(name):
+            try:
+                return Decimal(request.POST.get(name, ''))
+            except (InvalidOperation, TypeError, ValueError):
+                return None
+
+        fields = {
+            'arrival_time':          _pdts('arrival_time'),
+            'arrival_bp_systolic':   _psmall('arrival_bp_systolic'),
+            'arrival_bp_diastolic':  _psmall('arrival_bp_diastolic'),
+            'arrival_pulse':         _psmall('arrival_pulse'),
+            'arrival_rr':            _psmall('arrival_rr'),
+            'arrival_temp':          _pdec_local('arrival_temp'),
+            'arrival_spo2':          _psmall('arrival_spo2'),
+            'arrival_pain_score':    _psmall('arrival_pain_score'),
+            'consciousness_level':   request.POST.get('consciousness_level', ''),
+            'airway_status':         request.POST.get('airway_status', '').strip(),
+            'o2_delivery_method':    request.POST.get('o2_delivery_method', '').strip(),
+            'o2_flow_rate':          request.POST.get('o2_flow_rate', '').strip(),
+            'wound_condition':       request.POST.get('wound_condition', '').strip(),
+            'drain_type':            request.POST.get('drain_type', '').strip(),
+            'drain_output_ml':       _psmall('drain_output_ml'),
+            'bleeding_notes':        request.POST.get('bleeding_notes', '').strip(),
+            'analgesics_given':      request.POST.get('analgesics_given', '').strip(),
+            'antiemetics_given':     request.POST.get('antiemetics_given', '').strip(),
+            'iv_fluids_given':       request.POST.get('iv_fluids_given', '').strip(),
+            'other_medications':     request.POST.get('other_medications', '').strip(),
+            'aldrete_activity':      _psmall('aldrete_activity'),
+            'aldrete_respiration':   _psmall('aldrete_respiration'),
+            'aldrete_circulation':   _psmall('aldrete_circulation'),
+            'aldrete_consciousness': _psmall('aldrete_consciousness'),
+            'aldrete_spo2':          _psmall('aldrete_spo2'),
+            'discharge_time':        _pdts('discharge_time'),
+            'discharge_destination': request.POST.get('discharge_destination', ''),
+            'discharge_criteria_met': request.POST.get('discharge_criteria_met') in ('on', '1'),
+            'pacu_duration_minutes': _psmall('pacu_duration_minutes'),
+            'complications':         request.POST.get('complications', '').strip(),
+            'monitoring_notes':      request.POST.get('monitoring_notes', '').strip(),
+            'notes':                 request.POST.get('notes', '').strip(),
+        }
+
+        with transaction.atomic():
+            if existing and existing.is_finalized:
+                # Create new version
+                existing.is_current = False
+                existing.save(update_fields=['is_current'])
+                record = SurgeryPACURecord(
+                    surgery_order=order,
+                    version=existing.version + 1,
+                    supersedes=existing,
+                    is_current=True,
+                    created_by=request.user,
+                )
+            elif existing:
+                record = existing
+                record.updated_by = request.user
+            else:
+                record = SurgeryPACURecord(
+                    surgery_order=order,
+                    is_current=True,
+                    created_by=request.user,
+                )
+
+            for attr, val in fields.items():
+                setattr(record, attr, val)
+
+            if action == 'finalize':
+                record.doc_status   = SurgeryPACURecord.DocStatus.FINALIZED
+                record.finalized_by = request.user
+                record.finalized_at = timezone.now()
+                record.signature_name = request.user.get_full_name() or request.user.username
+            else:
+                record.doc_status = SurgeryPACURecord.DocStatus.DRAFT
+
+            record.save()
+
+        log_action(
+            request.user, AuditLog.Action.CREATE if not existing else AuditLog.Action.UPDATE,
+            AuditLog.Module.SURGERY,
+            object_type='SurgeryPACURecord', object_id=record.pk,
+            object_repr=str(record),
+            description=f'PACU record {"finalized" if action == "finalize" else "saved as draft"} for {order.order_number}',
+            request=request,
+        )
+        msg = 'PACU record finalized.' if action == 'finalize' else 'PACU record saved as draft.'
+        messages.success(request, msg)
+        return redirect('surgery_order_detail', order_id=order.pk)
+
+    return render(request, 'surgery/pacu_record.html', {
+        'order':  order,
+        'record': existing,
+        'consciousness_choices':   SurgeryPACURecord.Consciousness.choices,
+        'destination_choices':     SurgeryPACURecord.DischargeDestination.choices,
+    })
+
+
+# ── Surgery Patient Journey API ────────────────────────────────────────────────
+
+import json as _json
+from django.http import JsonResponse
+
+@hms_permission_required('core.read_surgery')
+def surgery_journey_api(request, order_id):
+    """Return the patient's surgical journey as a JSON list of stage objects."""
+    order = get_object_or_404(
+        SurgeryOrder.objects.select_related('patient', 'surgeon', 'procedure_master'),
+        pk=order_id,
+    )
+
+    STATUS_ORDER = [
+        'ordered', 'pending_review', 'awaiting_decision', 'booking_deposit',
+        'approved', 'scheduled', 'awaiting_admission', 'patient_prepared',
+        'in_or', 'recovery', 'post_op', 'completed', 'discharged',
+    ]
+
+    STAGE_META = {
+        'ordered':            {'label': 'Surgery Ordered',           'icon': '📋', 'color': 'blue'},
+        'pending_review':     {'label': 'Pending Review',            'icon': '🔍', 'color': 'yellow'},
+        'awaiting_decision':  {'label': 'Patient Counselling',       'icon': '💬', 'color': 'purple'},
+        'booking_deposit':    {'label': 'Booking Deposit',           'icon': '💳', 'color': 'indigo'},
+        'approved':           {'label': 'Approved & Scheduled',      'icon': '✅', 'color': 'green'},
+        'scheduled':          {'label': 'Surgery Scheduled',         'icon': '📅', 'color': 'cyan'},
+        'awaiting_admission': {'label': 'Pre-Op Assessment',         'icon': '🔬', 'color': 'orange'},
+        'patient_prepared':   {'label': 'Admitted & Prepared',       'icon': '🏥', 'color': 'teal'},
+        'in_or':              {'label': 'In Operating Room',         'icon': '🏨', 'color': 'red'},
+        'recovery':           {'label': 'Recovery (PACU)',           'icon': '💊', 'color': 'amber'},
+        'post_op':            {'label': 'Ward (Post-Op)',            'icon': '🛏️', 'color': 'sky'},
+        'completed':          {'label': 'Surgery Completed',         'icon': '🎯', 'color': 'emerald'},
+        'discharged':         {'label': 'Discharged',                'icon': '🏠', 'color': 'slate'},
+    }
+
+    current_idx = STATUS_ORDER.index(order.status) if order.status in STATUS_ORDER else 0
+
+    stages = []
+    for i, s in enumerate(STATUS_ORDER):
+        meta = STAGE_META.get(s, {'label': s, 'icon': '•', 'color': 'slate'})
+        stages.append({
+            'status':    s,
+            'label':     meta['label'],
+            'icon':      meta['icon'],
+            'color':     meta['color'],
+            'state':     'done' if i < current_idx else ('current' if i == current_idx else 'pending'),
+        })
+
+    return JsonResponse({'stages': stages, 'current': order.status})

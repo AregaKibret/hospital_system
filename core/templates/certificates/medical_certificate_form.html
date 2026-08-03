@@ -93,8 +93,11 @@
   </div>
 
   <div class="flex gap-3">
-    <button type="submit" class="btn-primary">Save as Draft</button>
-    <a href="{% url 'visit_detail' visit.pk %}" class="btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-secondary" data-loading>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      Save as Draft
+    </button>
+    <a href="{% url 'visit_detail' visit.pk %}" class="btn btn-neutral">Cancel</a>
     {% if cert %}
     <a href="{% url 'medical_certificate_print' cert.pk %}" class="btn-secondary">Preview / Print</a>
     {% endif %}
@@ -109,7 +112,10 @@
     <input type="checkbox" name="certify" required class="mt-0.5 rounded border-purple-300">
     I certify this record is accurate and complete.
   </label>
-  <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">Finalize &amp; Sign</button>
+  <button type="submit" class="btn btn-purple" data-loading>
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    Finalize &amp; Sign
+  </button>
 </form>
 {% endif %}
 
@@ -118,7 +124,7 @@
   {% csrf_token %}
   <label class="field-label">Void Reason <span class="text-red-500">*</span></label>
   <textarea name="void_reason" rows="2" required class="field-input mb-3" placeholder="Reason this certificate must be voided…"></textarea>
-  <button type="submit" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition">Void Certificate</button>
+  <button type="submit" class="btn btn-danger" data-loading>Void Certificate</button>
 </form>
 {% endif %}
 

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}OB/GYN Reports{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">OB/GYN Reports</h1>
+  <a href="{% url 'obgyn_dashboard' %}" class="text-sm text-slate-400 hover:text-slate-600">← Dashboard</a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">Report</label>
+    <select name="report" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none">
+      <option value="anc_summary" {% if report == 'anc_summary' %}selected{% endif %}>ANC Summary</option>
+      <option value="delivery_summary" {% if report == 'delivery_summary' %}selected{% endif %}>Delivery Summary</option>
+      <option value="gyn_summary" {% if report == 'gyn_summary' %}selected{% endif %}>Gynecology Summary</option>
+      <option value="fp_summary" {% if report == 'fp_summary' %}selected{% endif %}>Family Planning Summary</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">From</label>
+    <input name="date_from" type="date" value="{{ date_from }}" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none">
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">To</label>
+    <input name="date_to" type="date" value="{{ date_to }}" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none">
+  </div>
+  <button type="submit" class="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm rounded-lg font-medium">Generate</button>
+</form>
+
+<!-- ANC Summary -->
+{% if report == 'anc_summary' and data.anc_visits %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-5">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="font-semibold text-slate-900 dark:text-white">ANC Visits — {{ date_from }} to {{ date_to }}</h2>
+    <p class="text-xs text-slate-500 mt-0.5">{{ data.anc_visits|length }} visit(s)</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-2 text-left">Patient</th>
+          <th class="px-4 py-2 text-left">Date</th>
+          <th class="px-4 py-2 text-left">GA (wks)</th>
+          <th class="px-4 py-2 text-left">BP</th>
+          <th class="px-4 py-2 text-left">FHR</th>
+          <th class="px-4 py-2 text-left">HB</th>
+          <th class="px-4 py-2 text-left">Seen By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for anc in data.anc_visits %}
+        <tr>
+          <td class="px-4 py-2 font-medium text-slate-800 dark:text-white">{{ anc.pregnancy.patient.full_name }}</td>
+          <td class="px-4 py-2">{{ anc.visit_date }}</td>
+          <td class="px-4 py-2">{{ anc.ga_weeks|default:"—" }}</td>
+          <td class="px-4 py-2">{% if anc.bp_systolic %}{{ anc.bp_systolic }}/{{ anc.bp_diastolic }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-2">{{ anc.fetal_heart_rate|default:"—" }}</td>
+          <td class="px-4 py-2">{{ anc.hb_level|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs text-slate-500">{{ anc.seen_by.get_full_name|default:anc.seen_by.username|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Delivery Summary -->
+{% if report == 'delivery_summary' %}
+{% if data.mode_counts %}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+  {% for row in data.mode_counts %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-blue-600">{{ row.count }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ mode_display|default:row.delivery_mode }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% if data.deliveries %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="font-semibold text-slate-900 dark:text-white">Deliveries — {{ date_from }} to {{ date_to }}</h2>
+    <p class="text-xs text-slate-500 mt-0.5">{{ data.deliveries|length }} delivery(ies)</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-2 text-left">Patient</th>
+          <th class="px-4 py-2 text-left">Date</th>
+          <th class="px-4 py-2 text-left">Mode</th>
+          <th class="px-4 py-2 text-left">Outcome</th>
+          <th class="px-4 py-2 text-left">GA</th>
+          <th class="px-4 py-2 text-left">Blood Loss</th>
+          <th class="px-4 py-2 text-left">Attended By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for d in data.deliveries %}
+        <tr>
+          <td class="px-4 py-2 font-medium text-slate-800 dark:text-white">{{ d.pregnancy.patient.full_name }}</td>
+          <td class="px-4 py-2">{{ d.delivery_date }}</td>
+          <td class="px-4 py-2 text-xs">{{ d.get_delivery_mode_display }}</td>
+          <td class="px-4 py-2"><span class="text-xs px-2 py-0.5 rounded-full {% if d.outcome == 'live_birth' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">{{ d.get_outcome_display }}</span></td>
+          <td class="px-4 py-2">{{ d.ga_at_delivery|default:"—" }} wks</td>
+          <td class="px-4 py-2">{{ d.blood_loss_ml|default:"—" }} mL</td>
+          <td class="px-4 py-2 text-xs text-slate-500">{{ d.attended_by.get_full_name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Gynecology Summary -->
+{% if report == 'gyn_summary' %}
+{% if data.category_counts %}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+  {% for row in data.category_counts %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-purple-600">{{ row.count }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ category_display|default:row.category }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% if data.consults %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="font-semibold text-slate-900 dark:text-white">Gynecology Consultations — {{ date_from }} to {{ date_to }}</h2>
+    <p class="text-xs text-slate-500 mt-0.5">{{ data.consults|length }} consultation(s)</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-2 text-left">Patient</th>
+          <th class="px-4 py-2 text-left">Date</th>
+          <th class="px-4 py-2 text-left">Category</th>
+          <th class="px-4 py-2 text-left">Diagnosis</th>
+          <th class="px-4 py-2 text-left">Seen By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for g in data.consults %}
+        <tr>
+          <td class="px-4 py-2 font-medium text-slate-800 dark:text-white">{{ g.patient.full_name }}</td>
+          <td class="px-4 py-2">{{ g.consultation_date }}</td>
+          <td class="px-4 py-2"><span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{{ g.get_category_display }}</span></td>
+          <td class="px-4 py-2 text-slate-600 dark:text-slate-300 max-w-xs truncate">{{ g.diagnosis|default:"—" }}</td>
+          <td class="px-4 py-2 text-xs text-slate-500">{{ g.seen_by.get_full_name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- FP Summary -->
+{% if report == 'fp_summary' %}
+{% if data.method_counts %}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+  {% for row in data.method_counts %}
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+    <p class="text-2xl font-bold text-green-600">{{ row.count }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ method_display|default:row.method }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% if data.fp_visits %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+  <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+    <h2 class="font-semibold text-slate-900 dark:text-white">Family Planning Visits — {{ date_from }} to {{ date_to }}</h2>
+    <p class="text-xs text-slate-500 mt-0.5">{{ data.fp_visits|length }} visit(s)</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-2 text-left">Patient</th>
+          <th class="px-4 py-2 text-left">Date</th>
+          <th class="px-4 py-2 text-left">Visit Type</th>
+          <th class="px-4 py-2 text-left">Method</th>
+          <th class="px-4 py-2 text-left">Seen By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for fp in data.fp_visits %}
+        <tr>
+          <td class="px-4 py-2 font-medium text-slate-800 dark:text-white">{{ fp.patient.full_name }}</td>
+          <td class="px-4 py-2">{{ fp.visit_date }}</td>
+          <td class="px-4 py-2"><span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{{ fp.get_visit_type_display }}</span></td>
+          <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ fp.get_method_display }}</td>
+          <td class="px-4 py-2 text-xs text-slate-500">{{ fp.seen_by.get_full_name|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if not data %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 text-center text-slate-400">
+  <p>No data found for the selected period.</p>
+</div>
+{% endif %}
+
+{% endblock %}

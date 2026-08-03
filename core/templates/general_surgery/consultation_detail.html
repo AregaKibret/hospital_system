@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Surgical Consultation — {{ consultation.patient }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <a href="{% url 'surgical_consultation_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultations</a>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ consultation.patient }}</h1>
+      <p class="text-sm text-slate-500">{{ consultation.consultation_date }} · {{ consultation.surgeon.get_full_name|default:consultation.surgeon }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if perms.core.manage_surgical_consultation %}
+      <a href="{% url 'surgical_consultation_edit' consultation.pk %}" class="btn-secondary">Edit</a>
+      {% endif %}
+      {% if perms.core.manage_preop_assessment %}
+      <a href="{% url 'preop_assessment_create' consultation.pk %}" class="btn-secondary">Pre-op</a>
+      {% endif %}
+      {% if perms.core.manage_operative_note %}
+      <a href="{% url 'operative_note_create_consult' consultation.pk %}" class="btn-secondary">Op Note</a>
+      {% endif %}
+      {% if perms.core.manage_postop_note %}
+      <a href="{% url 'postop_note_create_consult' consultation.pk %}" class="btn-secondary">Post-op</a>
+      {% endif %}
+      {% if perms.core.manage_wound_followup %}
+      <a href="{% url 'wound_followup_create' consultation.pk %}" class="btn-secondary">Wound F/U</a>
+      {% endif %}
+      <button onclick="window.print()" class="btn-secondary">Print</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Patient & Vitals -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Patient</h2>
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between"><span class="text-slate-500">MRN</span><span class="font-mono text-slate-700 dark:text-slate-300">{{ consultation.patient.mrn|default:"—" }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Age/Sex</span><span class="text-slate-700 dark:text-slate-300">{{ consultation.patient.age|default:"—" }} / {{ consultation.patient.get_gender_display|default:"—" }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Urgency</span>
+            <span class="px-2 py-0.5 rounded text-xs font-semibold {% if consultation.urgency == 'emergency' %}bg-red-100 text-red-700{% elif consultation.urgency == 'urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ consultation.get_urgency_display }}</span>
+          </div>
+          <div class="flex justify-between"><span class="text-slate-500">Decision</span>
+            <span class="px-2 py-0.5 rounded text-xs font-semibold {% if consultation.decision == 'for_surgery' %}bg-violet-100 text-violet-700{% elif consultation.decision == 'conservative' %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ consultation.get_decision_display }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Vitals</h2>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">BP</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.bp_systolic|default:"—" }}/{{ consultation.bp_diastolic|default:"—" }}</p>
+            <p class="text-xs text-slate-400">mmHg</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">Pulse</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.pulse|default:"—" }}</p>
+            <p class="text-xs text-slate-400">bpm</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">Temp</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.temperature|default:"—" }}</p>
+            <p class="text-xs text-slate-400">°C</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">SpO₂</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.spo2|default:"—" }}</p>
+            <p class="text-xs text-slate-400">%</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center col-span-2">
+            <p class="text-xs text-slate-400">Weight</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.weight_kg|default:"—" }} kg</p>
+          </div>
+        </div>
+      </div>
+      {% if preop %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pre-op Checklist</h2>
+          {% if perms.core.manage_preop_assessment %}<a href="{% url 'preop_assessment_edit' preop.pk %}" class="text-xs text-indigo-600 hover:underline">Edit</a>{% endif %}
+        </div>
+        <div class="grid grid-cols-2 gap-1 text-xs text-slate-600 dark:text-slate-400">
+          {% for label, val in preop_checklist %}
+          <div class="flex items-center gap-1">
+            {% if val %}<span class="text-emerald-500">✓</span>{% else %}<span class="text-slate-300">○</span>{% endif %}
+            {{ label }}
+          </div>
+          {% endfor %}
+        </div>
+        {% if preop.notes %}<p class="text-xs text-slate-500 mt-2 italic">{{ preop.notes }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- History & Examination -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Chief Complaint</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.chief_complaint|default:"—" }}</p>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">History</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.history|default:"—" }}</p>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Past Surgical History</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.past_surgical_history|default:"None" }}</p>
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3 mb-1">Past Medical History</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.past_medical_history|default:"None" }}</p>
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3 mb-1">Medications / Allergies</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300">{{ consultation.medications|default:"—" }} / {{ consultation.allergies|default:"NKDA" }}</p>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Physical Examination</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.physical_examination|default:"—" }}</p>
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3 mb-1">Local Examination</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.local_examination|default:"—" }}</p>
+      </div>
+    </div>
+
+    <!-- Plan & Operative Records -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Assessment & Plan</h2>
+        <div class="space-y-2 text-sm">
+          <div><span class="text-slate-400 text-xs">Diagnosis:</span><p class="text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.provisional_diagnosis|default:"—" }}</p></div>
+          <div><span class="text-slate-400 text-xs">Proposed Procedure:</span><p class="text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.proposed_procedure|default:"—" }}</p></div>
+          <div><span class="text-slate-400 text-xs">Pre-op Investigations:</span><p class="text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-wrap">{{ consultation.pre_op_investigations|default:"—" }}</p></div>
+          <div class="flex flex-wrap gap-2 pt-1">
+            {% if consultation.consent_obtained %}<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Consent obtained</span>{% endif %}
+            {% if consultation.anaesthesia_referral %}<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Anaesthesia referred</span>{% endif %}
+            {% if consultation.blood_required %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Blood: {{ consultation.units_required|default:"?" }} units</span>{% endif %}
+          </div>
+          {% if consultation.notes %}<div><span class="text-slate-400 text-xs">Notes:</span><p class="text-slate-700 dark:text-slate-300 mt-0.5 text-xs italic">{{ consultation.notes }}</p></div>{% endif %}
+          {% if consultation.follow_up_date %}<div><span class="text-slate-400 text-xs">Follow-up:</span><p class="text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.follow_up_date }}</p></div>{% endif %}
+        </div>
+      </div>
+
+      {% if operative_note %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Operative Note</h2>
+          {% if perms.core.manage_operative_note %}<a href="{% url 'operative_note_edit_consult' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">Edit</a>{% endif %}
+        </div>
+        <div class="text-sm space-y-1">
+          <div class="flex justify-between"><span class="text-slate-400">Date</span><span>{{ operative_note.procedure_date }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Duration</span><span>{{ operative_note.duration_display|default:"—" }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">EBL</span><span class="font-mono">{{ operative_note.ebl|default:"—" }} mL</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Wound class</span><span>{{ operative_note.get_wound_class_display }}</span></div>
+          <p class="text-xs text-slate-600 dark:text-slate-400 mt-2 whitespace-pre-wrap">{{ operative_note.procedure_performed }}</p>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if postop_notes %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Post-op Notes</h2>
+          <a href="{% url 'postop_note_create_consult' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add</a>
+        </div>
+        <div class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for n in postop_notes %}
+          <div class="px-5 py-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">POD {{ n.pod }} · {{ n.note_date }}</span>
+              <span class="text-xs px-1.5 py-0.5 rounded {% if n.status == 'stable' %}bg-emerald-100 text-emerald-700{% elif n.status == 'critical' %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ n.get_status_display }}</span>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{{ n.assessment }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if wound_followups %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Wound Follow-ups</h2>
+          <a href="{% url 'wound_followup_create' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add</a>
+        </div>
+        <div class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for w in wound_followups %}
+          <div class="px-5 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">POD {{ w.pod }} · {{ w.visit_date }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ w.wound_findings|truncatechars:60 }}</p>
+            </div>
+            <span class="text-xs px-1.5 py-0.5 rounded {% if w.wound_status == 'healed' %}bg-emerald-100 text-emerald-700{% elif w.wound_status == 'infected' %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ w.get_wound_status_display }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

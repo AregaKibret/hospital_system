@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{% if consultation %}Edit Consultation{% else %}New Surgical Consultation{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'surgical_consultation_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultations</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{% if consultation %}Edit Consultation — {{ consultation.patient }}{% else %}New Surgical Consultation{% endif %}</h1>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">{% for m in messages %}<div class="rounded-xl px-4 py-3 text-sm {% if m.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-700{% endif %}">{{ m }}</div>{% endfor %}</div>
+  {% endif %}
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    <!-- Patient search -->
+    {% if not consultation %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Patient</h2>
+      <div class="relative">
+        <input type="text" id="patient-search" placeholder="Search by name or MRN…" autocomplete="off" class="form-input w-full pr-10">
+        <input type="hidden" name="patient" id="patient-id" required>
+        <div id="patient-results" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg hidden"></div>
+      </div>
+      <p id="patient-display" class="mt-2 text-sm text-emerald-600 hidden"></p>
+    </div>
+    {% endif %}
+
+    <!-- Consultation details -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Consultation Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Date *</label><input type="date" name="consultation_date" required class="form-input w-full" value="{{ consultation.consultation_date|default:today }}"></div>
+        <div>
+          <label class="form-label">Urgency</label>
+          <select name="urgency" class="form-input w-full">
+            <option value="elective" {% if consultation.urgency == 'elective' %}selected{% endif %}>Elective</option>
+            <option value="urgent" {% if consultation.urgency == 'urgent' %}selected{% endif %}>Urgent</option>
+            <option value="emergency" {% if consultation.urgency == 'emergency' %}selected{% endif %}>Emergency</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Decision</label>
+          <select name="decision" class="form-input w-full">
+            {% for val,label in decision_choices %}<option value="{{ val }}" {% if consultation.decision == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitals -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Vitals</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">BP Systolic</label><input type="number" name="bp_systolic" value="{{ consultation.bp_systolic|default:'' }}" class="form-input w-full" placeholder="mmHg"></div>
+        <div><label class="form-label">BP Diastolic</label><input type="number" name="bp_diastolic" value="{{ consultation.bp_diastolic|default:'' }}" class="form-input w-full" placeholder="mmHg"></div>
+        <div><label class="form-label">Pulse</label><input type="number" name="pulse" value="{{ consultation.pulse|default:'' }}" class="form-input w-full" placeholder="bpm"></div>
+        <div><label class="form-label">Temperature</label><input type="number" name="temperature" step="0.1" value="{{ consultation.temperature|default:'' }}" class="form-input w-full" placeholder="°C"></div>
+        <div><label class="form-label">Weight (kg)</label><input type="number" name="weight_kg" step="0.1" value="{{ consultation.weight_kg|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">SpO₂ (%)</label><input type="number" name="spo2" value="{{ consultation.spo2|default:'' }}" class="form-input w-full"></div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">History</h2>
+      <div><label class="form-label">Chief Complaint *</label><textarea name="chief_complaint" rows="2" required class="form-input w-full" placeholder="Presenting complaint…">{{ consultation.chief_complaint|default:'' }}</textarea></div>
+      <div><label class="form-label">History of Presenting Illness</label><textarea name="history" rows="4" class="form-input w-full" placeholder="Onset, duration, character, associated symptoms…">{{ consultation.history|default:'' }}</textarea></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Past Surgical History</label><textarea name="past_surgical_history" rows="2" class="form-input w-full">{{ consultation.past_surgical_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Past Medical History</label><textarea name="past_medical_history" rows="2" class="form-input w-full">{{ consultation.past_medical_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Current Medications</label><textarea name="medications" rows="2" class="form-input w-full">{{ consultation.medications|default:'' }}</textarea></div>
+        <div><label class="form-label">Allergies</label><input type="text" name="allergies" value="{{ consultation.allergies|default:'' }}" class="form-input w-full" placeholder="NKDA or list…"></div>
+      </div>
+    </div>
+
+    <!-- Examination -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Examination</h2>
+      <div><label class="form-label">Physical Examination</label><textarea name="physical_examination" rows="4" class="form-input w-full" placeholder="General appearance, cardiovascular, respiratory, abdomen…">{{ consultation.physical_examination|default:'' }}</textarea></div>
+      <div><label class="form-label">Local / Surgical Examination</label><textarea name="local_examination" rows="4" class="form-input w-full" placeholder="Site-specific findings…">{{ consultation.local_examination|default:'' }}</textarea></div>
+    </div>
+
+    <!-- Assessment & Plan -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Assessment & Plan</h2>
+      <div><label class="form-label">Provisional Diagnosis *</label><input type="text" name="provisional_diagnosis" required value="{{ consultation.provisional_diagnosis|default:'' }}" class="form-input w-full" placeholder="Diagnosis…"></div>
+      <div><label class="form-label">Proposed Procedure</label><input type="text" name="proposed_procedure" value="{{ consultation.proposed_procedure|default:'' }}" class="form-input w-full" placeholder="e.g. Appendectomy, Inguinal hernia repair…"></div>
+      <div><label class="form-label">Pre-op Investigations Required</label><textarea name="pre_op_investigations" rows="3" class="form-input w-full" placeholder="FBC, UECr, LFTs, G+S, ECG, CXR…">{{ consultation.pre_op_investigations|default:'' }}</textarea></div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="flex items-center gap-2 col-span-2 sm:col-span-1">
+          <input type="checkbox" name="consent_obtained" id="consent_obtained" class="w-4 h-4" {% if consultation.consent_obtained %}checked{% endif %}>
+          <label for="consent_obtained" class="text-sm text-slate-700 dark:text-slate-300">Consent obtained</label>
+        </div>
+        <div class="flex items-center gap-2 col-span-2 sm:col-span-1">
+          <input type="checkbox" name="anaesthesia_referral" id="anaesthesia_referral" class="w-4 h-4" {% if consultation.anaesthesia_referral %}checked{% endif %}>
+          <label for="anaesthesia_referral" class="text-sm text-slate-700 dark:text-slate-300">Anaesthesia referral</label>
+        </div>
+        <div class="flex items-center gap-2 col-span-2 sm:col-span-1">
+          <input type="checkbox" name="blood_required" id="blood_required" class="w-4 h-4" {% if consultation.blood_required %}checked{% endif %} onchange="document.getElementById('units_row').classList.toggle('hidden',!this.checked)">
+          <label for="blood_required" class="text-sm text-slate-700 dark:text-slate-300">Blood required</label>
+        </div>
+        <div id="units_row" class="{% if not consultation.blood_required %}hidden{% endif %}">
+          <label class="form-label">Units</label>
+          <input type="number" name="units_required" value="{{ consultation.units_required|default:'' }}" class="form-input w-full" min="0">
+        </div>
+      </div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full">{{ consultation.notes|default:'' }}</textarea></div>
+      <div><label class="form-label">Follow-up Date</label><input type="date" name="follow_up_date" value="{{ consultation.follow_up_date|default:'' }}" class="form-input"></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        {% if consultation %}Save Changes{% else %}Create Consultation{% endif %}
+      </button>
+      <a href="{% url 'surgical_consultation_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const searchInput=document.getElementById('patient-search');
+const hiddenInput=document.getElementById('patient-id');
+const resultsDiv=document.getElementById('patient-results');
+const display=document.getElementById('patient-display');
+if(searchInput){
+  let t;
+  searchInput.addEventListener('input',function(){
+    clearTimeout(t);
+    const q=this.value.trim();
+    if(q.length<2){resultsDiv.classList.add('hidden');return;}
+    t=setTimeout(()=>{
+      fetch(`{% url 'surgery_consult_patient_search' %}?q=${encodeURIComponent(q)}`)
+        .then(r=>r.json()).then(data=>{
+          if(!data.length){resultsDiv.classList.add('hidden');return;}
+          resultsDiv.innerHTML=data.map(p=>`<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm border-b border-slate-100 dark:border-slate-700 last:border-0" data-id="${p.id}" data-name="${p.name}">${p.name} <span class="text-xs text-slate-400">${p.mrn||''}</span></button>`).join('');
+          resultsDiv.classList.remove('hidden');
+          resultsDiv.querySelectorAll('button').forEach(btn=>{
+            btn.addEventListener('click',function(){
+              hiddenInput.value=this.dataset.id;
+              searchInput.value=this.dataset.name;
+              display.textContent='Selected: '+this.dataset.name;
+              display.classList.remove('hidden');
+              resultsDiv.classList.add('hidden');
+            });
+          });
+        });
+    },300);
+  });
+  document.addEventListener('click',e=>{if(!resultsDiv.contains(e.target)&&e.target!==searchInput)resultsDiv.classList.add('hidden');});
+}
+</script>
+{% endblock %}

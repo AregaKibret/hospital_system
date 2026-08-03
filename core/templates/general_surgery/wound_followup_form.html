@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Wound Follow-up{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">Wound Follow-up</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }} · {{ consultation.proposed_procedure|default:"Procedure" }}</p>
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Visit Date *</label><input type="date" name="visit_date" required value="{{ today }}" class="form-input w-full"></div>
+        <div><label class="form-label">POD</label><input type="number" name="pod" min="0" class="form-input w-full" value="{{ suggested_pod|default:'' }}" placeholder="Post-op day"></div>
+        <div>
+          <label class="form-label">Wound Status</label>
+          <select name="wound_status" class="form-input w-full">
+            {% for val,label in wound_status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Wound Assessment</h2>
+      <div><label class="form-label">Wound Findings *</label><textarea name="wound_findings" rows="3" required class="form-input w-full" placeholder="Size, appearance, discharge, surrounding tissue…"></textarea></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="sutures_removed" id="sutures_removed" class="w-4 h-4">
+          <label for="sutures_removed" class="text-sm text-slate-700 dark:text-slate-300">Sutures/staples removed</label>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="dressing_done" id="dressing_done" class="w-4 h-4" onchange="document.getElementById('dressing_type_row').classList.toggle('hidden',!this.checked)">
+          <label for="dressing_done" class="text-sm text-slate-700 dark:text-slate-300">Dressing changed</label>
+        </div>
+      </div>
+      <div id="dressing_type_row" class="hidden">
+        <label class="form-label">Dressing Type</label>
+        <input type="text" name="dressing_type" class="form-input w-full" placeholder="e.g. Simple dry, Betadine soaked, Vaseline gauze…">
+      </div>
+      <div><label class="form-label">Plan</label><textarea name="plan" rows="3" class="form-input w-full" placeholder="Medications, further dressing, review…"></textarea></div>
+      <div><label class="form-label">Next Visit Date</label><input type="date" name="next_visit" class="form-input w-full"></div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full"></textarea></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn-primary">Save Follow-up</button>
+      <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

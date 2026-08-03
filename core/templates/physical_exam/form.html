@@ -171,12 +171,9 @@
 
     <!-- Form actions -->
     <div class="flex items-center justify-between gap-4 pb-8">
-      <a href="{% url 'visit_detail' visit.id %}?tab=physical_exam"
-         class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-        Cancel
-      </a>
-      <button type="submit"
-              class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+      <a href="{% url 'visit_detail' visit.id %}?tab=physical_exam" class="btn btn-secondary btn-sm">Cancel</a>
+      <button type="submit" class="btn btn-primary btn-sm" data-loading>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {% if is_edit %}Update{% else %}Save{% endif %} Examination
       </button>
     </div>

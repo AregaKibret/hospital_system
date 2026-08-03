@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Gynecology Consultations{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Gynecology Consultations</h1>
+  <a href="{% url 'gyn_consultation_create' %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors">+ New Consultation</a>
+</div>
+
+<form method="get" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-end">
+  <div class="flex-1 min-w-48">
+    <label class="block text-xs font-medium text-slate-500 mb-1">Search</label>
+    <input name="q" value="{{ q }}" placeholder="Name, card number…" class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">Category</label>
+    <select name="category" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none">
+      <option value="">All Categories</option>
+      {% for val, label in category_choices %}
+      <option value="{{ val }}" {% if category_filter == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm rounded-lg">Filter</button>
+  <a href="{% url 'gyn_consultation_list' %}" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Clear</a>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500 font-semibold">
+      <tr>
+        <th class="px-4 py-3 text-left">Patient</th>
+        <th class="px-4 py-3 text-left">Date</th>
+        <th class="px-4 py-3 text-left">Category</th>
+        <th class="px-4 py-3 text-left">Chief Complaint</th>
+        <th class="px-4 py-3 text-left">Diagnosis</th>
+        <th class="px-4 py-3 text-left">Seen By</th>
+        <th class="px-4 py-3 text-left">Follow-up</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for gyn in page_obj %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+        <td class="px-4 py-3">
+          <p class="font-medium text-slate-800 dark:text-white">{{ gyn.patient.full_name }}</p>
+          <p class="text-xs text-slate-400">{{ gyn.patient.card_number }}</p>
+        </td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ gyn.consultation_date }}</td>
+        <td class="px-4 py-3">
+          <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">{{ gyn.get_category_display }}</span>
+        </td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-48 truncate">{{ gyn.chief_complaint }}</td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-48 truncate">{{ gyn.diagnosis|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-500 text-xs">{{ gyn.seen_by.get_full_name|default:gyn.seen_by.username|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-500 text-xs">{{ gyn.follow_up_date|default:"—" }}</td>
+        <td class="px-4 py-3">
+          <div class="flex gap-2">
+            <a href="{% url 'gyn_consultation_detail' gyn.pk %}" class="text-xs text-blue-600 hover:underline">View</a>
+            <a href="{% url 'gyn_consultation_edit' gyn.pk %}" class="text-xs text-slate-500 hover:text-slate-700">Edit</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No consultations found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-center gap-2 mt-4">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&category={{ category_filter }}" class="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">← Prev</a>{% endif %}
+  <span class="text-sm text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q }}&category={{ category_filter }}" class="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Next →</a>{% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

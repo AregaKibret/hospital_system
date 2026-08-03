@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Infertility Case{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'infertility_case_list' %}" class="text-slate-400 hover:text-slate-600 text-sm">← Infertility Cases</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ action }} Infertility Case</h1>
+</div>
+
+{% if action == 'Open' %}
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+  <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Select Patient</h2>
+  <form method="get" class="flex gap-2 mb-4">
+    <input name="q" value="{{ q }}" placeholder="Search patient…" class="flex-1 text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400">
+    {% if selected_patient %}<input type="hidden" name="patient" value="{{ selected_patient.pk }}">{% endif %}
+    <button type="submit" class="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg">Search</button>
+  </form>
+  {% if patients %}
+  <div class="space-y-1">
+    {% for pt in patients %}
+    <a href="?patient={{ pt.pk }}" class="flex items-center justify-between px-4 py-2.5 rounded-lg border {% if selected_patient.pk == pt.pk %}border-orange-400 bg-orange-50 dark:bg-orange-900/20{% else %}border-slate-100 dark:border-slate-700 hover:border-orange-300{% endif %} transition-colors">
+      <div><p class="text-sm font-medium text-slate-800 dark:text-white">{{ pt.full_name }}</p><p class="text-xs text-slate-400">{{ pt.card_number }}</p></div>
+      {% if selected_patient.pk == pt.pk %}<span class="text-xs text-orange-600 font-semibold">Selected ✓</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if selected_patient or case %}
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+  {% if action == 'Open' and selected_patient %}<input type="hidden" name="patient_id" value="{{ selected_patient.pk }}">{% endif %}
+
+  {% if selected_patient %}
+  <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 flex items-center gap-3">
+    <div class="w-10 h-10 bg-orange-600 rounded-full flex items-center justify-center text-white font-bold">{{ selected_patient.first_name|first }}</div>
+    <div>
+      <p class="font-semibold text-slate-800 dark:text-white">{{ selected_patient.full_name }}</p>
+      <p class="text-xs text-slate-500">{{ selected_patient.card_number }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Case Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Type *</label>
+        <select name="infertility_type" required>
+          {% for val, label in type_choices %}
+          <option value="{{ val }}" {% if case.infertility_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Duration (years)</label>
+        <input name="duration_years" type="number" value="{{ case.duration_years|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Status</label>
+        <select name="status">
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if case.status == val %}selected{% elif not case and val == 'active' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Partner Name</label>
+        <input name="partner_name" type="text" value="{{ case.partner_name|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Partner Contact</label>
+        <input name="partner_contact" type="text" value="{{ case.partner_contact|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Etiological Factors</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4 text-sm">
+      <div>
+        <p class="text-xs text-slate-500 mb-2">Tubal Factor</p>
+        <select name="tubal_factor" class="text-sm px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white w-full">
+          <option value="">Unknown</option>
+          <option value="1" {% if case.tubal_factor %}selected{% endif %}>Present</option>
+          <option value="0" {% if case.tubal_factor is False %}selected{% endif %}>Absent</option>
+        </select>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-2">Ovulatory Factor</p>
+        <select name="ovulatory_factor" class="text-sm px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white w-full">
+          <option value="">Unknown</option>
+          <option value="1" {% if case.ovulatory_factor %}selected{% endif %}>Present</option>
+          <option value="0" {% if case.ovulatory_factor is False %}selected{% endif %}>Absent</option>
+        </select>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-2">Uterine Factor</p>
+        <select name="uterine_factor" class="text-sm px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white w-full">
+          <option value="">Unknown</option>
+          <option value="1" {% if case.uterine_factor %}selected{% endif %}>Present</option>
+          <option value="0" {% if case.uterine_factor is False %}selected{% endif %}>Absent</option>
+        </select>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-2">Male Factor</p>
+        <select name="male_factor" class="text-sm px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white w-full">
+          <option value="">Unknown</option>
+          <option value="1" {% if case.male_factor %}selected{% endif %}>Present</option>
+          <option value="0" {% if case.male_factor is False %}selected{% endif %}>Absent</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Menstrual History</label>
+        <textarea name="menstrual_history" rows="2">{{ case.menstrual_history|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Semen Analysis</label>
+        <textarea name="semen_analysis" rows="2">{{ case.semen_analysis|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Investigations</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">HSG Result</label>
+        <textarea name="hsg_result" rows="2">{{ case.hsg_result|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Hormone Profile</label>
+        <textarea name="hormone_profile" rows="2">{{ case.hormone_profile|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Ultrasound Findings</label>
+        <textarea name="ultrasound_findings" rows="2">{{ case.ultrasound_findings|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Treatment Plan</h2>
+    <div class="field-wrapper mb-4">
+      <textarea name="treatment_plan" rows="3">{{ case.treatment_plan|default:'' }}</textarea>
+    </div>
+    <div class="flex flex-wrap gap-4 mb-4">
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="ovulation_induction" value="1" class="accent-orange-600" {% if case.ovulation_induction %}checked{% endif %}>
+        Ovulation Induction
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="iui_done" value="1" class="accent-orange-600" {% if case.iui_done %}checked{% endif %}>
+        IUI Done
+      </label>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Referral Reason</label>
+        <textarea name="referral_reason" rows="2">{{ case.referral_reason|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Notes</label>
+        <textarea name="notes" rows="2">{{ case.notes|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg">{{ action }} Case</button>
+    <a href="{% url 'infertility_case_list' %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</a>
+  </div>
+</form>
+{% endif %}
+
+{% endblock %}

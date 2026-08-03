@@ -8,20 +8,18 @@
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Front Desk</h1>
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ today|date:"l, F j, Y" }}</p>
   </div>
-  <div class="flex items-center gap-2">
-    <a href="{% url 'appointment_create' %}"
-       class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-      </svg>
+  <div class="flex items-center gap-2 flex-wrap">
+    <a href="{% url 'appointment_create' %}" class="btn btn-primary btn-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       New Appointment
     </a>
-    <a href="{% url 'register_patient' %}"
-       class="inline-flex items-center gap-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-      </svg>
+    <a href="{% url 'register_patient' %}" class="btn btn-secondary btn-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
       Register Patient
+    </a>
+    <a href="{% url 'patient_search' %}" class="btn btn-secondary btn-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      Search
     </a>
   </div>
 </div>
@@ -178,10 +176,18 @@
 
               <!-- Action -->
               <td class="px-5 py-3 text-right">
-                <a href="{% url 'appointment_detail' appt.id %}"
-                   class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
-                  View
-                </a>
+                <div class="tbl-actions">
+                  {% if appt.status == 'Scheduled' or appt.status == 'Confirmed' %}
+                  <a href="{% url 'appointment_mark_arrived' appt.id %}"
+                     class="btn btn-icon btn-xs btn-success hms-tip" data-tip="Mark Arrived">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </a>
+                  {% endif %}
+                  <a href="{% url 'appointment_detail' appt.id %}"
+                     class="btn btn-icon btn-xs btn-info hms-tip" data-tip="View Details">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </a>
+                </div>
               </td>
             </tr>
             {% endfor %}

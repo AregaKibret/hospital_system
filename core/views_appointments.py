@@ -29,6 +29,7 @@ from .models import (
     DoctorSchedule,
     DoctorScheduleException,
     Patient,
+    Specialization,
     Visit,
 )
 
@@ -234,6 +235,7 @@ def appt_create(request):
         visit_type = request.POST.get('visit_type', Appointment.VisitType.NEW_VISIT)
         priority = request.POST.get('priority', Appointment.Priority.NORMAL)
         referral_source = request.POST.get('referral_source', Appointment.ReferralSource.RECEPTION)
+        specialty_id = request.POST.get('specialty') or None
         chief_complaint = request.POST.get('chief_complaint', '')
         reason_for_visit = request.POST.get('reason_for_visit', '')
         notes = request.POST.get('notes', '')
@@ -275,11 +277,21 @@ def appt_create(request):
             except ValueError:
                 errors.append('Invalid date or time format.')
 
+        specialty = None
+        if specialty_id and not errors:
+            try:
+                specialty = Specialization.objects.get(pk=specialty_id)
+            except Specialization.DoesNotExist:
+                pass
+        if not errors and not specialty and doctor:
+            specialty = doctor.specialization
+
         if not errors:
             appt = Appointment.objects.create(
                 patient=patient,
                 doctor=doctor,
                 department=doctor.department,
+                specialty=specialty,
                 appointment_date=appt_date,
                 appointment_time=appt_time,
                 appointment_type=appointment_type,
@@ -321,6 +333,11 @@ def appt_create(request):
 
     # GET
     doctors = Doctor.objects.filter(active=True).select_related('department', 'specialization')
+    specializations = Specialization.objects.filter(is_active=True).order_by('display_order', 'name')
+    import json
+    doctor_specialty_map = json.dumps({
+        str(d.pk): d.specialization_id for d in doctors if d.specialization_id
+    })
     # Pre-select patient from query param if provided
     pre_patient_id = request.GET.get('patient_id')
     pre_patient = None
@@ -332,6 +349,8 @@ def appt_create(request):
 
     return render(request, 'appointments/appointment_form.html', {
         'doctors': doctors,
+        'specializations': specializations,
+        'doctor_specialty_map': doctor_specialty_map,
         'visit_types': Appointment.VisitType.choices,
         'priorities': Appointment.Priority.choices,
         'referral_sources': Appointment.ReferralSource.choices,

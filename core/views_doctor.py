@@ -18,7 +18,7 @@ from .forms import (
 )
 
 from .models import (
-    Appointment, AppointmentStatusLog, AuditLog, ClinicalNote, Diagnosis,
+    Admission, Appointment, AppointmentStatusLog, AuditLog, ClinicalNote, Diagnosis,
     Doctor, ImagingOrder, ImagingService, Invoice, InvoiceItem, LabOrder, LabService,
     Medication, MedicationOrder, Patient, PatientAttachment, PhysicalExamination,
     ProcedureOrder, Queue, Visit, VitalSign,
@@ -638,14 +638,26 @@ def medication_order_create(request, visit_id):
                     quantity=order.quantity,
                 )
 
+            # Auto-generate MAR entries if patient is currently admitted
+            is_admitted = Admission.objects.filter(
+                visit=visit, status=Admission.Status.ADMITTED,
+            ).exists()
+            if is_admitted:
+                from .views_prescription import generate_mar_entries_from_medication_order
+                entries = generate_mar_entries_from_medication_order(order, ordered_at=timezone.now())
+                mar_msg = f' {len(entries)} dose(s) scheduled in MAR.' if entries else ' PRN order — nurse records doses as needed.'
+            else:
+                mar_msg = ''
+
             log_action(
                 request.user, AuditLog.Action.CREATE, AuditLog.Module.DOCTOR,
                 object_type='MedicationOrder', object_id=order.pk,
                 object_repr=f'{visit.patient.full_name} — {order.drug_name}',
-                description=f'Medication ordered: {order.drug_name} for {visit.patient.full_name} (ETB {order.unit_price})',
+                description=f'Medication ordered: {order.drug_name} for {visit.patient.full_name} (ETB {order.unit_price})' + (' [MAR entries created]' if is_admitted else ''),
                 request=request,
             )
-            messages.success(request, f'Medication order created. ETB {order.unit_price * order.quantity:,.2f} added to invoice.' if order.unit_price > 0 else 'Medication order created.')
+            base_msg = f'Medication order created. ETB {order.unit_price * order.quantity:,.2f} added to invoice.' if order.unit_price > 0 else 'Medication order created.'
+            messages.success(request, base_msg + mar_msg)
             return redirect('visit_detail', visit_id=visit_id)
     else:
         form = MedicationOrderForm()

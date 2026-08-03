@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}PNC Visit #{{ visit_number }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'pregnancy_detail' delivery.pregnancy.pk %}" class="text-slate-400 hover:text-slate-600 text-sm">← Pregnancy Record</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if edit %}Edit{% else %}Record{% endif %} PNC Visit #{{ visit_number }}</h1>
+</div>
+
+<div class="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3 text-sm">
+  <span class="font-semibold text-slate-800 dark:text-white">{{ delivery.pregnancy.patient.full_name }}</span>
+  <span class="mx-2 text-slate-400">·</span>
+  <span>Delivered: {{ delivery.delivery_date }} via {{ delivery.get_delivery_mode_display }}</span>
+</div>
+
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Visit Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Visit Date *</label>
+        <input name="visit_date" type="date" value="{{ pnc.visit_date|default:today }}" required class="date-picker">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Systolic</label>
+        <input name="bp_systolic" type="number" value="{{ pnc.bp_systolic|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Diastolic</label>
+        <input name="bp_diastolic" type="number" value="{{ pnc.bp_diastolic|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Temperature (°C)</label>
+        <input name="temperature" type="number" step="0.1" value="{{ pnc.temperature|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Weight (kg)</label>
+        <input name="weight_kg" type="number" step="0.1" value="{{ pnc.weight_kg|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Postnatal Examination</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Lochia</label>
+        <input name="lochia" type="text" value="{{ pnc.lochia|default:'' }}" placeholder="e.g. Lochia rubra, serosa">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Uterus Involution</label>
+        <input name="uterus_involution" type="text" value="{{ pnc.uterus_involution|default:'' }}" placeholder="e.g. Well-involuted">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Perineum</label>
+        <input name="perineum" type="text" value="{{ pnc.perineum|default:'' }}" placeholder="e.g. Healing well">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Breast Condition</label>
+        <input name="breast_condition" type="text" value="{{ pnc.breast_condition|default:'' }}" placeholder="e.g. No engorgement">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Breastfeeding</label>
+        <select name="breastfeeding">
+          <option value="">Not Assessed</option>
+          <option value="1" {% if pnc.breastfeeding %}selected{% endif %}>Yes — Breastfeeding</option>
+          <option value="0" {% if pnc.breastfeeding is False %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Newborn Condition</label>
+        <input name="newborn_condition" type="text" value="{{ pnc.newborn_condition|default:'' }}" placeholder="e.g. Healthy, feeding well">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Family Planning &amp; Preventive</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">FP Method Chosen</label>
+        <input name="fp_method_chosen" type="text" value="{{ pnc.fp_method_chosen|default:'' }}" placeholder="e.g. Injectable, Implant">
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-4">
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="family_planning_counseled" value="1" class="accent-blue-600" {% if pnc.family_planning_counseled %}checked{% endif %}>
+        FP Counseling Done
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="immunization_updated" value="1" class="accent-blue-600" {% if pnc.immunization_updated %}checked{% endif %}>
+        Immunization Updated
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" name="hiv_test_done" value="1" class="accent-blue-600" {% if pnc.hiv_test_done %}checked{% endif %}>
+        HIV Test Done
+      </label>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Notes &amp; Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Status</label>
+        <select name="status">
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if pnc.status == val %}selected{% elif not pnc and val == 'normal' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Next Visit Date</label>
+        <input name="next_visit_date" type="date" value="{{ pnc.next_visit_date|default:'' }}" class="date-picker">
+      </div>
+      <div class="field-wrapper col-span-2">
+        <label class="block text-xs text-slate-500 mb-1">Clinical Notes</label>
+        <textarea name="clinical_notes" rows="3">{{ pnc.clinical_notes|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg">Save PNC Visit</button>
+    <a href="{% url 'pregnancy_detail' delivery.pregnancy.pk %}" class="px-5 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</a>
+  </div>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>flatpickr('.date-picker', { dateFormat: 'Y-m-d', allowInput: true });</script>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Cardiology — {{ consultation.patient }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <a href="{% url 'cardiology_consultation_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultations</a>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ consultation.patient }}</h1>
+      <p class="text-sm text-slate-500">{{ consultation.consultation_date }} · {{ consultation.get_clinic_type_display }} · {{ consultation.cardiologist.get_full_name|default:consultation.cardiologist }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if perms.core.manage_cardiology_consultation %}
+      <a href="{% url 'cardiology_consultation_edit' consultation.pk %}" class="btn-secondary">Edit</a>
+      {% endif %}
+      {% if perms.core.manage_ecg_record %}
+      <a href="{% url 'ecg_record_create' consultation.pk %}" class="btn-secondary">+ ECG</a>
+      {% endif %}
+      {% if perms.core.manage_echo_report %}
+      <a href="{% url 'echo_report_create' consultation.pk %}" class="btn-secondary">+ Echo</a>
+      {% endif %}
+      {% if perms.core.manage_cardiac_procedure %}
+      <a href="{% url 'cardiac_procedure_create' consultation.pk %}" class="btn-secondary">+ Procedure</a>
+      {% endif %}
+      <button onclick="window.print()" class="btn-secondary">Print</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Column 1: Patient info & vitals -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Patient</h2>
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between"><span class="text-slate-500">MRN</span><span class="font-mono text-slate-700 dark:text-slate-300">{{ consultation.patient.mrn|default:"—" }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Age/Sex</span><span class="text-slate-700 dark:text-slate-300">{{ consultation.patient.age|default:"—" }} / {{ consultation.patient.get_gender_display|default:"—" }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Visit type</span><span class="text-slate-700 dark:text-slate-300">{{ consultation.get_visit_type_display }}</span></div>
+          {% if consultation.nyha_class != 'na' %}
+          <div class="flex justify-between"><span class="text-slate-500">NYHA</span>
+            <span class="font-bold {% if consultation.nyha_class == 'IV' %}text-red-600{% elif consultation.nyha_class == 'III' %}text-amber-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">{{ consultation.get_nyha_class_display }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Vitals</h2>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">BP</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.bp_display }}</p>
+            <p class="text-xs text-slate-400">mmHg</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">Pulse</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.pulse|default:"—" }}</p>
+            <p class="text-xs text-slate-400">bpm</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">SpO₂</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.spo2|default:"—" }}%</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center">
+            <p class="text-xs text-slate-400">BMI</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.bmi|default:"—" }}</p>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-2 text-center col-span-2">
+            <p class="text-xs text-slate-400">Weight / Height</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ consultation.weight_kg|default:"—" }} kg / {{ consultation.height_cm|default:"—" }} cm</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cardiac exam -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Cardiac Exam</h2>
+        <div class="space-y-1 text-sm">
+          {% if consultation.jvp %}<div><span class="text-slate-400 text-xs">JVP:</span> <span class="text-slate-700 dark:text-slate-300">{{ consultation.jvp }}</span></div>{% endif %}
+          {% if consultation.heart_sounds %}<div><span class="text-slate-400 text-xs">Heart sounds:</span> <span class="text-slate-700 dark:text-slate-300">{{ consultation.heart_sounds }}</span></div>{% endif %}
+          {% if consultation.murmur %}<div><span class="text-slate-400 text-xs">Murmur:</span> <span class="text-slate-700 dark:text-slate-300">{{ consultation.murmur }}</span></div>{% endif %}
+          {% if consultation.pedal_edema %}<div><span class="text-slate-400 text-xs">Oedema:</span> <span class="text-slate-700 dark:text-slate-300">{{ consultation.pedal_edema }}</span></div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Symptoms & Risk Factors -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Symptoms</h2>
+        <div class="flex flex-wrap gap-1.5">
+          {% if consultation.chest_pain %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Chest pain</span>{% endif %}
+          {% if consultation.dyspnea %}<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Dyspnoea</span>{% endif %}
+          {% if consultation.orthopnea %}<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Orthopnoea</span>{% endif %}
+          {% if consultation.pnd %}<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">PND</span>{% endif %}
+          {% if consultation.palpitations %}<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Palpitations</span>{% endif %}
+          {% if consultation.syncope %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Syncope</span>{% endif %}
+          {% if consultation.ankle_swelling %}<span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Ankle swelling</span>{% endif %}
+          {% if consultation.fatigue %}<span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Fatigue</span>{% endif %}
+        </div>
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3 mb-2">Risk Factors</h2>
+        <div class="flex flex-wrap gap-1.5">
+          {% if consultation.hypertension %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">HTN</span>{% endif %}
+          {% if consultation.diabetes %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">DM</span>{% endif %}
+          {% if consultation.dyslipidaemia %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Dyslipidaemia</span>{% endif %}
+          {% if consultation.smoking %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Smoking</span>{% endif %}
+          {% if consultation.obesity %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Obesity</span>{% endif %}
+          {% if consultation.family_hx_cad %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Family Hx CAD</span>{% endif %}
+          {% if consultation.ckd %}<span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">CKD</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 2: History & Examination -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Chief Complaint</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.chief_complaint|default:"—" }}</p>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">History</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.history|default:"—" }}</p>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-2">
+        <div><h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Past Cardiac Hx</h2><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.past_cardiac_history|default:"None" }}</p></div>
+        <div><h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-2 mb-1">Past Medical Hx</h2><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.past_medical_history|default:"None" }}</p></div>
+        <div><h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-2 mb-1">Medications / Allergies</h2><p class="text-sm text-slate-700 dark:text-slate-300">{{ consultation.current_medications|default:"—" }} / {{ consultation.allergies|default:"NKDA" }}</p></div>
+      </div>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Physical Examination</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.physical_examination|default:"—" }}</p>
+      </div>
+      {% if consultation.ecg_findings %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ECG Findings</h2>
+        <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ consultation.ecg_findings }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Column 3: Assessment, plan, sub-records -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-3">
+        <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assessment & Plan</h2>
+        <div><span class="text-xs text-slate-400">Diagnosis:</span><p class="text-sm text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.diagnosis|default:"—" }} {% if consultation.icd10_code %}<span class="font-mono text-xs text-slate-400">({{ consultation.icd10_code }})</span>{% endif %}</p></div>
+        <div><span class="text-xs text-slate-400">Investigations ordered:</span><p class="text-sm text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-wrap">{{ consultation.investigations|default:"—" }}</p></div>
+        <div><span class="text-xs text-slate-400">Plan:</span><p class="text-sm text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-wrap">{{ consultation.plan|default:"—" }}</p></div>
+        {% if consultation.referral %}<div><span class="text-xs text-slate-400">Referral:</span><p class="text-sm text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.referral }}</p></div>{% endif %}
+        {% if consultation.follow_up_date %}<div><span class="text-xs text-slate-400">Follow-up:</span><p class="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{{ consultation.follow_up_date }}</p></div>{% endif %}
+      </div>
+
+      {% if ecg_records %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">ECG Records</h2>
+          {% if perms.core.manage_ecg_record %}<a href="{% url 'ecg_record_create' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add</a>{% endif %}
+        </div>
+        {% for ecg in ecg_records %}
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ ecg.recording_date }} · {{ ecg.heart_rate|default:"?" }} bpm</p>
+            <span class="text-xs text-slate-400">{{ ecg.get_rhythm_display }}</span>
+          </div>
+          {% if ecg.interpretation %}<p class="text-xs text-slate-500 mt-0.5 line-clamp-2">{{ ecg.interpretation }}</p>{% endif %}
+          <div class="flex flex-wrap gap-1 mt-1">
+            {% if ecg.st_changes %}<span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">ST changes</span>{% endif %}
+            {% if ecg.lbbb %}<span class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">LBBB</span>{% endif %}
+            {% if ecg.rbbb %}<span class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">RBBB</span>{% endif %}
+            {% if ecg.lvh %}<span class="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">LVH</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if echo_reports %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Echo Reports</h2>
+          {% if perms.core.manage_echo_report %}<a href="{% url 'echo_report_create' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add</a>{% endif %}
+        </div>
+        {% for echo in echo_reports %}
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 last:border-0">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ echo.study_date }} · {{ echo.get_echo_type_display }}</p>
+            {% if echo.ef_percent %}<span class="text-sm font-bold {% if echo.ef_percent < 30 %}text-red-600{% elif echo.ef_percent < 45 %}text-amber-600{% else %}text-emerald-600{% endif %}">EF {{ echo.ef_percent }}%</span>{% endif %}
+          </div>
+          {% if echo.impression %}<p class="text-xs text-slate-500 mt-0.5 line-clamp-2">{{ echo.impression }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if procedures %}
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Procedures</h2>
+          {% if perms.core.manage_cardiac_procedure %}<a href="{% url 'cardiac_procedure_create' consultation.pk %}" class="text-xs text-indigo-600 hover:underline">+ Add</a>{% endif %}
+        </div>
+        {% for proc in procedures %}
+        <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ proc.procedure_date }}</p>
+            <p class="text-sm text-slate-700 dark:text-slate-300">{{ proc.get_procedure_type_display }}</p>
+          </div>
+          <span class="text-xs px-1.5 py-0.5 rounded {% if proc.outcome == 'success' %}bg-emerald-100 text-emerald-700{% elif proc.outcome == 'complication' %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ proc.get_outcome_display }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

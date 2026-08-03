@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}Pre-Op Checklist — {{ order.order_number }}{% endblock %}
+{% block content %}
+
+{% include "surgery/_periop_print_style.html" %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+  <div>
+    <div class="flex items-center gap-2 flex-wrap mb-1">
+      <span class="font-mono text-sm font-bold text-slate-500 dark:text-slate-400">{{ order.order_number }}</span>
+      {% include "surgery/_priority_badge.html" with priority=order.priority %}
+      {% include "surgery/_status_badge.html" with status=order.status %}
+    </div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Pre-Operative Checklist</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {{ order.patient.full_name }} &bull; {{ order.patient.card_number }}
+      &bull; {% if order.procedure_master %}{{ order.procedure_master.name }}{% else %}{{ order.planned_procedure }}{% endif %}
+    </p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm">&larr; Back to Order</a>
+  </div>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for msg in messages %}<div class="px-4 py-3 rounded-xl text-sm font-medium {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300{% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>{% endfor %}</div>
+{% endif %}
+
+<!-- Readiness Banner -->
+{% if checklist.emergency_override %}
+<div class="mb-5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 flex items-center gap-3">
+  <span class="text-lg">⚠️</span>
+  <div>
+    <p class="text-sm font-bold text-red-700 dark:text-red-400">Emergency Override Active</p>
+    <p class="text-xs text-red-600 dark:text-red-400">Reason: {{ checklist.override_reason|default:"Not specified" }}{% if checklist.override_by %} — by {{ checklist.override_by.get_full_name }}{% endif %}{% if checklist.override_at %} on {{ checklist.override_at|date:"d M Y H:i" }}{% endif %}</p>
+  </div>
+</div>
+{% elif checklist.is_cleared %}
+<div class="mb-5 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 flex items-center gap-3">
+  <span class="text-lg">✅</span>
+  <p class="text-sm font-bold text-emerald-700 dark:text-emerald-400">Patient cleared for Operating Room ({{ checklist.completion_percent }}% checklist complete)</p>
+</div>
+{% else %}
+<div class="mb-5 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 flex items-center gap-3">
+  <span class="text-lg">⏳</span>
+  <p class="text-sm font-bold text-amber-700 dark:text-amber-400">Not yet cleared for OR — mandatory items pending ({{ checklist.completion_percent }}% complete)</p>
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- ── Laboratory ──────────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🧪</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Laboratory Investigations</h2>
+      </div>
+      <div class="p-5 space-y-3">
+        {% for fname, label in checklist_lab_fields %}
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="{{ fname }}" id="{{ fname }}" class="w-4 h-4 text-blue-600 rounded" {% if checklist|default_if_none:'' %}{% with val=checklist|getattr:fname %}{% if val %}checked{% endif %}{% endwith %}{% endif %}>
+          <span class="text-sm text-slate-700 dark:text-slate-300">{{ label }}</span>
+        </label>
+        {% endfor %}
+        <!-- Direct booleans since Django templates can't use getattr dynamically -->
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="cbc_done" {% if checklist.cbc_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">CBC Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="coagulation_done" {% if checklist.coagulation_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Coagulation Profile Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="blood_group_done" {% if checklist.blood_group_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Blood Group &amp; Cross-match Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="blood_sugar_done" {% if checklist.blood_sugar_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Blood Sugar Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="rft_done" {% if checklist.rft_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">RFT Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="lft_done" {% if checklist.lft_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">LFT Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="electrolytes_done" {% if checklist.electrolytes_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Electrolytes Done</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Imaging & Clearances ─────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🩻</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Imaging &amp; Clinical Clearances</h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="cxr_done" {% if checklist.cxr_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Chest X-Ray Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="ecg_done" {% if checklist.ecg_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">ECG Done</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="other_imaging_done" {% if checklist.other_imaging_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Other Required Imaging Done</span>
+        </label>
+        <hr class="border-slate-100 dark:border-slate-700">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="anesthesia_clearance" {% if checklist.anesthesia_clearance %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Anesthesia Assessment &amp; Clearance <span class="text-red-500">*</span></span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="medical_clearance" {% if checklist.medical_clearance %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Medical Clearance</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="surgical_consent_signed" {% if checklist.surgical_consent_signed %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Surgical Consent Signed <span class="text-red-500">*</span></span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="anesthesia_consent_signed" {% if checklist.anesthesia_consent_signed %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Anesthesia Consent Signed</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Blood Products ──────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🩸</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Blood Products</h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="blood_required" id="blood_required" {% if checklist.blood_required %}checked{% endif %} class="w-4 h-4 text-red-600 rounded" onchange="toggleBloodFields(this)">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Blood Required for this Surgery</span>
+        </label>
+        <div id="blood_fields" class="{% if not checklist.blood_required %}hidden{% endif %} ml-7 space-y-3 border-l-2 border-red-200 dark:border-red-800 pl-4">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="blood_available" {% if checklist.blood_available %}checked{% endif %} class="w-4 h-4 text-red-600 rounded">
+            <span class="text-sm text-slate-700 dark:text-slate-300">Blood Available &amp; Reserved at Blood Bank</span>
+          </label>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Units Prepared</label>
+            <input type="number" name="units_prepared" value="{{ checklist.units_prepared }}" min="0" max="20"
+                   class="w-24 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-1.5 text-slate-800 dark:text-slate-100">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pre-Op Preparation ──────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">💉</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Pre-Op Preparation</h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="patient_identified" {% if checklist.patient_identified %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Patient Identity Verified (ID band) <span class="text-red-500">*</span></span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="npo_confirmed" {% if checklist.npo_confirmed %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">NPO Status Confirmed <span class="text-red-500">*</span></span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="allergies_reviewed" {% if checklist.allergies_reviewed %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Allergies Reviewed</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="iv_access" {% if checklist.iv_access %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">IV Access Established</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="site_marked" {% if checklist.site_marked %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Surgical Site Marked</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="pre_medication_given" {% if checklist.pre_medication_given %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Pre-Medication Given</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="antibiotic_prophylaxis" {% if checklist.antibiotic_prophylaxis %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Antibiotic Prophylaxis Given</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="dvt_prophylaxis" {% if checklist.dvt_prophylaxis %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">DVT Prophylaxis Given</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="implants_available" {% if checklist.implants_available %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+          <span class="text-sm text-slate-700 dark:text-slate-300">Implants / Prosthetics Available</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── WHO Surgical Safety Checklist ──────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🌍</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">WHO Surgical Safety Checklist</h2>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="who_sign_in_done" {% if checklist.who_sign_in_done %}checked{% endif %} class="w-4 h-4 text-blue-600 rounded">
+            <div>
+              <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sign-In</p>
+              <p class="text-xs text-slate-400">Before induction of anaesthesia: patient identity, site, consent, allergies, anaesthesia check, pulse oximetry</p>
+            </div>
+          </label>
+        </div>
+        <div class="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="who_time_out_done" {% if checklist.who_time_out_done %}checked{% endif %} class="w-4 h-4 text-orange-600 rounded">
+            <div>
+              <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Time-Out</p>
+              <p class="text-xs text-slate-400">Before skin incision: team confirmed, site confirmed, antibiotic given, critical events anticipated</p>
+            </div>
+          </label>
+        </div>
+        <div class="rounded-lg border border-slate-100 dark:border-slate-700 p-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="who_sign_out_done" {% if checklist.who_sign_out_done %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+            <div>
+              <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sign-Out</p>
+              <p class="text-xs text-slate-400">Before patient leaves OR: procedure confirmed, instruments/swabs counted, specimens labelled, key concerns for recovery</p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Emergency Override ──────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-red-200 dark:border-red-800 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-red-100 dark:border-red-800 flex items-center gap-2">
+        <span class="text-base">⚠️</span>
+        <h2 class="text-sm font-semibold text-red-700 dark:text-red-400">Emergency Override</h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <p class="text-xs text-slate-500 dark:text-slate-400">For emergency cases where waiting for all checklist items would risk patient life. Requires clinical justification.</p>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="emergency_override" id="emergency_override" {% if checklist.emergency_override %}checked{% endif %} class="w-4 h-4 text-red-600 rounded" onchange="toggleOverrideReason(this)">
+          <span class="text-sm font-semibold text-red-700 dark:text-red-400">Activate Emergency Override</span>
+        </label>
+        <div id="override_reason_div" class="{% if not checklist.emergency_override %}hidden{% endif %}">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Clinical Justification (required) <span class="text-red-500">*</span></label>
+          <textarea name="override_reason" rows="3"
+                    class="w-full rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Specify clinical reason for bypassing checklist...">{{ checklist.override_reason }}</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Notes -->
+  <div class="mt-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Additional Notes</h2>
+    </div>
+    <div class="p-5">
+      <textarea name="notes" rows="3"
+                class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2.5 text-slate-800 dark:text-slate-100 resize-none"
+                placeholder="Any additional pre-operative notes or concerns...">{{ checklist.notes }}</textarea>
+    </div>
+  </div>
+
+  <!-- Action Bar -->
+  <div class="mt-5 flex flex-wrap items-center gap-3">
+    <button type="submit" class="btn-primary">Save Checklist</button>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary">Cancel</a>
+    <p class="text-xs text-slate-400 ml-auto"><span class="text-red-500">*</span> Mandatory for OR clearance</p>
+  </div>
+</form>
+
+<script>
+function toggleBloodFields(cb) {
+  document.getElementById('blood_fields').classList.toggle('hidden', !cb.checked);
+}
+function toggleOverrideReason(cb) {
+  document.getElementById('override_reason_div').classList.toggle('hidden', !cb.checked);
+}
+</script>
+{% endblock %}

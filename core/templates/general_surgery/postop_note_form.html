@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Post-operative Note{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">Post-operative Note</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }} · {{ consultation.proposed_procedure|default:"Procedure" }}</p>
+  </div>
+
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Date *</label><input type="date" name="note_date" required value="{{ today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Post-op Day (POD) *</label><input type="number" name="pod" required value="{{ suggested_pod|default:1 }}" min="0" class="form-input w-full"></div>
+        <div>
+          <label class="form-label">Status</label>
+          <select name="status" class="form-input w-full">
+            {% for val,label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitals -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Vitals</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">BP (sys/dia)</label>
+          <div class="flex gap-1"><input type="number" name="bp_systolic" placeholder="sys" class="form-input w-full"><input type="number" name="bp_diastolic" placeholder="dia" class="form-input w-full"></div>
+        </div>
+        <div><label class="form-label">Pulse</label><input type="number" name="pulse" class="form-input w-full" placeholder="bpm"></div>
+        <div><label class="form-label">Temp (°C)</label><input type="number" name="temperature" step="0.1" class="form-input w-full"></div>
+        <div><label class="form-label">SpO₂ (%)</label><input type="number" name="spo2" class="form-input w-full"></div>
+        <div><label class="form-label">Pain Score (0–10)</label><input type="number" name="pain_score" min="0" max="10" class="form-input w-full"></div>
+      </div>
+    </div>
+
+    <!-- I/O -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Intake / Output</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Oral Intake</label><input type="text" name="oral_intake" class="form-input w-full" placeholder="e.g. Tolerating sips, NBM…"></div>
+        <div><label class="form-label">Urine Output (mL)</label><input type="number" name="urine_output" class="form-input w-full"></div>
+        <div><label class="form-label">Drain Output</label><input type="text" name="drain_output" class="form-input w-full" placeholder="e.g. 20 mL serosanguinous…"></div>
+      </div>
+    </div>
+
+    <!-- SOAP -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">SOAP Note</h2>
+      <div><label class="form-label">Subjective</label><textarea name="subjective" rows="2" class="form-input w-full" placeholder="Patient's complaints, symptoms…"></textarea></div>
+      <div><label class="form-label">Objective</label><textarea name="objective" rows="2" class="form-input w-full" placeholder="Examination findings, investigations…"></textarea></div>
+      <div><label class="form-label">Wound Condition</label><input type="text" name="wound_condition" class="form-input w-full" placeholder="e.g. Clean, dry, no signs of infection…"></div>
+      <div><label class="form-label">Assessment</label><textarea name="assessment" rows="2" class="form-input w-full" placeholder="Clinical progress, problems…"></textarea></div>
+      <div><label class="form-label">Plan</label><textarea name="plan" rows="3" class="form-input w-full" placeholder="Medications, investigations ordered, mobilisation, diet, discharge plan…"></textarea></div>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="discharge_planned" id="discharge_planned" class="w-4 h-4">
+        <label for="discharge_planned" class="text-sm text-slate-700 dark:text-slate-300">Discharge planned for today</label>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save Note
+      </button>
+      <a href="{% url 'surgical_consultation_detail' consultation.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

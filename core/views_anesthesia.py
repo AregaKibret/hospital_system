@@ -202,6 +202,10 @@ def anesthesia_record_create(request, visit_id):
                 'anesthesia_types': anesthesia_types,
                 'asa_choices': asa_choices,
                 'post_data': request.POST,
+                'is_create': True,
+                'init_anesthesia_type': '',
+                'init_asa_classification': '',
+                'init_duration_minutes': None,
             })
 
         duration_minutes = None
@@ -241,6 +245,9 @@ def anesthesia_record_create(request, visit_id):
         'anesthesia_types': anesthesia_types,
         'asa_choices': asa_choices,
         'is_create': True,
+        'init_anesthesia_type': '',
+        'init_asa_classification': '',
+        'init_duration_minutes': None,
     })
 
 
@@ -302,6 +309,9 @@ def anesthesia_record_edit(request, record_id):
                 'asa_choices': asa_choices,
                 'post_data': request.POST,
                 'is_create': False,
+                'init_anesthesia_type': record.anesthesia_type,
+                'init_asa_classification': record.asa_classification,
+                'init_duration_minutes': record.duration_minutes,
             })
 
         duration_minutes = None
@@ -340,6 +350,9 @@ def anesthesia_record_edit(request, record_id):
         'anesthesia_types': anesthesia_types,
         'asa_choices': asa_choices,
         'is_create': False,
+        'init_anesthesia_type': record.anesthesia_type,
+        'init_asa_classification': record.asa_classification,
+        'init_duration_minutes': record.duration_minutes,
     })
 
 

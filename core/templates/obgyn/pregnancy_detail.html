@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ pregnancy.registration_number }}{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-start justify-between mb-6">
+  <div>
+    <div class="flex items-center gap-3 mb-1">
+      <a href="{% url 'pregnancy_list' %}" class="text-slate-400 hover:text-slate-600 text-sm">← Pregnancies</a>
+    </div>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ pregnancy.patient.full_name }}</h1>
+    <p class="text-sm text-slate-500 mt-0.5">{{ pregnancy.registration_number }} · {{ pregnancy.patient.card_number }}
+      {% if pregnancy.status == 'active' %}· <span class="text-pink-600 font-semibold">{{ pregnancy.ga_display }} GA</span>{% endif %}
+    </p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'pregnancy_edit' pregnancy.pk %}" class="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Edit</a>
+    {% if pregnancy.status == 'active' %}
+    <a href="{% url 'anc_visit_create' pregnancy.pk %}" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium rounded-lg transition-colors">+ ANC Visit</a>
+    {% if not delivery %}
+    <a href="{% url 'delivery_record_create' pregnancy.pk %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">+ Delivery</a>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Status badge -->
+<span class="inline-block text-xs px-3 py-1 rounded-full font-semibold mb-5
+  {% if pregnancy.status == 'active' %}bg-green-100 text-green-700
+  {% elif pregnancy.status == 'delivered' %}bg-blue-100 text-blue-700
+  {% elif pregnancy.status == 'aborted' %}bg-red-100 text-red-600
+  {% else %}bg-slate-100 text-slate-600{% endif %}">
+  {{ pregnancy.get_status_display }}
+</span>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Left: Pregnancy Details -->
+  <div class="lg:col-span-1 space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Pregnancy Details</h2>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">GPALS</dt><dd class="font-medium text-slate-800 dark:text-white">G{{ pregnancy.gravida }}P{{ pregnancy.para }}A{{ pregnancy.abortion }}L{{ pregnancy.living_children }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">LMP</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.lmp|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">EDD (by LMP)</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.edd|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">EDD (by Scan)</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.edd_by_scan|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Blood Group</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.blood_group|default:"—" }} ({{ pregnancy.rhesus }})</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Height</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.height_cm|default:"—" }} cm</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Pre-preg. Wt</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.pre_pregnancy_weight_kg|default:"—" }} kg</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Registered By</dt><dd class="text-slate-700 dark:text-slate-300">{{ pregnancy.registered_by.get_full_name|default:pregnancy.registered_by.username|default:"—" }}</dd></div>
+      </dl>
+    </div>
+    {% if pregnancy.risk_factors %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
+      <p class="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase mb-1">Risk Factors</p>
+      <p class="text-sm text-amber-800 dark:text-amber-300">{{ pregnancy.risk_factors }}</p>
+    </div>
+    {% endif %}
+    {% if pregnancy.allergies %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-4">
+      <p class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase mb-1">Allergies</p>
+      <p class="text-sm text-red-800 dark:text-red-300">{{ pregnancy.allergies }}</p>
+    </div>
+    {% endif %}
+    {% if pregnancy.medical_history %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Medical History</p>
+      <p class="text-sm text-slate-700 dark:text-slate-300">{{ pregnancy.medical_history }}</p>
+    </div>
+    {% endif %}
+    {% if pregnancy.notes %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+      <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Notes</p>
+      <p class="text-sm text-slate-700 dark:text-slate-300">{{ pregnancy.notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right: ANC, Delivery, PNC -->
+  <div class="lg:col-span-2 space-y-6">
+
+    <!-- ANC Visits -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900 dark:text-white">ANC Visits ({{ anc_visits|length }})</h2>
+        {% if pregnancy.status == 'active' %}
+        <a href="{% url 'anc_visit_create' pregnancy.pk %}" class="text-xs text-pink-600 hover:underline font-medium">+ Add Visit</a>
+        {% endif %}
+      </div>
+      {% if anc_visits %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs text-slate-500 uppercase">
+            <tr>
+              <th class="px-4 py-2 text-left">#</th>
+              <th class="px-4 py-2 text-left">Date</th>
+              <th class="px-4 py-2 text-left">GA</th>
+              <th class="px-4 py-2 text-left">Wt (kg)</th>
+              <th class="px-4 py-2 text-left">BP</th>
+              <th class="px-4 py-2 text-left">FH (cm)</th>
+              <th class="px-4 py-2 text-left">FHR</th>
+              <th class="px-4 py-2 text-left">Presentation</th>
+              <th class="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+            {% for anc in anc_visits %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+              <td class="px-4 py-2 font-semibold text-pink-600">{{ anc.visit_number }}</td>
+              <td class="px-4 py-2 text-slate-700 dark:text-slate-300">{{ anc.visit_date }}</td>
+              <td class="px-4 py-2">{% if anc.ga_weeks %}{{ anc.ga_weeks }}w {% if anc.ga_days %}{{ anc.ga_days }}d{% endif %}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2">{{ anc.weight_kg|default:"—" }}</td>
+              <td class="px-4 py-2">{% if anc.bp_systolic %}{{ anc.bp_systolic }}/{{ anc.bp_diastolic }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2">{{ anc.fundal_height_cm|default:"—" }}</td>
+              <td class="px-4 py-2">{% if anc.fetal_heart_rate %}{{ anc.fetal_heart_rate }} bpm{% else %}—{% endif %}</td>
+              <td class="px-4 py-2 capitalize">{{ anc.get_presentation_display }}</td>
+              <td class="px-4 py-2"><a href="{% url 'anc_visit_edit' anc.pk %}" class="text-xs text-blue-600 hover:underline">Edit</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-5 py-6 text-sm text-slate-400 text-center">No ANC visits recorded yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Delivery -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Delivery Record</h2>
+        {% if delivery %}
+        <a href="{% url 'delivery_record_edit' delivery.pk %}" class="text-xs text-blue-600 hover:underline">Edit</a>
+        {% elif pregnancy.status == 'active' %}
+        <a href="{% url 'delivery_record_create' pregnancy.pk %}" class="text-xs text-blue-600 hover:underline font-medium">+ Record Delivery</a>
+        {% endif %}
+      </div>
+      {% if delivery %}
+      <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div><p class="text-slate-500 text-xs">Date &amp; Time</p><p class="font-medium text-slate-800 dark:text-white">{{ delivery.delivery_date }} {% if delivery.delivery_time %}@ {{ delivery.delivery_time }}{% endif %}</p></div>
+        <div><p class="text-slate-500 text-xs">Mode</p><p class="font-medium text-slate-800 dark:text-white">{{ delivery.get_delivery_mode_display }}</p></div>
+        <div><p class="text-slate-500 text-xs">Outcome</p>
+          <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium {% if delivery.outcome == 'live_birth' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">{{ delivery.get_outcome_display }}</span>
+        </div>
+        <div><p class="text-slate-500 text-xs">GA at Delivery</p><p class="text-slate-700 dark:text-slate-300">{{ delivery.ga_at_delivery|default:"—" }} weeks</p></div>
+        <div><p class="text-slate-500 text-xs">Blood Loss</p><p class="text-slate-700 dark:text-slate-300">{{ delivery.blood_loss_ml|default:"—" }} mL</p></div>
+        <div><p class="text-slate-500 text-xs">Episiotomy</p><p class="text-slate-700 dark:text-slate-300">{{ delivery.get_episiotomy_display }}</p></div>
+        {% if delivery.complications %}<div class="col-span-3"><p class="text-slate-500 text-xs">Complications</p><p class="text-amber-700 dark:text-amber-400">{{ delivery.complications }}</p></div>{% endif %}
+        {% if delivery.notes %}<div class="col-span-3"><p class="text-slate-500 text-xs">Notes</p><p class="text-slate-700 dark:text-slate-300">{{ delivery.notes }}</p></div>{% endif %}
+      </div>
+      <!-- Newborns -->
+      {% if newborns %}
+      <div class="px-5 pb-5">
+        <p class="text-xs font-semibold text-slate-500 uppercase mb-3">Newborn{{ newborns|length|pluralize }}</p>
+        {% for nb in newborns %}
+        <div class="bg-slate-50 dark:bg-slate-700/40 rounded-lg p-3 mb-2 grid grid-cols-3 sm:grid-cols-5 gap-3 text-sm">
+          <div><p class="text-xs text-slate-400">Order</p><p class="font-semibold">#{{ nb.birth_order }}</p></div>
+          <div><p class="text-xs text-slate-400">Sex</p><p class="capitalize">{{ nb.sex }}</p></div>
+          <div><p class="text-xs text-slate-400">Weight</p><p>{% if nb.birth_weight_g %}{{ nb.birth_weight_g }} g{% else %}—{% endif %}</p></div>
+          <div><p class="text-xs text-slate-400">APGAR</p><p>{% if nb.apgar_1min %}{{ nb.apgar_1min }}/{{ nb.apgar_5min }}{% else %}—{% endif %}</p></div>
+          <div><p class="text-xs text-slate-400">Condition</p>
+            <span class="text-xs {% if nb.condition == 'alive' %}text-green-600{% else %}text-red-600{% endif %}">{{ nb.get_condition_display }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="px-5 py-6 text-sm text-slate-400 text-center">No delivery recorded yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- PNC Visits -->
+    {% if delivery %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900 dark:text-white">PNC Visits ({{ pnc_visits|length }})</h2>
+        <a href="{% url 'pnc_visit_create' delivery.pk %}" class="text-xs text-blue-600 hover:underline font-medium">+ PNC Visit</a>
+      </div>
+      {% if pnc_visits %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs text-slate-500 uppercase">
+            <tr>
+              <th class="px-4 py-2 text-left">#</th>
+              <th class="px-4 py-2 text-left">Date</th>
+              <th class="px-4 py-2 text-left">Days PP</th>
+              <th class="px-4 py-2 text-left">BP</th>
+              <th class="px-4 py-2 text-left">Breastfeeding</th>
+              <th class="px-4 py-2 text-left">FP Counseled</th>
+              <th class="px-4 py-2 text-left">Status</th>
+              <th class="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+            {% for pnc in pnc_visits %}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+              <td class="px-4 py-2 font-semibold text-blue-600">{{ pnc.visit_number }}</td>
+              <td class="px-4 py-2 text-slate-700 dark:text-slate-300">{{ pnc.visit_date }}</td>
+              <td class="px-4 py-2">{{ pnc.days_postpartum|default:"—" }}</td>
+              <td class="px-4 py-2">{% if pnc.bp_systolic %}{{ pnc.bp_systolic }}/{{ pnc.bp_diastolic }}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2">{% if pnc.breastfeeding is not None %}{% if pnc.breastfeeding %}✓ Yes{% else %}✗ No{% endif %}{% else %}—{% endif %}</td>
+              <td class="px-4 py-2">{% if pnc.family_planning_counseled %}✓ Yes{% else %}No{% endif %}</td>
+              <td class="px-4 py-2"><span class="text-xs px-2 py-0.5 rounded-full {% if pnc.status == 'normal' %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ pnc.get_status_display }}</span></td>
+              <td class="px-4 py-2"><a href="{% url 'pnc_visit_edit' pnc.pk %}" class="text-xs text-blue-600 hover:underline">Edit</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-5 py-6 text-sm text-slate-400 text-center">No PNC visits recorded yet.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

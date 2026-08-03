@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .audit import build_changes, log_action
@@ -15,7 +16,7 @@ from .forms import (
     UserUpdateForm,
     VisitForm,
 )
-from .models import Appointment, AuditLog, Invoice, InvoiceItem, Patient, Queue, UserProfile, Visit
+from .models import Appointment, AuditLog, Doctor, HospitalProfile, Invoice, InvoiceItem, Patient, Queue, Specialization, UserProfile, Visit
 from .permissions import DASHBOARD_MODULES
 
 User = get_user_model()
@@ -27,6 +28,7 @@ User = get_user_model()
 def dashboard(request):
     from django.utils import timezone
     today = timezone.localdate()
+    hospital = HospitalProfile.objects.first()
     visible_modules = [
         m for m in DASHBOARD_MODULES
         if request.user.has_perm(m['permission'])
@@ -38,6 +40,7 @@ def dashboard(request):
         'queue_count': Queue.objects.count(),
     }
     return render(request, 'dashboard.html', {
+        'hospital': hospital,
         'modules': visible_modules,
         'stats': stats,
         'today': today,
@@ -113,6 +116,114 @@ def patient_search(request):
     })
 
 
+# ── Live Patient Search API ────────────────────────────────────────────────────
+
+@login_required
+def api_patient_search(request):
+    """JSON endpoint for the PatientPicker widget and global search."""
+    if not request.user.has_perm('core.view_patient'):
+        return JsonResponse({'patients': [], 'query': ''}, status=403)
+
+    q = request.GET.get('q', '').strip()
+    try:
+        limit = min(int(request.GET.get('limit', 12)), 30)
+    except (ValueError, TypeError):
+        limit = 12
+
+    if len(q) < 2:
+        return JsonResponse({'patients': [], 'query': q})
+
+    qs = (
+        Patient.objects.filter(
+            Q(card_number__icontains=q)
+            | Q(first_name__icontains=q)
+            | Q(middle_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(mobile__icontains=q),
+            is_active=True,
+        )
+        .prefetch_related('visits__doctor', 'visits__department')
+        [:limit]
+    )
+
+    results = []
+    for p in qs:
+        last_visit = p.visits.order_by('-created_at').first()
+        doctor_name = None
+        dept_name = None
+        if last_visit:
+            if last_visit.doctor:
+                doctor_name = last_visit.doctor.full_name
+            if last_visit.department:
+                dept_name = str(last_visit.department)
+        results.append({
+            'id': p.id,
+            'card_number': p.card_number,
+            'full_name': p.full_name,
+            'age': p.age_display or '—',
+            'sex': p.sex,
+            'mobile': p.mobile or '—',
+            'last_visit': last_visit.created_at.strftime('%b %d, %Y') if last_visit else None,
+            'doctor': doctor_name,
+            'department': dept_name,
+        })
+
+    return JsonResponse({'patients': results, 'query': q})
+
+
+# ── Global Search API ─────────────────────────────────────────────────────────
+
+@login_required
+def api_global_search(request):
+    """Multi-entity search for the navbar global search bar."""
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'patients': [], 'doctors': [], 'invoices': [], 'query': q})
+
+    patients_out, doctors_out, invoices_out = [], [], []
+
+    if request.user.has_perm('core.view_patient'):
+        for p in Patient.objects.filter(
+            Q(card_number__icontains=q) | Q(first_name__icontains=q)
+            | Q(last_name__icontains=q) | Q(mobile__icontains=q),
+            is_active=True,
+        )[:6]:
+            patients_out.append({
+                'id': p.id,
+                'card_number': p.card_number,
+                'full_name': p.full_name,
+                'age': p.age_display or '',
+                'sex': p.sex or '',
+                'mobile': p.mobile or '',
+            })
+
+        from .models import Doctor as DoctorModel
+        for d in DoctorModel.objects.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q),
+            active=True,
+        ).select_related('specialization')[:4]:
+            doctors_out.append({
+                'id': d.id,
+                'full_name': d.full_name,
+                'specialization': str(d.specialization) if d.specialization else '',
+            })
+
+    if request.user.has_perm('core.read_billing'):
+        from .models import Invoice
+        for inv in Invoice.objects.filter(
+            Q(invoice_number__icontains=q)
+            | Q(patient__first_name__icontains=q)
+            | Q(patient__last_name__icontains=q),
+        ).select_related('patient')[:4]:
+            invoices_out.append({
+                'id': inv.pk,
+                'invoice_number': inv.invoice_number,
+                'patient_name': inv.patient.full_name if inv.patient else '',
+            })
+
+    return JsonResponse({'patients': patients_out, 'doctors': doctors_out, 'invoices': invoices_out, 'query': q})
+
+
 CONSULTATION_FEE = 300  # ETB — standard OPD consultation charge
 
 
@@ -140,9 +251,15 @@ def create_visit(request, patient_id):
                 and request.user.has_perm('core.override_card_expiry')
             )
 
+            specialty_id = request.POST.get('specialty') or None
             with transaction.atomic():
                 visit = form.save(commit=False)
                 visit.patient = patient
+                if specialty_id:
+                    try:
+                        visit.specialty_id = int(specialty_id)
+                    except (ValueError, TypeError):
+                        pass
                 visit.save()
 
                 log_action(
@@ -272,12 +389,21 @@ def create_visit(request, patient_id):
         'doctor', 'department'
     ).order_by('-created_at')
 
+    specializations = Specialization.objects.filter(is_active=True).order_by('display_order', 'name')
+    doctors = Doctor.objects.filter(active=True).select_related('specialization')
+    doctor_specialty_map = {
+        str(d.pk): d.specialization_id for d in doctors if d.specialization_id
+    }
+
+    import json
     return render(request, 'create_visit.html', {
         'patient': patient,
         'form': form,
         'previous_visits': previous_visits,
         'consultation_fee': CONSULTATION_FEE,
         'appointment_id': appointment_id,
+        'specializations': specializations,
+        'doctor_specialty_map': json.dumps(doctor_specialty_map),
     })
 
 

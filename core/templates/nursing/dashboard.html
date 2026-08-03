@@ -47,19 +47,153 @@
   <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
     <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
       <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Awaiting Medication Administration</h3>
+      <span class="text-xs text-slate-400">Due now + next 1 h</span>
     </div>
     {% if meds_due %}
-    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-72 overflow-y-auto">
+    <ul class="divide-y divide-slate-50 dark:divide-slate-700/50 max-h-80 overflow-y-auto">
       {% for entry in meds_due %}
-      <li class="px-5 py-2.5 flex items-center justify-between">
-        <div>
-          <a href="{% url 'mar_list' entry.visit_id %}" class="text-sm font-medium text-slate-800 dark:text-slate-100 hover:text-blue-600">{{ entry.prescription_item.drug_name }}</a>
-          <p class="text-xs text-slate-400">{{ entry.visit.patient.full_name }} &middot; {{ entry.scheduled_time|date:"d M H:i" }}</p>
+      <li class="px-4 py-2.5 flex items-center gap-3">
+        <!-- Time urgency badge -->
+        <div class="shrink-0 text-center w-12">
+          {% if entry.scheduled_time <= now %}
+          <span class="inline-block px-1.5 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Late</span>
+          {% else %}
+          <span class="text-xs text-slate-400">{{ entry.scheduled_time|date:"H:i" }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Drug info -->
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ entry.drug_name }}</p>
+          <p class="text-xs text-slate-400 truncate">{{ entry.visit.patient.full_name }} &middot; {{ entry.dose_display }} {{ entry.route_display }}</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            onclick="openQuickAdminister({{ entry.pk }}, '{{ entry.drug_name|escapejs }}', '{{ entry.dose_display|escapejs }}', {{ entry.visit_id }})"
+            class="text-xs px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition">
+            Administer
+          </button>
+          <a href="{% url 'mar_list' entry.visit_id %}" class="text-xs text-slate-400 hover:text-blue-600 transition" title="Open full MAR">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
         </div>
       </li>
       {% endfor %}
     </ul>
-    {% else %}<p class="px-5 py-8 text-sm text-slate-400 text-center">Nothing due right now.</p>{% endif %}
+    {% else %}
+    <p class="px-5 py-8 text-sm text-slate-400 text-center">Nothing due in the next hour.</p>
+    {% endif %}
+  </div>
+
+  <!-- Quick-Administer Modal (shared across all dashboard entries) -->
+  <div id="qa-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-6 w-full max-w-md">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">Administer Medication</h3>
+          <p id="qa-drug-name" class="text-sm text-slate-500 mt-0.5"></p>
+        </div>
+        <button type="button" onclick="closeQA()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form method="post" id="qa-form">
+        {% csrf_token %}
+        <div class="space-y-3">
+
+          <!-- Source -->
+          <div>
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-2">Medication Source</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="cursor-pointer">
+                <input type="radio" name="source" value="pharmacy" class="sr-only qa-source" checked onchange="qaOnSource('pharmacy')">
+                <div class="qa-card qa-sel-pharmacy flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 text-center transition">
+                  <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 16 16"><path d="M6 1a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V2a1 1 0 0 0-1-1H6z"/></svg>
+                  <span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Pharmacy</span>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="source" value="ward_stock" class="sr-only qa-source" onchange="qaOnSource('ward_stock')">
+                <div class="qa-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-center transition">
+                  <svg class="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>
+                  <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">Ward Stock</span>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="source" value="patient_supplied" class="sr-only qa-source" onchange="qaOnSource('patient_supplied')">
+                <div class="qa-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-center transition">
+                  <svg class="w-4 h-4 text-teal-600" fill="currentColor" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm4 8c0 1-1 1-1 1H5s-1 0-1-1 1-4 4-4 4 3 4 4z"/></svg>
+                  <span class="text-xs font-semibold text-teal-700 dark:text-teal-300">Pt. Supplied</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Ward stock sub-panel -->
+          <div id="qa-ward-section" class="hidden space-y-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+            <div>
+              <label class="text-xs font-medium text-amber-700 dark:text-amber-400 block mb-1">Ward Store</label>
+              <select id="qa-store-sel" onchange="qaLoadMeds(this.value)"
+                class="w-full text-sm px-2.5 py-2 rounded-lg border border-amber-200 dark:border-amber-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                <option value="">— Select store —</option>
+                {% for store in ward_stores %}
+                <option value="{{ store.pk }}">{{ store.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-amber-700 dark:text-amber-400 block mb-1">Medication</label>
+              <select name="ward_stock_item_id" id="qa-med-sel" onchange="qaOnMed(this.value)"
+                class="w-full text-sm px-2.5 py-2 rounded-lg border border-amber-200 dark:border-amber-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                <option value="">— Select store first —</option>
+              </select>
+            </div>
+            <input type="hidden" name="ward_stock_batch_id" id="qa-batch-id" value="">
+            <p id="qa-charge-p" class="text-xs text-amber-600 hidden">Charge: <strong id="qa-charge-amt"></strong></p>
+          </div>
+
+          <!-- Patient-supplied notice -->
+          <div id="qa-pt-section" class="hidden bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-700 rounded-lg p-3">
+            <p class="text-xs text-teal-700 dark:text-teal-300 font-medium">Patient-supplied — no inventory or billing impact.</p>
+          </div>
+
+          <!-- Status (default Given, can change to Held/Refused/Missed) -->
+          <div>
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Administration Status</label>
+            <select name="status"
+              class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+              <option value="Given" selected>Given</option>
+              <option value="Held">Held</option>
+              <option value="Refused">Refused</option>
+              <option value="Missed">Missed</option>
+            </select>
+          </div>
+
+          <!-- Dose -->
+          <div>
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Dose Given</label>
+            <input type="text" name="dose_given" id="qa-dose"
+              class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Notes / Response</label>
+            <textarea name="notes" rows="2"
+              class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none"
+              placeholder="Patient response or observation"></textarea>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-4">
+          <button type="button" onclick="closeQA()" class="flex-1 btn-secondary text-sm">Cancel</button>
+          <button type="submit" class="flex-1 btn-primary text-sm" data-loading>Record</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Vitals Due -->
@@ -158,4 +292,91 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var QA_WARD_API = "{% url 'ward_stock_meds_api' %}";
+var qaCache = {};
+var qaItems = [];
+
+function openQuickAdminister(entryId, drug, dose, visitId) {
+  document.getElementById('qa-drug-name').textContent = drug + (dose ? ' — ' + dose : '');
+  document.getElementById('qa-dose').value = dose;
+  document.getElementById('qa-form').action = '/prescriptions/mar/' + entryId + '/update/';
+  // Reset source to pharmacy
+  document.querySelectorAll('.qa-source').forEach(function(r){ r.checked = r.value === 'pharmacy'; });
+  qaOnSource('pharmacy');
+  document.getElementById('qa-store-sel').value = '';
+  document.getElementById('qa-med-sel').innerHTML = '<option value="">— Select store first —</option>';
+  document.getElementById('qa-batch-id').value = '';
+  document.getElementById('qa-charge-p').classList.add('hidden');
+  document.getElementById('qa-modal').classList.remove('hidden');
+}
+
+function closeQA() {
+  document.getElementById('qa-modal').classList.add('hidden');
+}
+
+function qaOnSource(val) {
+  // Update card styles
+  document.querySelectorAll('.qa-card').forEach(function(c) {
+    c.className = 'qa-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-center transition';
+  });
+  var selCard = document.querySelector('input[name="source"][value="' + val + '"] + .qa-card') ||
+                document.querySelector('input[name="source"]:checked + .qa-card');
+  var palettes = {
+    pharmacy: 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+    ward_stock: 'border-amber-400 bg-amber-50 dark:bg-amber-900/20',
+    patient_supplied: 'border-teal-400 bg-teal-50 dark:bg-teal-900/20'
+  };
+  if (selCard) selCard.className = 'qa-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 ' + (palettes[val] || '') + ' text-center transition';
+  document.getElementById('qa-ward-section').classList.toggle('hidden', val !== 'ward_stock');
+  document.getElementById('qa-pt-section').classList.toggle('hidden', val !== 'patient_supplied');
+}
+
+function qaLoadMeds(storeId) {
+  var sel = document.getElementById('qa-med-sel');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  if (!storeId) { sel.innerHTML = '<option value="">— Select store first —</option>'; return; }
+  if (qaCache[storeId]) { qaPopulate(qaCache[storeId]); return; }
+  fetch(QA_WARD_API + '?store_id=' + storeId)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ qaCache[storeId] = d.items; qaPopulate(d.items); })
+    .catch(function(){ sel.innerHTML = '<option value="">Error loading stock</option>'; });
+}
+
+function qaPopulate(items) {
+  qaItems = items;
+  var sel = document.getElementById('qa-med-sel');
+  if (!items.length) { sel.innerHTML = '<option value="">No medications in stock</option>'; return; }
+  sel.innerHTML = '<option value="">— Select medication —</option>';
+  items.forEach(function(it) {
+    var o = document.createElement('option');
+    o.value = it.id;
+    o.textContent = it.name + (it.generic && it.generic !== it.name ? ' (' + it.generic + ')' : '') + '  [' + it.qty + ']';
+    sel.appendChild(o);
+  });
+  qaOnMed('');
+}
+
+function qaOnMed(stockId) {
+  var item = qaItems.find(function(i){ return String(i.id) === String(stockId); });
+  var batchInp = document.getElementById('qa-batch-id');
+  var chargeP = document.getElementById('qa-charge-p');
+  var chargeAmt = document.getElementById('qa-charge-amt');
+  batchInp.value = '';
+  if (!item) { chargeP.classList.add('hidden'); return; }
+  // Auto-pick first (earliest expiry) batch
+  if (item.batches && item.batches.length) batchInp.value = item.batches[0].id;
+  if (item.unit_price > 0) {
+    chargeAmt.textContent = 'ETB ' + item.unit_price.toFixed(2);
+    chargeP.classList.remove('hidden');
+  } else { chargeP.classList.add('hidden'); }
+}
+
+// Close on backdrop or Escape
+document.getElementById('qa-modal').addEventListener('click', function(e){ if(e.target===this) closeQA(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeQA(); });
+</script>
 {% endblock %}

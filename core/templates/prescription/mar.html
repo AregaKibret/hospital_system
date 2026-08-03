@@ -7,107 +7,365 @@
     <h1 class="text-xl font-bold text-slate-900 dark:text-white">Medication Administration Record</h1>
     <p class="text-sm text-slate-500">{{ visit.patient.full_name }} &middot; {{ visit.patient.card_number }} &middot; Visit #{{ visit.id }}</p>
   </div>
-  <a href="{% url 'visit_detail' visit.id %}" class="btn-secondary text-sm">← Visit</a>
+  <a href="{% url 'visit_detail' visit.id %}" class="btn-secondary text-sm">&#8592; Visit</a>
 </div>
 
 {% if messages %}
-<div class="mb-4 space-y-2">{% for m in messages %}<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>{% endfor %}</div>
+<div class="mb-4 space-y-2">
+  {% for m in messages %}
+  <div class="px-4 py-2.5 rounded-xl text-sm font-medium
+    {% if m.tags == 'error' %}bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800
+    {% else %}bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800{% endif %}">
+    {{ m }}
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
 
-<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Medication</th>
-        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Scheduled</th>
-        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Administered</th>
-        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Nurse</th>
-        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Update</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
-      {% for entry in entries %}
-      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
-        <td class="px-4 py-3">
-          <p class="font-semibold text-slate-800 dark:text-slate-100">{{ entry.prescription_item.drug_name }}</p>
-          <p class="text-xs text-slate-400">{{ entry.prescription_item.dose }} &middot; {{ entry.prescription_item.get_route_display }}</p>
-        </td>
-        <td class="px-4 py-3 text-xs text-slate-500">{{ entry.scheduled_time|date:"d M, H:i" }}</td>
-        <td class="px-4 py-3">
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-            {% if entry.status == 'Given' %}bg-emerald-100 text-emerald-700{% elif entry.status == 'Missed' %}bg-red-100 text-red-600{% elif entry.status == 'Held' %}bg-amber-100 text-amber-700{% elif entry.status == 'Refused' %}bg-orange-100 text-orange-700{% else %}bg-slate-100 text-slate-600{% endif %}">
-            {{ entry.status }}
-          </span>
-        </td>
-        <td class="px-4 py-3 hidden sm:table-cell text-xs text-slate-500">
-          {% if entry.administered_at %}{{ entry.administered_at|date:"d M, H:i" }}{% else %}—{% endif %}
-        </td>
-        <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500">
-          {% if entry.administered_by %}{{ entry.administered_by.get_full_name|default:entry.administered_by.username }}{% else %}—{% endif %}
-        </td>
-        <td class="px-4 py-3 text-right">
-          {% if entry.status == 'Scheduled' %}
-          <button onclick="openMarModal({{ entry.pk }}, '{{ entry.prescription_item.drug_name|escapejs }}', '{{ entry.prescription_item.dose|escapejs }}')"
-            class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition">Update</button>
-          {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400 text-sm">No MAR entries for this visit.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<!-- Source legend -->
+<div class="flex gap-3 flex-wrap mb-4">
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8"/></svg>
+    Pharmacy Dispensed
+  </span>
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8"/></svg>
+    Ward/Floor Stock
+  </span>
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8"/></svg>
+    Patient-Supplied
+  </span>
 </div>
 
-<!-- MAR update modal -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Medication</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Scheduled</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Administered</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Nurse</th>
+          <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {% for entry in entries %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+          <td class="px-4 py-3">
+            <p class="font-semibold text-slate-800 dark:text-slate-100">{{ entry.drug_name }}</p>
+            <p class="text-xs text-slate-400">{{ entry.dose_display }} &middot; {{ entry.route_display }}</p>
+          </td>
+          <td class="px-4 py-3">
+            {% if entry.source == 'ward_stock' %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" title="{{ entry.ward_stock_item.department_store.name|default:'' }}">
+              <svg class="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>
+              Ward Stock{% if entry.ward_stock_item %}: {{ entry.ward_stock_item.item_name }}{% endif %}
+            </span>
+            {% elif entry.source == 'patient_supplied' %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+              <svg class="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4z"/></svg>
+              Patient-Supplied
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+              <svg class="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 16 16"><path d="M6 1a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V2a1 1 0 0 0-1-1H6zm2 4a1 1 0 0 1 1 1v.5h.5a1 1 0 0 1 0 2H9V9a1 1 0 0 1-2 0v-.5h-.5a1 1 0 0 1 0-2H7V6a1 1 0 0 1 1-1z"/></svg>
+              Pharmacy
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-xs text-slate-500">{{ entry.scheduled_time|date:"d M, H:i" }}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if entry.status == 'Given' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400
+              {% elif entry.status == 'Missed' %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400
+              {% elif entry.status == 'Held' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+              {% elif entry.status == 'Refused' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
+              {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+              {{ entry.status }}
+            </span>
+            {% if entry.source == 'ward_stock' and entry.charge_amount %}
+            <span class="text-xs text-slate-400 ml-1">ETB {{ entry.charge_amount|floatformat:2 }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 hidden sm:table-cell text-xs text-slate-500">
+            {% if entry.administered_at %}{{ entry.administered_at|date:"d M, H:i" }}{% else %}&mdash;{% endif %}
+          </td>
+          <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500">
+            {% if entry.administered_by %}{{ entry.administered_by.get_full_name|default:entry.administered_by.username }}{% else %}&mdash;{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            {% if entry.status == 'Scheduled' %}
+            <button
+              onclick="openMarModal({{ entry.pk }}, '{{ entry.drug_name|escapejs }}', '{{ entry.dose_display|escapejs }}')"
+              class="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition">
+              Administer
+            </button>
+            {% elif entry.status == 'Given' %}
+            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">&#10003; Done</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">No MAR entries for this visit.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MAR administration modal -->
 <div id="mar-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-6 w-full max-w-sm">
-    <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Update Administration</h3>
-    <p id="mar-drug-name" class="text-sm text-slate-500 mb-4"></p>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-6 w-full max-w-md">
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h3 class="text-base font-bold text-slate-900 dark:text-white">Administer Medication</h3>
+        <p id="mar-drug-name" class="text-sm text-slate-500 mt-0.5"></p>
+      </div>
+      <button type="button" onclick="closeMarModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
     <form method="post" id="mar-form">
       {% csrf_token %}
       <div class="space-y-3">
+
+        <!-- Administration Status -->
         <div>
-          <label class="text-xs text-slate-500 block mb-1">Status</label>
-          <select name="status" class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Administration Status</label>
+          <select name="status" id="mar-status" onchange="onStatusChange(this.value)"
+            class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
             {% for val, label in statuses %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
           </select>
         </div>
+
+        <!-- Medication Source (only shown when status == Given) -->
+        <div id="source-section" class="hidden">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-2">Medication Source</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="source-option cursor-pointer">
+              <input type="radio" name="source" value="pharmacy" class="sr-only" checked onchange="onSourceChange(this.value)">
+              <div class="source-card selected flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 text-center transition">
+                <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 16 16"><path d="M6 1a1 1 0 0 0-1 1v1H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V2a1 1 0 0 0-1-1H6z"/></svg>
+                <span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Pharmacy</span>
+              </div>
+            </label>
+            <label class="source-option cursor-pointer">
+              <input type="radio" name="source" value="ward_stock" class="sr-only" onchange="onSourceChange(this.value)">
+              <div class="source-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-center transition">
+                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z"/></svg>
+                <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">Ward Stock</span>
+              </div>
+            </label>
+            <label class="source-option cursor-pointer">
+              <input type="radio" name="source" value="patient_supplied" class="sr-only" onchange="onSourceChange(this.value)">
+              <div class="source-card flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-center transition">
+                <svg class="w-4 h-4 text-teal-600 dark:text-teal-400" fill="currentColor" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4z"/></svg>
+                <span class="text-xs font-semibold text-teal-700 dark:text-teal-300">Pt. Supplied</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Ward Stock section -->
+        <div id="ward-stock-section" class="hidden space-y-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+          <div>
+            <label class="text-xs font-medium text-amber-700 dark:text-amber-400 block mb-1">Ward / Store</label>
+            <select id="ward-store-select" onchange="loadWardMeds(this.value)"
+              class="w-full text-sm px-2.5 py-2 rounded-lg border border-amber-200 dark:border-amber-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+              <option value="">— Select ward store —</option>
+              {% for store in ward_stores %}
+              <option value="{{ store.pk }}">{{ store.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-amber-700 dark:text-amber-400 block mb-1">Medication <span class="font-normal text-amber-500">(available ward stock)</span></label>
+            <select name="ward_stock_item_id" id="ward-med-select" onchange="onWardMedChange(this.value)"
+              class="w-full text-sm px-2.5 py-2 rounded-lg border border-amber-200 dark:border-amber-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+              <option value="">— Select store first —</option>
+            </select>
+          </div>
+          <div id="ward-batch-row" class="hidden">
+            <label class="text-xs font-medium text-amber-700 dark:text-amber-400 block mb-1">Batch (FEFO)</label>
+            <select name="ward_stock_batch_id" id="ward-batch-select"
+              class="w-full text-sm px-2.5 py-2 rounded-lg border border-amber-200 dark:border-amber-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+              <option value="">— Auto (earliest expiry) —</option>
+            </select>
+          </div>
+          <p id="ward-charge-preview" class="text-xs text-amber-600 dark:text-amber-400 hidden">
+            Charge to deposit account: <strong id="ward-charge-amount"></strong>
+          </p>
+        </div>
+
+        <!-- Patient-supplied notice -->
+        <div id="patient-supplied-section" class="hidden bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-700 rounded-lg p-3">
+          <p class="text-xs text-teal-700 dark:text-teal-300 font-medium">Patient-supplied medication</p>
+          <p class="text-xs text-teal-600 dark:text-teal-400 mt-1">No inventory deduction. No billing charge. Administration will be recorded in the audit trail.</p>
+        </div>
+
+        <!-- Dose given -->
         <div>
-          <label class="text-xs text-slate-500 block mb-1">Dose Given</label>
-          <input type="text" name="dose_given" id="mar-dose" class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Dose Given</label>
+          <input type="text" name="dose_given" id="mar-dose"
+            class="w-full text-sm px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
         </div>
         <div>
-          <label class="text-xs text-slate-500 block mb-1">Patient Response</label>
-          <textarea name="patient_response" rows="2" class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none" placeholder="Patient response or observation"></textarea>
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Patient Response</label>
+          <textarea name="patient_response" rows="2"
+            class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none"
+            placeholder="Observation or patient response"></textarea>
+        </div>
+        <div id="missed-reason-row">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Reason if Missed/Held</label>
+          <input type="text" name="reason_missed"
+            class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
         </div>
         <div>
-          <label class="text-xs text-slate-500 block mb-1">Reason if Missed/Held</label>
-          <input type="text" name="reason_missed" class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-        </div>
-        <div>
-          <label class="text-xs text-slate-500 block mb-1">Notes</label>
-          <textarea name="notes" rows="2" class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none"></textarea>
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Notes</label>
+          <textarea name="notes" rows="2"
+            class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 resize-none"></textarea>
         </div>
       </div>
+
       <div class="flex gap-3 mt-4">
-        <button type="button" onclick="document.getElementById('mar-modal').classList.add('hidden')" class="flex-1 btn-secondary text-sm">Cancel</button>
-        <button type="submit" class="flex-1 btn-primary text-sm">Save</button>
+        <button type="button" onclick="closeMarModal()" class="flex-1 btn-secondary text-sm">Cancel</button>
+        <button type="submit" id="mar-submit-btn" class="flex-1 btn-primary text-sm" data-loading>Save</button>
       </div>
     </form>
   </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
+var WARD_STOCK_API = "{% url 'ward_stock_meds_api' %}";
+var wardMedsCache = {};
+
 function openMarModal(entryId, drugName, dose) {
-  document.getElementById('mar-drug-name').textContent = drugName;
+  document.getElementById('mar-drug-name').textContent = drugName + ' — ' + dose;
   document.getElementById('mar-dose').value = dose;
-  document.getElementById('mar-form').action = `/prescriptions/mar/${entryId}/update/`;
+  document.getElementById('mar-form').action = '/prescriptions/mar/' + entryId + '/update/';
+  // Reset to defaults
+  document.getElementById('mar-status').value = 'Given';
+  onStatusChange('Given');
+  document.querySelectorAll('input[name="source"]').forEach(r => { r.checked = r.value === 'pharmacy'; });
+  document.querySelectorAll('.source-card').forEach(c => c.classList.remove('selected', 'border-indigo-400', 'border-amber-400', 'border-teal-400', 'bg-indigo-50', 'bg-amber-50', 'bg-teal-50', 'dark:bg-indigo-900/20', 'dark:bg-amber-900/20', 'dark:bg-teal-900/20'));
+  document.querySelectorAll('.source-card')[0].classList.add('selected', 'border-indigo-400', 'bg-indigo-50', 'dark:bg-indigo-900/20');
+  onSourceChange('pharmacy');
   document.getElementById('mar-modal').classList.remove('hidden');
 }
+
+function closeMarModal() {
+  document.getElementById('mar-modal').classList.add('hidden');
+}
+
+function onStatusChange(val) {
+  var isGiven = val === 'Given';
+  document.getElementById('source-section').classList.toggle('hidden', !isGiven);
+  if (!isGiven) {
+    document.getElementById('ward-stock-section').classList.add('hidden');
+    document.getElementById('patient-supplied-section').classList.add('hidden');
+  }
+}
+
+function onSourceChange(val) {
+  // Update card styles
+  var colors = { pharmacy: ['indigo', '#6366f1'], ward_stock: ['amber', '#f59e0b'], patient_supplied: ['teal', '#14b8a6'] };
+  document.querySelectorAll('.source-option').forEach(function(opt) {
+    var inp = opt.querySelector('input');
+    var card = opt.querySelector('.source-card');
+    card.classList.remove('border-indigo-400', 'bg-indigo-50', 'dark:bg-indigo-900/20',
+                          'border-amber-400', 'bg-amber-50', 'dark:bg-amber-900/20',
+                          'border-teal-400', 'bg-teal-50', 'dark:bg-teal-900/20');
+    card.classList.add('border-slate-200', 'dark:border-slate-600', 'bg-white', 'dark:bg-slate-700');
+    if (inp.value === val) {
+      card.classList.remove('border-slate-200', 'dark:border-slate-600', 'bg-white', 'dark:bg-slate-700');
+      var col = colors[val][0];
+      card.classList.add('border-' + col + '-400', 'bg-' + col + '-50', 'dark:bg-' + col + '-900/20');
+    }
+  });
+  document.getElementById('ward-stock-section').classList.toggle('hidden', val !== 'ward_stock');
+  document.getElementById('patient-supplied-section').classList.toggle('hidden', val !== 'patient_supplied');
+}
+
+function loadWardMeds(storeId) {
+  var sel = document.getElementById('ward-med-select');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  if (!storeId) { sel.innerHTML = '<option value="">— Select store first —</option>'; return; }
+
+  if (wardMedsCache[storeId]) { populateWardMeds(wardMedsCache[storeId]); return; }
+
+  fetch(WARD_STOCK_API + '?store_id=' + storeId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      wardMedsCache[storeId] = data.items;
+      populateWardMeds(data.items);
+    })
+    .catch(function() { sel.innerHTML = '<option value="">Error loading stock</option>'; });
+}
+
+var _wardItems = [];
+function populateWardMeds(items) {
+  _wardItems = items;
+  var sel = document.getElementById('ward-med-select');
+  if (!items.length) {
+    sel.innerHTML = '<option value="">No medications in stock</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— Select medication —</option>';
+  items.forEach(function(it) {
+    var opt = document.createElement('option');
+    opt.value = it.id;
+    opt.textContent = it.name + (it.generic && it.generic !== it.name ? ' (' + it.generic + ')' : '') + '  [' + it.qty + ' in stock]';
+    sel.appendChild(opt);
+  });
+  onWardMedChange('');
+}
+
+function onWardMedChange(stockId) {
+  var batchRow = document.getElementById('ward-batch-row');
+  var batchSel = document.getElementById('ward-batch-select');
+  var chargeP = document.getElementById('ward-charge-preview');
+  var chargeAmt = document.getElementById('ward-charge-amount');
+
+  var item = _wardItems.find(function(i) { return String(i.id) === String(stockId); });
+  if (!item) { batchRow.classList.add('hidden'); chargeP.classList.add('hidden'); return; }
+
+  // Populate batches
+  batchSel.innerHTML = '<option value="">— Auto (earliest expiry) —</option>';
+  if (item.batches && item.batches.length) {
+    item.batches.forEach(function(b) {
+      var opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = 'Batch ' + b.batch_number + '  exp ' + b.expiration_date + '  ×' + b.quantity_available;
+      batchSel.appendChild(opt);
+    });
+    batchRow.classList.remove('hidden');
+  } else {
+    batchRow.classList.add('hidden');
+  }
+
+  // Show charge preview
+  if (item.unit_price > 0) {
+    chargeAmt.textContent = 'ETB ' + item.unit_price.toFixed(2);
+    chargeP.classList.remove('hidden');
+  } else {
+    chargeP.classList.add('hidden');
+  }
+}
+
+// Close on backdrop click
+document.getElementById('mar-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeMarModal();
+});
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeMarModal();
+});
 </script>
 {% endblock %}

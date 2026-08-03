@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Pediatric Consultations{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Pediatric Consultations</h1>
+      <p class="text-sm text-slate-500 mt-0.5">{{ total }} record{{ total|pluralize }}</p>
+    </div>
+    {% if perms.core.manage_peds_consultation %}
+    <a href="{% url 'peds_consultation_create' %}" class="btn-primary">+ New Consultation</a>
+    {% endif %}
+  </div>
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap gap-3">
+    <input name="q" value="{{ q }}" placeholder="Search patient…" class="form-input flex-1 min-w-48">
+    <select name="visit_type" class="form-input w-52">
+      <option value="">All Visit Types</option>
+      {% for val,label in visit_type_choices %}<option value="{{ val }}" {% if visit_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from }}" class="form-input w-40">
+    <input type="date" name="date_to" value="{{ date_to }}" class="form-input w-40">
+    <button type="submit" class="btn-primary">Filter</button>
+    <a href="{% url 'peds_consultation_list' %}" class="btn-secondary">Clear</a>
+  </form>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <tr>
+            <th class="px-4 py-3 text-left">Patient</th>
+            <th class="px-4 py-3 text-left">Date</th>
+            <th class="px-4 py-3 text-left">Visit Type</th>
+            <th class="px-4 py-3 text-left">Weight</th>
+            <th class="px-4 py-3 text-left">Temp</th>
+            <th class="px-4 py-3 text-left">Nutrition</th>
+            <th class="px-4 py-3 text-left">Clinician</th>
+            <th class="px-4 py-3 text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for c in consultations %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <td class="px-4 py-3">
+              <p class="font-medium text-slate-700 dark:text-slate-300">{{ c.patient }}</p>
+              <p class="text-xs text-slate-400">{{ c.patient.card_number }}</p>
+            </td>
+            <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ c.consultation_date }}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">{{ c.get_visit_type_display }}</span>
+            </td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{{ c.weight_kg|default:"—" }} kg</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{{ c.temperature|default:"—" }}{% if c.temperature %}°C{% endif %}</td>
+            <td class="px-4 py-3">
+              {% with ns=c.nutrition_status %}
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+                {% if ns == 'SAM' %}bg-red-100 text-red-700{% elif ns == 'MAM' %}bg-amber-100 text-amber-700{% elif ns == 'Normal' %}bg-emerald-100 text-emerald-700{% elif ns == 'Overweight' %}bg-orange-100 text-orange-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ ns }}</span>
+              {% endwith %}
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ c.clinician.get_full_name|default:"—" }}</td>
+            <td class="px-4 py-3">
+              <a href="{% url 'peds_consultation_detail' c.pk %}" class="text-xs text-indigo-600 hover:underline mr-2">View</a>
+              {% if perms.core.manage_peds_consultation %}
+              <a href="{% url 'peds_consultation_edit' c.pk %}" class="text-xs text-slate-500 hover:underline">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No consultations found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

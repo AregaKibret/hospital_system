@@ -226,12 +226,9 @@
 
     <!-- Submit -->
     <div class="flex gap-3 justify-end">
-      <a href="{% url 'triage_dashboard' %}"
-         class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-        Cancel
-      </a>
-      <button type="submit"
-              class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+      <a href="{% url 'triage_dashboard' %}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         Save Triage Assessment
       </button>
     </div>

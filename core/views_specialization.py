@@ -64,6 +64,8 @@ def _specialization_form(request, specialization):
             obj.name = name
             obj.display_order = display_order
             obj.is_active = bool(p.get('is_active', 'on' if not is_edit else ''))
+            obj.module_url_name = p.get('module_url_name', '').strip()
+            obj.color = p.get('color', 'indigo').strip() or 'indigo'
             obj.notes = p.get('notes', '').strip()
             obj.save()
             obj.departments.set(dept_ids)
@@ -86,6 +88,7 @@ def _specialization_form(request, specialization):
         'specialization': specialization,
         'is_edit': is_edit,
         'departments': departments,
+        'colors': ['indigo', 'blue', 'emerald', 'rose', 'amber', 'violet', 'sky', 'teal', 'orange', 'pink'],
         'post': request.POST if request.method == 'POST' else None,
     })
 
@@ -191,6 +194,8 @@ def _doctor_form(request, doctor):
             except User.DoesNotExist:
                 errors.append('Selected user account not found.')
 
+        sec_spec_ids = p.getlist('secondary_specializations')
+
         if not errors:
             old_repr = str(doctor) if is_edit else None
             obj = doctor or Doctor()
@@ -198,12 +203,14 @@ def _doctor_form(request, doctor):
             obj.last_name = last_name
             obj.department = department
             obj.specialization = specialization
+            obj.subspecialty = p.get('subspecialty', '').strip()
             obj.mobile = p.get('mobile', '').strip()
             obj.active = bool(p.get('active', 'on' if not is_edit else ''))
             if not is_edit:
                 obj.user = user_obj
                 obj.employee_id = p.get('employee_id', '').strip() or None
             obj.save()
+            obj.secondary_specializations.set(sec_spec_ids)
 
             log_action(
                 request.user, AuditLog.Action.UPDATE if is_edit else AuditLog.Action.CREATE,
@@ -219,10 +226,20 @@ def _doctor_form(request, doctor):
         for err in errors:
             messages.error(request, err)
 
+    if request.method == 'POST':
+        selected_secondary_ids = request.POST.getlist('secondary_specializations')
+    elif is_edit:
+        selected_secondary_ids = [str(pk) for pk in doctor.secondary_specializations.values_list('id', flat=True)]
+    else:
+        selected_secondary_ids = []
+
+    all_specializations = Specialization.objects.filter(is_active=True).order_by('name')
     return render(request, 'specialization/doctor_form.html', {
         'doctor': doctor,
         'is_edit': is_edit,
         'departments': departments,
         'users': users_qs,
+        'all_specializations': all_specializations,
+        'selected_secondary_ids': selected_secondary_ids,
         'post': request.POST if request.method == 'POST' else None,
     })

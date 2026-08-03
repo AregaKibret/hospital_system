@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Referral #{{ referral.pk }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <a href="{% url 'referral_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; All Referrals</a>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">Referral #{{ referral.pk }}</h1>
+    </div>
+    <span class="px-3 py-1 rounded-full text-sm font-semibold
+      {% if referral.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+      {% elif referral.status == 'accepted' %}bg-blue-100 text-blue-700
+      {% elif referral.status == 'in_progress' %}bg-indigo-100 text-indigo-700
+      {% elif referral.status == 'completed' %}bg-emerald-100 text-emerald-700
+      {% else %}bg-red-100 text-red-700{% endif %}">
+      {{ referral.get_status_display }}
+    </span>
+  </div>
+
+  <!-- Summary card -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div><p class="text-xs text-slate-400 uppercase tracking-wide">Patient</p><p class="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{{ referral.patient.full_name }}</p><p class="text-xs text-slate-400 font-mono">{{ referral.patient.card_number }}</p></div>
+      <div><p class="text-xs text-slate-400 uppercase tracking-wide">From Specialty</p><p class="font-medium text-slate-700 dark:text-slate-300 mt-0.5">{{ referral.from_specialty }}</p>{% if referral.from_doctor %}<p class="text-xs text-slate-400">Dr. {{ referral.from_doctor.full_name }}</p>{% endif %}</div>
+      <div><p class="text-xs text-slate-400 uppercase tracking-wide">To Specialty</p><p class="font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">{{ referral.to_specialty }}</p>{% if referral.to_doctor %}<p class="text-xs text-slate-400">Dr. {{ referral.to_doctor.full_name }}</p>{% else %}<p class="text-xs text-amber-500">Doctor not assigned</p>{% endif %}</div>
+      <div><p class="text-xs text-slate-400 uppercase tracking-wide">Urgency</p>
+        <span class="mt-0.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium
+          {% if referral.urgency == 'emergency' %}bg-red-100 text-red-700{% elif referral.urgency == 'urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+          {{ referral.get_urgency_display }}
+        </span>
+      </div>
+      <div><p class="text-xs text-slate-400 uppercase tracking-wide">Created</p><p class="font-medium text-slate-700 dark:text-slate-300 mt-0.5">{{ referral.created_at|date:"d M Y H:i" }}</p><p class="text-xs text-slate-400">by {{ referral.created_by.get_full_name|default:referral.created_by.username }}</p></div>
+      {% if referral.accepted_at %}<div><p class="text-xs text-slate-400 uppercase tracking-wide">Accepted</p><p class="font-medium text-slate-700 dark:text-slate-300 mt-0.5">{{ referral.accepted_at|date:"d M Y H:i" }}</p></div>{% endif %}
+      {% if referral.completed_at %}<div><p class="text-xs text-slate-400 uppercase tracking-wide">Completed</p><p class="font-medium text-slate-700 dark:text-slate-300 mt-0.5">{{ referral.completed_at|date:"d M Y H:i" }}</p></div>{% endif %}
+    </div>
+  </div>
+
+  <!-- Clinical info -->
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+    <div>
+      <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Referral</h3>
+      <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ referral.reason }}</p>
+    </div>
+    {% if referral.clinical_summary %}
+    <div>
+      <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Summary</h3>
+      <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ referral.clinical_summary }}</p>
+    </div>
+    {% endif %}
+    {% if referral.response_notes %}
+    <div>
+      <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Response Notes</h3>
+      <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ referral.response_notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Actions -->
+  {% if perms.core.accept_specialty_referral %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Actions</h3>
+    {% if referral.status == 'pending' %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Accept -->
+      <form method="post" action="{% url 'referral_accept' referral.pk %}">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Assign Doctor</label>
+          <select name="to_doctor" class="form-input w-full">
+            <option value="">— Assign later —</option>
+            {% for d in doctors %}<option value="{{ d.id }}" {% if referral.to_doctor_id == d.id %}selected{% endif %}>Dr. {{ d.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Notes</label>
+          <textarea name="response_notes" rows="2" class="form-input w-full" placeholder="Acceptance notes…"></textarea>
+        </div>
+        <button type="submit" class="w-full btn-primary">Accept Referral</button>
+      </form>
+      <!-- Decline -->
+      <form method="post" action="{% url 'referral_decline' referral.pk %}">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Decline Reason *</label>
+          <textarea name="response_notes" rows="2" required class="form-input w-full" placeholder="Reason for declining…"></textarea>
+        </div>
+        <button type="submit" class="w-full px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">Decline Referral</button>
+      </form>
+    </div>
+    {% elif referral.status in 'accepted,in_progress' %}
+    <form method="post" action="{% url 'referral_complete' referral.pk %}">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Completion Notes</label>
+        <textarea name="response_notes" rows="3" class="form-input w-full" placeholder="Outcome summary, recommendations…">{{ referral.response_notes }}</textarea>
+      </div>
+      <button type="submit" class="btn-primary">Mark as Completed</button>
+    </form>
+    {% else %}
+    <p class="text-sm text-slate-400">No actions available for this referral status.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

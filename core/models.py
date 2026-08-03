@@ -225,6 +225,14 @@ class Specialization(models.Model):
     )
     display_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    module_url_name = models.CharField(
+        max_length=100, blank=True,
+        help_text="URL name of this specialty's module dashboard (e.g. cardiology_dashboard) for automatic routing.",
+    )
+    color = models.CharField(
+        max_length=20, blank=True, default='indigo',
+        help_text='Tailwind color name for UI badges (e.g. indigo, blue, rose, emerald).',
+    )
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -270,6 +278,14 @@ class Doctor(models.Model):
         related_name='doctors',
     )
     mobile = models.CharField(max_length=20, blank=True, default='')
+    secondary_specializations = models.ManyToManyField(
+        Specialization, related_name='secondary_doctors', blank=True,
+        help_text='Additional specializations this doctor is qualified in.',
+    )
+    subspecialty = models.CharField(
+        max_length=100, blank=True,
+        help_text='Subspecialty detail, e.g. Interventional Cardiology, Paediatric Surgery.',
+    )
     active = models.BooleanField(default=True)
 
     class Meta:
@@ -486,6 +502,10 @@ class Visit(models.Model):
         db_index=True,
     )
     chief_complaint = models.TextField(blank=True)
+    specialty = models.ForeignKey(
+        'Specialization', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='visits',
+    )
     # For Revisit: link to the prior consultation this visit follows up on
     previous_visit = models.ForeignKey(
         'self',
@@ -659,6 +679,10 @@ class Appointment(models.Model):
     )
     referral_source = models.CharField(
         max_length=20, choices=ReferralSource.choices, default=ReferralSource.RECEPTION,
+    )
+    specialty = models.ForeignKey(
+        'Specialization', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='appointments',
     )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.SCHEDULED,
@@ -4083,6 +4107,81 @@ class HMSPermissions(models.Model):
             ('manage_doctors',           'Can create and edit doctor staff records'),
             ('view_specialization_reports', 'Can view specialization reports'),
 
+            # OB/GYN Module
+            ('view_obgyn_dashboard',        'Can view the OB/GYN module dashboard'),
+            ('manage_pregnancy',            'Can register and manage pregnancy records'),
+            ('view_pregnancy',              'Can view pregnancy records'),
+            ('manage_anc_visit',            'Can record and edit ANC visits'),
+            ('view_anc_visit',              'Can view ANC visit records'),
+            ('manage_delivery',             'Can record and edit delivery records'),
+            ('view_delivery',               'Can view delivery records'),
+            ('manage_newborn',              'Can record and edit newborn records'),
+            ('view_newborn',                'Can view newborn records'),
+            ('manage_pnc_visit',            'Can record and edit PNC visits'),
+            ('view_pnc_visit',              'Can view PNC visit records'),
+            ('manage_gyn_consultation',     'Can create and edit gynecology consultations'),
+            ('view_gyn_consultation',       'Can view gynecology consultations'),
+            ('manage_family_planning',      'Can record and manage family planning visits'),
+            ('view_family_planning',        'Can view family planning records'),
+            ('manage_infertility_case',     'Can open and manage infertility cases'),
+            ('view_infertility_case',       'Can view infertility cases'),
+            ('view_obgyn_reports',          'Can view OB/GYN reports'),
+            ('export_obgyn_reports',        'Can export OB/GYN reports'),
+
+            # Internal Medicine Module
+            ('view_im_dashboard',           'Can view Internal Medicine dashboard'),
+            ('manage_im_consultation',      'Can create and edit Internal Medicine consultations'),
+            ('view_im_consultation',        'Can view Internal Medicine consultations'),
+            ('manage_chronic_plan',         'Can create and edit chronic disease plans'),
+            ('view_chronic_plan',           'Can view chronic disease plans'),
+            ('manage_risk_assessment',      'Can create and edit clinical risk assessments'),
+            ('view_im_reports',             'Can view Internal Medicine reports'),
+            ('export_im_reports',           'Can export Internal Medicine reports'),
+
+            # Pediatrics Module
+            ('view_peds_dashboard',         'Can view Pediatrics dashboard'),
+            ('manage_peds_consultation',    'Can create and edit pediatric consultations'),
+            ('view_peds_consultation',      'Can view pediatric consultations'),
+            ('manage_growth_record',        'Can record and edit growth records'),
+            ('view_growth_record',          'Can view growth records'),
+            ('manage_immunization',         'Can record and edit immunization records'),
+            ('view_immunization',           'Can view immunization records'),
+            ('manage_dev_assessment',       'Can create and edit developmental assessments'),
+            ('view_peds_reports',           'Can view Pediatrics reports'),
+            ('export_peds_reports',         'Can export Pediatrics reports'),
+
+            # General Surgery Module
+            ('view_surgery_consult_dashboard', 'Can view General Surgery dashboard'),
+            ('manage_surgical_consultation',   'Can create and edit surgical consultations'),
+            ('view_surgical_consultation',     'Can view surgical consultations'),
+            ('manage_preop_assessment',        'Can complete pre-operative assessments'),
+            ('manage_operative_note',          'Can write and edit operative notes'),
+            ('view_operative_note',            'Can view operative notes'),
+            ('manage_postop_note',             'Can write and edit post-operative notes'),
+            ('view_postop_note',               'Can view post-operative notes'),
+            ('manage_wound_followup',          'Can record wound follow-up visits'),
+            ('view_surgery_reports',           'Can view General Surgery reports'),
+            ('export_surgery_reports',         'Can export General Surgery reports'),
+
+            # Cardiology Module
+            ('view_cardiology_dashboard',      'Can view Cardiology dashboard'),
+            ('manage_cardiology_consultation', 'Can create and edit Cardiology consultations'),
+            ('view_cardiology_consultation',   'Can view Cardiology consultations'),
+            ('manage_ecg_record',              'Can create and edit ECG records'),
+            ('view_ecg_record',                'Can view ECG records'),
+            ('manage_echo_report',             'Can create and edit Echo reports'),
+            ('view_echo_report',               'Can view Echo reports'),
+            ('manage_cardiac_procedure',       'Can record cardiac procedures'),
+            ('view_cardiology_reports',        'Can view Cardiology reports'),
+            ('export_cardiology_reports',      'Can export Cardiology reports'),
+
+            # Specialty Assignment & Referrals
+            ('manage_specialty_referral',      'Can create and manage specialty referrals'),
+            ('view_specialty_referral',        'Can view specialty referrals'),
+            ('accept_specialty_referral',      'Can accept incoming specialty referrals'),
+            ('view_specialty_reports',         'Can view specialty assignment reports'),
+            ('export_specialty_reports',       'Can export specialty reports'),
+
             # Medical / Death Certificate Management
             ('write_medical_certificate',    'Can create and edit medical certificates'),
             ('finalize_medical_certificate', 'Can finalize and sign medical certificates'),
@@ -4784,9 +4883,21 @@ class SurgeryOrder(models.Model):
 
     @property
     def payment_cleared(self):
-        return self.payment_status in (
+        if self.payment_status in (
             self.PaymentStatus.PAID, self.PaymentStatus.CREDIT, self.PaymentStatus.WAIVED,
-        )
+        ):
+            return True
+        # No invoice item linked yet — billing hasn't been raised for this
+        # surgery. Don't block OR entry; the charge will be settled post-op.
+        if not self.invoice_item_id:
+            return True
+        # Fallback: read the linked invoice item directly in case the
+        # post_save signal that syncs payment_status was swallowed.
+        try:
+            return self.invoice_item.payment_cleared
+        except Exception:
+            pass
+        return False
 
     @property
     def can_approve(self):
@@ -5392,6 +5503,203 @@ class PeriopNursingAddendum(models.Model):
 
     def __str__(self):
         return f'Nursing addendum ({self.document_type}): {self.surgery_order.order_number}'
+
+
+# ── Pre-Operative Checklist ───────────────────────────────────────────────────
+
+class SurgeryPreOpChecklist(models.Model):
+    """Tracks all pre-operative requirements for a surgery order.
+    Acts as the gate that must be cleared (or emergency-overridden) before
+    the patient can be moved into the Operating Room."""
+
+    surgery_order = models.OneToOneField(
+        SurgeryOrder, on_delete=models.CASCADE, related_name='preop_checklist',
+    )
+
+    # ── Laboratory ────────────────────────────────────────────────────────────
+    cbc_done            = models.BooleanField(default=False, verbose_name='CBC Done')
+    coagulation_done    = models.BooleanField(default=False, verbose_name='Coagulation Profile Done')
+    blood_group_done    = models.BooleanField(default=False, verbose_name='Blood Group & Cross-match Done')
+    blood_sugar_done    = models.BooleanField(default=False, verbose_name='Blood Sugar Done')
+    rft_done            = models.BooleanField(default=False, verbose_name='RFT Done')
+    lft_done            = models.BooleanField(default=False, verbose_name='LFT Done')
+    electrolytes_done   = models.BooleanField(default=False, verbose_name='Electrolytes Done')
+
+    # ── Imaging & Investigations ───────────────────────────────────────────────
+    cxr_done            = models.BooleanField(default=False, verbose_name='Chest X-Ray Done')
+    ecg_done            = models.BooleanField(default=False, verbose_name='ECG Done')
+    other_imaging_done  = models.BooleanField(default=False, verbose_name='Other Imaging Done')
+
+    # ── Clinical Clearances ───────────────────────────────────────────────────
+    anesthesia_clearance     = models.BooleanField(default=False, verbose_name='Anesthesia Assessment & Clearance')
+    medical_clearance        = models.BooleanField(default=False, verbose_name='Medical Clearance')
+    surgical_consent_signed  = models.BooleanField(default=False, verbose_name='Surgical Consent Signed')
+    anesthesia_consent_signed = models.BooleanField(default=False, verbose_name='Anesthesia Consent Signed')
+
+    # ── Blood Products ────────────────────────────────────────────────────────
+    blood_required    = models.BooleanField(default=False, verbose_name='Blood Required')
+    blood_available   = models.BooleanField(default=False, verbose_name='Blood Available/Reserved')
+    units_prepared    = models.PositiveSmallIntegerField(default=0, verbose_name='Units Prepared')
+
+    # ── Pre-Op Preparation ────────────────────────────────────────────────────
+    npo_confirmed              = models.BooleanField(default=False, verbose_name='NPO Status Confirmed')
+    iv_access                  = models.BooleanField(default=False, verbose_name='IV Access Established')
+    site_marked                = models.BooleanField(default=False, verbose_name='Surgical Site Marked')
+    patient_identified         = models.BooleanField(default=False, verbose_name='Patient Identity Verified')
+    pre_medication_given       = models.BooleanField(default=False, verbose_name='Pre-Medication Given')
+    antibiotic_prophylaxis     = models.BooleanField(default=False, verbose_name='Antibiotic Prophylaxis Given')
+    dvt_prophylaxis            = models.BooleanField(default=False, verbose_name='DVT Prophylaxis Given')
+    allergies_reviewed         = models.BooleanField(default=False, verbose_name='Allergies Reviewed')
+    implants_available         = models.BooleanField(default=False, verbose_name='Implants/Prosthetics Available')
+
+    # ── WHO Surgical Safety Checklist ─────────────────────────────────────────
+    who_sign_in_done   = models.BooleanField(default=False, verbose_name='WHO Sign-In Completed (before anaesthesia)')
+    who_time_out_done  = models.BooleanField(default=False, verbose_name='WHO Time-Out Completed (before incision)')
+    who_sign_out_done  = models.BooleanField(default=False, verbose_name='WHO Sign-Out Completed (before leaving OR)')
+
+    # ── Emergency Override ────────────────────────────────────────────────────
+    emergency_override = models.BooleanField(default=False, verbose_name='Emergency Override Activated')
+    override_reason    = models.TextField(blank=True)
+    override_by        = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='preop_overrides',
+    )
+    override_at        = models.DateTimeField(null=True, blank=True)
+
+    notes      = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='preop_checklists_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='preop_checklists_updated',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pre-Operative Checklist'
+
+    def __str__(self):
+        return f'Pre-op checklist: {self.surgery_order.order_number}'
+
+    @property
+    def mandatory_items_done(self):
+        """The absolute minimum required before OR entry."""
+        return (
+            self.surgical_consent_signed and
+            self.anesthesia_clearance and
+            self.patient_identified and
+            self.npo_confirmed
+        )
+
+    @property
+    def is_cleared(self):
+        return self.mandatory_items_done or self.emergency_override
+
+    @property
+    def completion_percent(self):
+        fields = [
+            self.cbc_done, self.coagulation_done, self.blood_group_done,
+            self.surgical_consent_signed, self.anesthesia_clearance, self.medical_clearance,
+            self.patient_identified, self.npo_confirmed, self.iv_access, self.site_marked,
+            self.antibiotic_prophylaxis, self.allergies_reviewed,
+        ]
+        done = sum(1 for f in fields if f)
+        return int(done / len(fields) * 100)
+
+
+# ── PACU / Recovery Room Record ───────────────────────────────────────────────
+
+class SurgeryPACURecord(PeriopDocumentBase):
+    """Post-Anesthesia Care Unit (PACU / Recovery Room) documentation.
+    Extends PeriopDocumentBase for the same draft→finalize versioning pattern
+    used by anesthesia and operative notes."""
+
+    class Consciousness(models.TextChoices):
+        ALERT        = 'alert',        'Alert & Oriented'
+        DROWSY       = 'drowsy',       'Drowsy but Rousable'
+        RESPONDING   = 'responding',   'Responding to Commands'
+        UNRESPONSIVE = 'unresponsive', 'Unresponsive'
+
+    class DischargeDestination(models.TextChoices):
+        WARD  = 'ward',  'Surgical Ward'
+        ICU   = 'icu',   'Intensive Care Unit'
+        HDU   = 'hdu',   'High Dependency Unit'
+        STEP  = 'step',  'Step-Down Unit'
+
+    surgery_order = models.ForeignKey(
+        SurgeryOrder, on_delete=models.CASCADE, related_name='pacu_records',
+    )
+
+    # ── Arrival Vitals ────────────────────────────────────────────────────────
+    arrival_time        = models.DateTimeField(null=True, blank=True)
+    arrival_bp_systolic  = models.PositiveSmallIntegerField(null=True, blank=True)
+    arrival_bp_diastolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    arrival_pulse        = models.PositiveSmallIntegerField(null=True, blank=True)
+    arrival_rr           = models.PositiveSmallIntegerField(null=True, blank=True)
+    arrival_temp         = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    arrival_spo2         = models.PositiveSmallIntegerField(null=True, blank=True)
+    arrival_pain_score   = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # ── Airway & Consciousness ────────────────────────────────────────────────
+    consciousness_level  = models.CharField(max_length=20, choices=Consciousness.choices, blank=True)
+    airway_status        = models.CharField(max_length=100, blank=True)
+    o2_delivery_method   = models.CharField(max_length=100, blank=True)
+    o2_flow_rate         = models.CharField(max_length=50, blank=True)
+
+    # ── Wound & Drains ────────────────────────────────────────────────────────
+    wound_condition   = models.TextField(blank=True)
+    drain_type        = models.CharField(max_length=100, blank=True)
+    drain_output_ml   = models.PositiveIntegerField(null=True, blank=True)
+    bleeding_notes    = models.TextField(blank=True)
+
+    # ── Medications in PACU ───────────────────────────────────────────────────
+    analgesics_given     = models.TextField(blank=True)
+    antiemetics_given    = models.TextField(blank=True)
+    iv_fluids_given      = models.TextField(blank=True)
+    other_medications    = models.TextField(blank=True)
+
+    # ── Aldrete Score (standard PACU discharge readiness score, each 0–2) ─────
+    aldrete_activity       = models.PositiveSmallIntegerField(null=True, blank=True)
+    aldrete_respiration    = models.PositiveSmallIntegerField(null=True, blank=True)
+    aldrete_circulation    = models.PositiveSmallIntegerField(null=True, blank=True)
+    aldrete_consciousness  = models.PositiveSmallIntegerField(null=True, blank=True)
+    aldrete_spo2           = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # ── Discharge from PACU ───────────────────────────────────────────────────
+    discharge_time         = models.DateTimeField(null=True, blank=True)
+    discharge_destination  = models.CharField(max_length=10, choices=DischargeDestination.choices, blank=True)
+    discharge_criteria_met = models.BooleanField(default=False)
+    pacu_duration_minutes  = models.PositiveIntegerField(null=True, blank=True)
+
+    complications = models.TextField(blank=True)
+    monitoring_notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering  = ['-created_at']
+        verbose_name = 'PACU / Recovery Record'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['surgery_order'],
+                condition=models.Q(is_current=True),
+                name='unique_current_pacu_record_per_order',
+            )
+        ]
+
+    def __str__(self):
+        return f'PACU record v{self.version}: {self.surgery_order.order_number}'
+
+    @property
+    def aldrete_total(self):
+        scores = [
+            self.aldrete_activity, self.aldrete_respiration,
+            self.aldrete_circulation, self.aldrete_consciousness, self.aldrete_spo2,
+        ]
+        if all(s is not None for s in scores):
+            return sum(scores)
+        return None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -6098,8 +6406,20 @@ class MAREntry(models.Model):
         HELD      = 'Held',      'Held'
         REFUSED   = 'Refused',   'Refused'
 
+    class Source(models.TextChoices):
+        PHARMACY         = 'pharmacy',         'Pharmacy Dispensed'
+        WARD_STOCK       = 'ward_stock',       'Ward/Floor Stock'
+        PATIENT_SUPPLIED = 'patient_supplied', 'Patient-Supplied'
+
+    # Either prescription_item (pharmacy workflow) OR medication_order (direct ward workflow).
+    # Exactly one should be set per entry.
     prescription_item = models.ForeignKey(
         PrescriptionItem, on_delete=models.CASCADE, related_name='mar_entries',
+        null=True, blank=True,
+    )
+    medication_order  = models.ForeignKey(
+        'MedicationOrder', on_delete=models.CASCADE, related_name='mar_entries',
+        null=True, blank=True,
     )
     visit             = models.ForeignKey(
         Visit, on_delete=models.CASCADE, related_name='mar_entries',
@@ -6114,6 +6434,22 @@ class MAREntry(models.Model):
     status            = models.CharField(
         max_length=15, choices=Status.choices, default=Status.SCHEDULED,
     )
+    # Medication source — determines billing/inventory behaviour on administration
+    source            = models.CharField(
+        max_length=20, choices=Source.choices, default=Source.PHARMACY,
+    )
+    # Ward stock links (only when source == WARD_STOCK)
+    ward_stock_item   = models.ForeignKey(
+        'DepartmentStock', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='mar_entries',
+    )
+    ward_stock_batch  = models.ForeignKey(
+        'DepartmentStockBatch', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='mar_entries',
+    )
+    # Amount charged to deposit account (ward stock administrations only)
+    charge_amount     = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+
     patient_response  = models.TextField(blank=True)
     reason_missed     = models.TextField(blank=True)
     notes             = models.TextField(blank=True)
@@ -6124,8 +6460,32 @@ class MAREntry(models.Model):
         verbose_name = 'MAR Entry'
         verbose_name_plural = 'MAR Entries'
 
+    @property
+    def drug_name(self):
+        if self.prescription_item_id:
+            return self.prescription_item.drug_name
+        if self.medication_order_id:
+            return self.medication_order.drug_name
+        return '—'
+
+    @property
+    def dose_display(self):
+        if self.prescription_item_id:
+            return self.prescription_item.dose
+        if self.medication_order_id:
+            return self.medication_order.dosage
+        return ''
+
+    @property
+    def route_display(self):
+        if self.prescription_item_id:
+            return self.prescription_item.get_route_display()
+        if self.medication_order_id:
+            return self.medication_order.get_route_display()
+        return ''
+
     def __str__(self):
-        return (f"{self.prescription_item.drug_name} "
+        return (f"{self.drug_name} "
                 f"@ {self.scheduled_time:%d %b %H:%M} — {self.status}")
 
 
@@ -7687,3 +8047,1344 @@ class LicenseInfo(models.Model):
         if self.expiration_date and self.expiration_date < timezone.localdate():
             return False
         return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  OB/GYN MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Pregnancy(models.Model):
+    """Central pregnancy record — one row per pregnancy episode."""
+
+    class Status(models.TextChoices):
+        ACTIVE    = 'active',    'Active / Ongoing'
+        DELIVERED = 'delivered', 'Delivered'
+        ABORTED   = 'aborted',   'Aborted'
+        ECTOPIC   = 'ectopic',   'Ectopic'
+        MOLAR     = 'molar',     'Molar Pregnancy'
+        CLOSED    = 'closed',    'Closed'
+
+    class BloodGroup(models.TextChoices):
+        A_POS  = 'A+',  'A+'
+        A_NEG  = 'A-',  'A-'
+        B_POS  = 'B+',  'B+'
+        B_NEG  = 'B-',  'B-'
+        AB_POS = 'AB+', 'AB+'
+        AB_NEG = 'AB-', 'AB-'
+        O_POS  = 'O+',  'O+'
+        O_NEG  = 'O-',  'O-'
+        UNKNOWN = 'Unknown', 'Unknown'
+
+    patient        = models.ForeignKey('Patient',  on_delete=models.CASCADE, related_name='pregnancies')
+    registration_number = models.CharField(max_length=30, unique=True, blank=True)
+    lmp            = models.DateField(verbose_name='Last Menstrual Period', null=True, blank=True)
+    edd            = models.DateField(verbose_name='Estimated Due Date', null=True, blank=True)
+    edd_by_scan    = models.DateField(verbose_name='EDD by Ultrasound', null=True, blank=True)
+    gravida        = models.PositiveSmallIntegerField(default=1, help_text='Total pregnancies including this one')
+    para           = models.PositiveSmallIntegerField(default=0, help_text='Prior deliveries ≥ 20 weeks')
+    abortion       = models.PositiveSmallIntegerField(default=0)
+    living_children= models.PositiveSmallIntegerField(default=0)
+    blood_group    = models.CharField(max_length=10, choices=BloodGroup.choices, blank=True, default='')
+    rhesus         = models.CharField(max_length=10, choices=[('Positive','Positive'),('Negative','Negative'),('Unknown','Unknown')], blank=True, default='Unknown')
+    height_cm      = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    pre_pregnancy_weight_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    risk_factors   = models.TextField(blank=True)
+    medical_history= models.TextField(blank=True, verbose_name='Relevant Medical History')
+    surgical_history = models.TextField(blank=True)
+    family_history = models.TextField(blank=True)
+    allergies      = models.TextField(blank=True)
+    status         = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+    registered_by  = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='pregnancies_registered')
+    notes          = models.TextField(blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Pregnancy'
+        verbose_name_plural = 'Pregnancies'
+
+    def __str__(self):
+        return f"Pregnancy #{self.pk} — {self.patient} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        if not self.registration_number:
+            super().save(*args, **kwargs)
+            self.registration_number = f"ANC-{self.pk:06d}"
+            Pregnancy.objects.filter(pk=self.pk).update(registration_number=self.registration_number)
+            return
+        if self.lmp and not self.edd:
+            from datetime import timedelta
+            self.edd = self.lmp + timedelta(days=280)
+        super().save(*args, **kwargs)
+
+    @property
+    def gestational_age_weeks(self):
+        if not self.lmp:
+            return None
+        from datetime import date
+        delta = date.today() - self.lmp
+        return delta.days // 7
+
+    @property
+    def ga_display(self):
+        weeks = self.gestational_age_weeks
+        if weeks is None:
+            return 'N/A'
+        days = (self.lmp and ((timezone.localdate() - self.lmp).days % 7)) or 0
+        return f"{weeks}w {days}d"
+
+
+class ANCVisit(models.Model):
+    """Antenatal care visit — one row per ANC appointment."""
+
+    class Presentation(models.TextChoices):
+        CEPHALIC    = 'cephalic',    'Cephalic'
+        BREECH      = 'breech',      'Breech'
+        TRANSVERSE  = 'transverse',  'Transverse'
+        OBLIQUE     = 'oblique',     'Oblique'
+        UNSTABLE    = 'unstable',    'Unstable'
+        UNKNOWN     = 'unknown',     'Not Assessed'
+
+    class FHRStatus(models.TextChoices):
+        HEARD    = 'heard',    'Heard'
+        NOT_HEARD= 'not_heard','Not Heard'
+        NA       = 'na',       'N/A'
+
+    pregnancy    = models.ForeignKey(Pregnancy, on_delete=models.CASCADE, related_name='anc_visits')
+    visit        = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='anc_visits')
+    visit_number = models.PositiveSmallIntegerField(default=1)
+    visit_date   = models.DateField()
+    ga_weeks     = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Gestational Age (weeks)')
+    ga_days      = models.PositiveSmallIntegerField(null=True, blank=True, default=0)
+    weight_kg    = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    bp_systolic  = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    pulse        = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature  = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    fundal_height_cm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    presentation = models.CharField(max_length=20, choices=Presentation.choices, default=Presentation.UNKNOWN)
+    fetal_heart_rate = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='FHR (bpm)')
+    fhr_status   = models.CharField(max_length=10, choices=FHRStatus.choices, default=FHRStatus.NA)
+    fetal_movement = models.BooleanField(null=True, blank=True)
+    oedema       = models.CharField(max_length=100, blank=True)
+    urine_protein= models.CharField(max_length=20, blank=True, choices=[('negative','Negative'),('trace','Trace'),('+1','+1'),('+2','+2'),('+3','+3')])
+    urine_glucose= models.CharField(max_length=20, blank=True, choices=[('negative','Negative'),('positive','Positive')])
+    hb_level     = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name='Haemoglobin (g/dL)')
+    iron_given   = models.BooleanField(default=False)
+    folic_given  = models.BooleanField(default=False)
+    tt_given     = models.BooleanField(default=False, verbose_name='TT Vaccination Given')
+    ipt_given    = models.BooleanField(default=False, verbose_name='IPT Given')
+    llin_given   = models.BooleanField(default=False, verbose_name='LLIN Given')
+    clinical_notes  = models.TextField(blank=True)
+    management_plan = models.TextField(blank=True)
+    next_visit_date = models.DateField(null=True, blank=True)
+    seen_by      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='anc_visits_seen')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['visit_date']
+        verbose_name = 'ANC Visit'
+        verbose_name_plural = 'ANC Visits'
+
+    def __str__(self):
+        return f"ANC Visit #{self.visit_number} — {self.pregnancy} on {self.visit_date}"
+
+
+class DeliveryRecord(models.Model):
+    """Labor and delivery record — one per delivery event."""
+
+    class DeliveryMode(models.TextChoices):
+        SVD        = 'svd',        'Spontaneous Vaginal Delivery (SVD)'
+        ASSISTED   = 'assisted',   'Assisted Vaginal Delivery'
+        ELECTIVE_CS= 'elective_cs','Elective Caesarean Section'
+        EMERGENCY_CS='emergency_cs','Emergency Caesarean Section'
+        BREECH     = 'breech',     'Breech Delivery'
+        STILLBIRTH = 'stillbirth', 'Stillbirth'
+        ABORTION   = 'abortion',   'Abortion / Miscarriage'
+
+    class Outcome(models.TextChoices):
+        LIVE_BIRTH   = 'live_birth',   'Live Birth'
+        STILLBIRTH   = 'stillbirth',   'Stillbirth'
+        NEONATAL_DEATH='neonatal_death','Neonatal Death'
+        MATERNAL_DEATH='maternal_death','Maternal Death'
+
+    class Episiotomy(models.TextChoices):
+        NONE       = 'none',     'None'
+        MEDIOLATERAL='mediolateral','Mediolateral'
+        MEDIAN     = 'median',   'Median'
+
+    pregnancy       = models.OneToOneField(Pregnancy, on_delete=models.CASCADE, related_name='delivery')
+    visit           = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
+    admission        = models.ForeignKey('Admission', on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
+    delivery_date   = models.DateField()
+    delivery_time   = models.TimeField(null=True, blank=True)
+    delivery_mode   = models.CharField(max_length=20, choices=DeliveryMode.choices)
+    outcome         = models.CharField(max_length=20, choices=Outcome.choices, default=Outcome.LIVE_BIRTH)
+    ga_at_delivery  = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='GA at Delivery (weeks)')
+    blood_loss_ml   = models.PositiveIntegerField(null=True, blank=True, verbose_name='Estimated Blood Loss (mL)')
+    placenta_complete = models.BooleanField(null=True, blank=True)
+    episiotomy      = models.CharField(max_length=20, choices=Episiotomy.choices, default=Episiotomy.NONE)
+    tear_degree     = models.CharField(max_length=50, blank=True)
+    repair_done     = models.BooleanField(null=True, blank=True)
+    complications   = models.TextField(blank=True)
+    oxytocin_given  = models.BooleanField(default=False)
+    bp_systolic_delivery = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic_delivery= models.PositiveSmallIntegerField(null=True, blank=True)
+    attended_by     = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries_attended')
+    midwife         = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries_midwifed')
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-delivery_date']
+        verbose_name = 'Delivery Record'
+
+    def __str__(self):
+        return f"Delivery — {self.pregnancy.patient} on {self.delivery_date}"
+
+
+class NewbornRecord(models.Model):
+    """Newborn record — one per neonate delivered."""
+
+    class Sex(models.TextChoices):
+        MALE    = 'male',    'Male'
+        FEMALE  = 'female',  'Female'
+        AMBIGUOUS = 'ambiguous', 'Ambiguous'
+
+    class Condition(models.TextChoices):
+        ALIVE   = 'alive',   'Alive & Well'
+        DISTRESS= 'distress','In Distress'
+        DEAD    = 'dead',    'Dead at Birth'
+
+    delivery       = models.ForeignKey(DeliveryRecord, on_delete=models.CASCADE, related_name='newborns')
+    birth_order    = models.PositiveSmallIntegerField(default=1, help_text='1 = singleton, 2+ = twin/triplet order')
+    sex            = models.CharField(max_length=15, choices=Sex.choices)
+    birth_weight_g = models.PositiveIntegerField(null=True, blank=True, verbose_name='Birth Weight (g)')
+    birth_length_cm= models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    head_circumference_cm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    apgar_1min     = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    apgar_5min     = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    apgar_10min    = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    condition      = models.CharField(max_length=15, choices=Condition.choices, default=Condition.ALIVE)
+    resuscitation  = models.BooleanField(default=False)
+    resuscitation_notes = models.TextField(blank=True)
+    congenital_anomaly = models.BooleanField(default=False)
+    anomaly_description = models.TextField(blank=True)
+    vitamin_k_given= models.BooleanField(default=False)
+    eye_prophylaxis= models.BooleanField(default=False)
+    bcg_given      = models.BooleanField(default=False)
+    hepatitis_b_given = models.BooleanField(default=False)
+    breastfed_immediately = models.BooleanField(null=True, blank=True)
+    nicu_admission = models.BooleanField(default=False)
+    notes          = models.TextField(blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['birth_order']
+        verbose_name = 'Newborn Record'
+
+    def __str__(self):
+        return f"Newborn #{self.birth_order} — {self.delivery}"
+
+
+class PNCVisit(models.Model):
+    """Postnatal care visit."""
+
+    class Status(models.TextChoices):
+        NORMAL     = 'normal',    'Normal'
+        CONCERNS   = 'concerns',  'With Concerns'
+        REFERRED   = 'referred',  'Referred'
+
+    delivery     = models.ForeignKey(DeliveryRecord, on_delete=models.CASCADE, related_name='pnc_visits')
+    visit        = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='pnc_visits')
+    visit_number = models.PositiveSmallIntegerField(default=1)
+    visit_date   = models.DateField()
+    days_postpartum = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_systolic  = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature  = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_kg    = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    lochia       = models.CharField(max_length=100, blank=True)
+    uterus_involution = models.CharField(max_length=100, blank=True)
+    perineum     = models.CharField(max_length=100, blank=True)
+    breastfeeding = models.BooleanField(null=True, blank=True)
+    breast_condition = models.CharField(max_length=100, blank=True)
+    newborn_condition = models.CharField(max_length=200, blank=True)
+    family_planning_counseled = models.BooleanField(default=False)
+    fp_method_chosen = models.CharField(max_length=100, blank=True)
+    immunization_updated = models.BooleanField(default=False)
+    hiv_test_done = models.BooleanField(default=False)
+    status       = models.CharField(max_length=15, choices=Status.choices, default=Status.NORMAL)
+    clinical_notes  = models.TextField(blank=True)
+    next_visit_date = models.DateField(null=True, blank=True)
+    seen_by      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='pnc_visits_seen')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['visit_date']
+        verbose_name = 'PNC Visit'
+        verbose_name_plural = 'PNC Visits'
+
+    def __str__(self):
+        return f"PNC Visit #{self.visit_number} — {self.delivery.pregnancy.patient} on {self.visit_date}"
+
+
+class GynecologyConsultation(models.Model):
+    """Gynecology OPD/IPD consultation record."""
+
+    class Category(models.TextChoices):
+        MENSTRUAL    = 'menstrual',    'Menstrual Disorder'
+        CONTRACEPTION= 'contraception','Contraception / Family Planning'
+        STI          = 'sti',          'STI / Vaginal Infection'
+        FIBROID      = 'fibroid',      'Fibroid / Uterine Mass'
+        OVARIAN_CYST = 'ovarian_cyst', 'Ovarian Cyst'
+        ENDOMETRIOSIS= 'endometriosis','Endometriosis'
+        CANCER_SCREEN= 'cancer_screen','Cancer Screening (Pap/VIA)'
+        INFERTILITY  = 'infertility',  'Infertility'
+        MENOPAUSE    = 'menopause',    'Menopause'
+        PELVIC_PAIN  = 'pelvic_pain',  'Pelvic Pain'
+        INCONTINENCE = 'incontinence', 'Urinary Incontinence / Prolapse'
+        OTHER        = 'other',        'Other'
+
+    patient        = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='gyn_consultations')
+    visit          = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='gyn_consultations')
+    consultation_date = models.DateField()
+    category       = models.CharField(max_length=25, choices=Category.choices, default=Category.OTHER)
+    chief_complaint= models.TextField()
+    # Menstrual history
+    menarche_age   = models.PositiveSmallIntegerField(null=True, blank=True)
+    cycle_length_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    menstrual_duration_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    lmp            = models.DateField(null=True, blank=True)
+    menstrual_pattern = models.CharField(max_length=200, blank=True)
+    dysmenorrhoea  = models.BooleanField(null=True, blank=True)
+    # Obstetric summary
+    gravida        = models.PositiveSmallIntegerField(null=True, blank=True)
+    para           = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Contraception
+    current_contraception = models.CharField(max_length=200, blank=True)
+    # Examination
+    bmi            = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    bp_systolic    = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic   = models.PositiveSmallIntegerField(null=True, blank=True)
+    per_speculum   = models.TextField(blank=True, verbose_name='Per Speculum Exam')
+    per_vaginum    = models.TextField(blank=True, verbose_name='Per Vaginum Exam')
+    uterus_size    = models.CharField(max_length=100, blank=True)
+    adnexa         = models.CharField(max_length=200, blank=True)
+    # Investigations & plan
+    investigations_ordered = models.TextField(blank=True)
+    diagnosis      = models.TextField(blank=True)
+    treatment_plan = models.TextField(blank=True)
+    via_result     = models.CharField(max_length=100, blank=True, verbose_name='VIA/VILI Result')
+    pap_result     = models.CharField(max_length=100, blank=True, verbose_name='Pap Smear Result')
+    referral       = models.CharField(max_length=200, blank=True)
+    follow_up_date = models.DateField(null=True, blank=True)
+    seen_by        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='gyn_consultations_seen')
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-consultation_date', '-created_at']
+        verbose_name = 'Gynecology Consultation'
+
+    def __str__(self):
+        return f"Gyn Consult — {self.patient} ({self.get_category_display()}) on {self.consultation_date}"
+
+
+class FamilyPlanningVisit(models.Model):
+    """Family planning counseling and service visit."""
+
+    class Method(models.TextChoices):
+        OCP         = 'ocp',         'Oral Contraceptive Pill'
+        POP         = 'pop',         'Progestin-Only Pill'
+        INJECTABLE  = 'injectable',  'Injectable (Depo-Provera)'
+        IMPLANT     = 'implant',     'Implant (Norplant/Implanon)'
+        IUCD        = 'iucd',        'IUCD / Copper-T'
+        CONDOM_MALE = 'condom_male', 'Male Condom'
+        CONDOM_FEMALE='condom_female','Female Condom'
+        LAM         = 'lam',         'LAM (Lactational Amenorrhoea)'
+        STERILIZATION='sterilization','Permanent Sterilization'
+        NATURAL     = 'natural',     'Natural Family Planning'
+        NONE        = 'none',        'None / Discontinuation'
+        OTHER       = 'other',       'Other'
+
+    class VisitType(models.TextChoices):
+        NEW         = 'new',         'New Acceptor'
+        CONTINUING  = 'continuing',  'Continuing User'
+        CHANGE      = 'change',      'Method Change'
+        DISCONTINUE = 'discontinue', 'Discontinuation'
+        FOLLOW_UP   = 'follow_up',   'Follow-up / Complication'
+
+    patient        = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='fp_visits')
+    visit          = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='fp_visits')
+    visit_date     = models.DateField()
+    visit_type     = models.CharField(max_length=20, choices=VisitType.choices, default=VisitType.NEW)
+    method         = models.CharField(max_length=20, choices=Method.choices)
+    previous_method= models.CharField(max_length=20, choices=Method.choices, blank=True, default='')
+    counseling_done= models.BooleanField(default=True)
+    bp_systolic    = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic   = models.PositiveSmallIntegerField(null=True, blank=True)
+    weight_kg      = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    lmp            = models.DateField(null=True, blank=True)
+    pregnancy_test = models.CharField(max_length=20, blank=True, choices=[('positive','Positive'),('negative','Negative'),('not_done','Not Done')])
+    complications  = models.TextField(blank=True)
+    side_effects   = models.TextField(blank=True)
+    notes          = models.TextField(blank=True)
+    next_visit_date= models.DateField(null=True, blank=True)
+    seen_by        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='fp_visits_seen')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-visit_date']
+        verbose_name = 'Family Planning Visit'
+
+    def __str__(self):
+        return f"FP Visit — {self.patient} ({self.get_method_display()}) on {self.visit_date}"
+
+
+class InfertilityCase(models.Model):
+    """Infertility investigation and management case."""
+
+    class Type(models.TextChoices):
+        PRIMARY   = 'primary',   'Primary Infertility'
+        SECONDARY = 'secondary', 'Secondary Infertility'
+
+    class Status(models.TextChoices):
+        ACTIVE    = 'active',    'Active'
+        PREGNANT  = 'pregnant',  'Achieved Pregnancy'
+        REFERRED  = 'referred',  'Referred to Specialist'
+        CLOSED    = 'closed',    'Closed'
+
+    patient        = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='infertility_cases')
+    partner_name   = models.CharField(max_length=150, blank=True)
+    partner_dob    = models.DateField(null=True, blank=True)
+    partner_contact= models.CharField(max_length=30, blank=True)
+    infertility_type = models.CharField(max_length=15, choices=Type.choices)
+    duration_years = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Duration of Infertility (years)')
+    status         = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    # Female factors
+    menstrual_history = models.TextField(blank=True)
+    tubal_factor   = models.BooleanField(null=True, blank=True)
+    ovulatory_factor = models.BooleanField(null=True, blank=True)
+    uterine_factor = models.BooleanField(null=True, blank=True)
+    cervical_factor= models.BooleanField(null=True, blank=True)
+    endometriosis_factor = models.BooleanField(null=True, blank=True)
+    # Male factors
+    male_factor    = models.BooleanField(null=True, blank=True)
+    semen_analysis = models.TextField(blank=True)
+    # Investigations
+    hsg_result     = models.TextField(blank=True, verbose_name='HSG Result')
+    hormone_profile= models.TextField(blank=True)
+    ultrasound_findings = models.TextField(blank=True)
+    # Treatment
+    treatment_plan = models.TextField(blank=True)
+    ovulation_induction = models.BooleanField(default=False)
+    iui_done       = models.BooleanField(default=False, verbose_name='IUI Done')
+    referral_reason= models.TextField(blank=True)
+    notes          = models.TextField(blank=True)
+    opened_by      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='infertility_cases_opened')
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Infertility Case'
+
+    def __str__(self):
+        return f"Infertility Case — {self.patient} ({self.get_infertility_type_display()})"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  INTERNAL MEDICINE MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class InternalMedicineConsultation(models.Model):
+    class ClinicType(models.TextChoices):
+        GENERAL       = 'general',       'General Medical'
+        HYPERTENSION  = 'hypertension',  'Hypertension Clinic'
+        DIABETES      = 'diabetes',      'Diabetes Clinic'
+        CARDIAC       = 'cardiac',       'Cardiac Clinic'
+        ENDOCRINOLOGY = 'endocrinology', 'Endocrinology'
+        GASTRO        = 'gastro',        'Gastroenterology'
+        INFECTIOUS    = 'infectious',    'Infectious Diseases'
+        RESPIRATORY   = 'respiratory',   'Respiratory Diseases'
+        NEPHROLOGY    = 'nephrology',    'Nephrology'
+        RHEUMATOLOGY  = 'rheumatology',  'Rheumatology'
+        CHRONIC_FU    = 'chronic_fu',    'Chronic Disease Follow-up'
+
+    class VisitType(models.TextChoices):
+        NEW     = 'new',     'New Patient'
+        FOLLOWUP= 'followup','Follow-up'
+        REVIEW  = 'review',  'Medication Review'
+
+    patient          = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='im_consultations')
+    visit            = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='im_consultations')
+    consultation_date= models.DateField()
+    clinic_type      = models.CharField(max_length=20, choices=ClinicType.choices, default=ClinicType.GENERAL)
+    visit_type       = models.CharField(max_length=10, choices=VisitType.choices, default=VisitType.NEW)
+    clinician        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='im_consultations')
+
+    # Vitals
+    bp_systolic    = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic   = models.PositiveSmallIntegerField(null=True, blank=True)
+    pulse          = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature    = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_kg      = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    height_cm      = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    spo2           = models.PositiveSmallIntegerField(null=True, blank=True)
+    rr             = models.PositiveSmallIntegerField(null=True, blank=True)
+    fbs            = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True, verbose_name='Fasting Blood Sugar (mmol/L)')
+    rbs            = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True, verbose_name='Random Blood Sugar (mmol/L)')
+    hba1c          = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name='HbA1c (%)')
+
+    # SOAP
+    chief_complaint          = models.TextField()
+    history_of_presenting    = models.TextField(blank=True)
+    past_medical_history     = models.TextField(blank=True)
+    family_history           = models.TextField(blank=True)
+    social_history           = models.TextField(blank=True)
+    current_medications      = models.TextField(blank=True)
+    allergies                = models.TextField(blank=True)
+    review_of_systems        = models.TextField(blank=True)
+    physical_examination     = models.TextField(blank=True)
+
+    # Assessment & Plan
+    diagnosis       = models.TextField(blank=True)
+    icd10_code      = models.CharField(max_length=15, blank=True)
+    plan            = models.TextField(blank=True)
+    investigations  = models.TextField(blank=True)
+    referral        = models.CharField(max_length=200, blank=True)
+    follow_up_date  = models.DateField(null=True, blank=True)
+    follow_up_notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-consultation_date', '-created_at']
+        verbose_name = 'Internal Medicine Consultation'
+
+    def __str__(self):
+        return f"IM – {self.patient} ({self.get_clinic_type_display()}) {self.consultation_date}"
+
+    @property
+    def bmi(self):
+        if self.weight_kg and self.height_cm and float(self.height_cm) > 0:
+            h = float(self.height_cm) / 100
+            return round(float(self.weight_kg) / (h * h), 1)
+        return None
+
+    @property
+    def bp_display(self):
+        if self.bp_systolic and self.bp_diastolic:
+            return f"{self.bp_systolic}/{self.bp_diastolic}"
+        return '—'
+
+
+class ChronicDiseasePlan(models.Model):
+    class Disease(models.TextChoices):
+        HYPERTENSION = 'hypertension', 'Hypertension'
+        DM_TYPE1     = 'dm_t1',        'Type 1 Diabetes Mellitus'
+        DM_TYPE2     = 'dm_t2',        'Type 2 Diabetes Mellitus'
+        HEART_FAILURE= 'heart_failure','Heart Failure'
+        CKD          = 'ckd',          'Chronic Kidney Disease'
+        COPD         = 'copd',         'COPD'
+        ASTHMA       = 'asthma',       'Asthma'
+        THYROID      = 'thyroid',      'Thyroid Disease'
+        RHEUMATOID   = 'rheumatoid',   'Rheumatoid Arthritis'
+        EPILEPSY     = 'epilepsy',     'Epilepsy'
+        OTHER        = 'other',        'Other'
+
+    class Stage(models.TextChoices):
+        MILD         = 'mild',    'Mild / Stage 1'
+        MODERATE     = 'moderate','Moderate / Stage 2'
+        SEVERE       = 'severe',  'Severe / Stage 3'
+        VERY_SEVERE  = 'very_severe', 'Very Severe / Stage 4'
+        UNSPECIFIED  = 'unspecified', 'Unspecified'
+
+    patient              = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='chronic_plans')
+    disease              = models.CharField(max_length=20, choices=Disease.choices)
+    stage                = models.CharField(max_length=20, choices=Stage.choices, default=Stage.UNSPECIFIED)
+    date_diagnosed       = models.DateField(null=True, blank=True)
+    treatment_goals      = models.TextField(blank=True)
+    medications          = models.TextField(blank=True)
+    lifestyle_mods       = models.TextField(blank=True, verbose_name='Lifestyle Modifications')
+    monitoring_frequency = models.CharField(max_length=100, blank=True)
+    target_bp            = models.CharField(max_length=20, blank=True)
+    target_hba1c         = models.CharField(max_length=20, blank=True)
+    target_glucose       = models.CharField(max_length=50, blank=True)
+    is_controlled        = models.BooleanField(default=False)
+    last_review          = models.DateField(null=True, blank=True)
+    next_review          = models.DateField(null=True, blank=True)
+    notes                = models.TextField(blank=True)
+    clinician            = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='chronic_plans')
+    created_at           = models.DateTimeField(auto_now_add=True)
+    updated_at           = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['disease']
+        verbose_name = 'Chronic Disease Plan'
+
+    def __str__(self):
+        return f"CDP – {self.patient} – {self.get_disease_display()}"
+
+
+class ClinicalRiskAssessment(models.Model):
+    class RiskType(models.TextChoices):
+        CARDIOVASCULAR = 'cardiovascular', 'Cardiovascular Risk'
+        DIABETES       = 'diabetes',       'Diabetes Risk'
+        STROKE         = 'stroke',         'Stroke Risk (CHA₂DS₂-VASc)'
+        RENAL          = 'renal',          'Renal Risk'
+        FALLS          = 'falls',          'Falls Risk'
+        SEPSIS         = 'sepsis',         'Sepsis Risk (qSOFA)'
+        OTHER          = 'other',          'Other'
+
+    class RiskLevel(models.TextChoices):
+        LOW       = 'low',       'Low'
+        MODERATE  = 'moderate',  'Moderate'
+        HIGH      = 'high',      'High'
+        VERY_HIGH = 'very_high', 'Very High'
+
+    patient         = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='risk_assessments')
+    consultation    = models.ForeignKey(InternalMedicineConsultation, on_delete=models.SET_NULL, null=True, blank=True, related_name='risk_assessments')
+    assessment_date = models.DateField()
+    risk_type       = models.CharField(max_length=20, choices=RiskType.choices)
+    score_name      = models.CharField(max_length=60, blank=True, help_text='e.g. Framingham, QRISK3, CHA2DS2-VASc')
+    score_value     = models.CharField(max_length=20, blank=True)
+    risk_level      = models.CharField(max_length=15, choices=RiskLevel.choices)
+    risk_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    recommendations = models.TextField(blank=True)
+    clinician       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='risk_assessments')
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-assessment_date']
+        verbose_name = 'Clinical Risk Assessment'
+
+    def __str__(self):
+        return f"Risk – {self.patient} – {self.get_risk_type_display()} ({self.assessment_date})"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PEDIATRICS MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PediatricConsultation(models.Model):
+    class VisitType(models.TextChoices):
+        NEW           = 'new',          'New Patient'
+        FOLLOWUP      = 'followup',     'Follow-up'
+        SICK          = 'sick',         'Sick Child'
+        WELL_CHILD    = 'well',         'Well Child / Routine'
+        IMMUNIZATION  = 'immunization', 'Immunization Only'
+        EMERGENCY     = 'emergency',    'Emergency / Acute'
+        NEONATAL      = 'neonatal',     'Neonatal / Newborn'
+        DEVELOPMENTAL = 'developmental','Developmental Assessment'
+        NUTRITION     = 'nutrition',    'Nutrition Assessment'
+
+    patient          = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='peds_consultations')
+    visit            = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='peds_consultations')
+    consultation_date= models.DateField()
+    visit_type       = models.CharField(max_length=20, choices=VisitType.choices, default=VisitType.NEW)
+    clinician        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='peds_consultations')
+
+    # Vitals & Anthropometry
+    weight_kg          = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    height_cm          = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    head_circumference = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    muac_cm            = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name='MUAC (cm)')
+    temperature        = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    pulse              = models.PositiveSmallIntegerField(null=True, blank=True)
+    rr                 = models.PositiveSmallIntegerField(null=True, blank=True)
+    spo2               = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_systolic        = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic       = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # WHO Z-scores
+    weight_for_age_z    = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    height_for_age_z    = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    weight_for_height_z = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+
+    # History
+    chief_complaint       = models.TextField()
+    history               = models.TextField(blank=True)
+    birth_history         = models.TextField(blank=True)
+    feeding_history       = models.TextField(blank=True)
+    immunization_history  = models.TextField(blank=True)
+    developmental_history = models.TextField(blank=True)
+    family_history        = models.TextField(blank=True)
+    social_history        = models.TextField(blank=True)
+
+    # Examination
+    general_appearance  = models.TextField(blank=True)
+    systems_examination = models.TextField(blank=True)
+
+    # Assessment & Plan
+    diagnosis          = models.TextField(blank=True)
+    plan               = models.TextField(blank=True)
+    counseling_given   = models.TextField(blank=True)
+    follow_up_date     = models.DateField(null=True, blank=True)
+    referral           = models.CharField(max_length=200, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-consultation_date', '-created_at']
+        verbose_name = 'Pediatric Consultation'
+
+    def __str__(self):
+        return f"Peds – {self.patient} ({self.get_visit_type_display()}) {self.consultation_date}"
+
+    @property
+    def nutrition_status(self):
+        if self.weight_for_height_z is None:
+            return 'Unknown'
+        z = float(self.weight_for_height_z)
+        if z < -3: return 'SAM'
+        if z < -2: return 'MAM'
+        if z < 2:  return 'Normal'
+        return 'Overweight'
+
+
+class GrowthRecord(models.Model):
+    patient          = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='growth_records')
+    record_date      = models.DateField()
+    age_months       = models.PositiveSmallIntegerField(null=True, blank=True)
+    weight_kg        = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    height_cm        = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    head_circumference= models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    muac_cm          = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_for_age_z = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    height_for_age_z = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    weight_for_height_z = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    notes            = models.TextField(blank=True)
+    recorded_by      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='growth_records')
+    created_at       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-record_date']
+        verbose_name = 'Growth Record'
+
+    def __str__(self):
+        return f"Growth – {self.patient} on {self.record_date}"
+
+
+class ImmunizationRecord(models.Model):
+    class Status(models.TextChoices):
+        GIVEN            = 'given',           'Given'
+        DUE              = 'due',             'Due'
+        OVERDUE          = 'overdue',         'Overdue'
+        MISSED           = 'missed',          'Missed'
+        CONTRAINDICATED  = 'contraindicated', 'Contraindicated'
+
+    patient        = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='immunizations')
+    vaccine_name   = models.CharField(max_length=100)
+    dose_number    = models.PositiveSmallIntegerField(default=1)
+    due_date       = models.DateField(null=True, blank=True)
+    date_given     = models.DateField(null=True, blank=True)
+    status         = models.CharField(max_length=20, choices=Status.choices, default=Status.DUE)
+    batch_number   = models.CharField(max_length=50, blank=True)
+    site           = models.CharField(max_length=50, blank=True)
+    administered_by= models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='immunizations_given')
+    reaction       = models.TextField(blank=True)
+    notes          = models.TextField(blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['due_date', 'vaccine_name']
+        verbose_name = 'Immunization Record'
+
+    def __str__(self):
+        return f"Vaccine – {self.patient} – {self.vaccine_name} dose {self.dose_number}"
+
+
+class DevelopmentalAssessment(models.Model):
+    class Outcome(models.TextChoices):
+        NORMAL   = 'normal',   'Normal Development'
+        DELAY    = 'delay',    'Developmental Delay'
+        REGRESSION='regression','Developmental Regression'
+        REFERRAL = 'referral', 'Referred for Specialist'
+
+    patient         = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='dev_assessments')
+    assessment_date = models.DateField()
+    age_months      = models.PositiveSmallIntegerField()
+    clinician       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='dev_assessments')
+    gross_motor     = models.TextField(blank=True)
+    fine_motor      = models.TextField(blank=True)
+    language        = models.TextField(blank=True)
+    social_personal = models.TextField(blank=True)
+    cognitive       = models.TextField(blank=True)
+    milestones_met  = models.TextField(blank=True)
+    milestones_missed = models.TextField(blank=True)
+    outcome         = models.CharField(max_length=15, choices=Outcome.choices, default=Outcome.NORMAL)
+    recommendations = models.TextField(blank=True)
+    next_assessment = models.DateField(null=True, blank=True)
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-assessment_date']
+        verbose_name = 'Developmental Assessment'
+
+    def __str__(self):
+        return f"Dev Assessment – {self.patient} at {self.age_months}m ({self.assessment_date})"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  GENERAL SURGERY MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class SurgicalConsultation(models.Model):
+    class Urgency(models.TextChoices):
+        ELECTIVE  = 'elective',  'Elective'
+        URGENT    = 'urgent',    'Urgent (within 24–72 h)'
+        EMERGENCY = 'emergency', 'Emergency (immediate)'
+
+    class Decision(models.TextChoices):
+        FOR_SURGERY   = 'for_surgery',  'Listed for Surgery'
+        CONSERVATIVE  = 'conservative', 'Conservative Management'
+        FURTHER_WORKUP= 'workup',       'Further Work-up Needed'
+        REFERRED_OUT  = 'referred_out', 'Referred Out'
+        DEFERRED      = 'deferred',     'Deferred / Patient Declined'
+
+    patient           = models.ForeignKey('Patient', on_delete=models.CASCADE, related_name='surgical_consultations')
+    visit             = models.ForeignKey('Visit', on_delete=models.SET_NULL, null=True, blank=True, related_name='surgical_consultations')
+    consultation_date = models.DateField()
+    surgeon           = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='surgical_consultations')
+
+    # Vitals
+    bp_systolic   = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic  = models.PositiveSmallIntegerField(null=True, blank=True)
+    pulse         = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature   = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_kg     = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    spo2          = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # Clinical
+    chief_complaint        = models.TextField()
+    history                = models.TextField(blank=True)
+    past_surgical_history  = models.TextField(blank=True)
+    past_medical_history   = models.TextField(blank=True)
+    medications            = models.TextField(blank=True)
+    allergies              = models.TextField(blank=True)
+    physical_examination   = models.TextField(blank=True)
+    local_examination      = models.TextField(blank=True)
+
+    # Surgical plan
+    provisional_diagnosis  = models.TextField(blank=True)
+    proposed_procedure     = models.CharField(max_length=300, blank=True)
+    urgency                = models.CharField(max_length=15, choices=Urgency.choices, default=Urgency.ELECTIVE)
+    decision               = models.CharField(max_length=20, choices=Decision.choices, default=Decision.FOR_SURGERY)
+    pre_op_investigations  = models.TextField(blank=True)
+    consent_obtained       = models.BooleanField(default=False)
+    anaesthesia_referral   = models.BooleanField(default=False)
+    blood_required         = models.BooleanField(default=False)
+    units_required         = models.PositiveSmallIntegerField(null=True, blank=True)
+    notes                  = models.TextField(blank=True)
+    follow_up_date         = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-consultation_date', '-created_at']
+        verbose_name = 'Surgical Consultation'
+
+    def __str__(self):
+        return f"Surg Consult – {self.patient} – {self.proposed_procedure or 'TBD'} ({self.consultation_date})"
+
+
+class PreOperativeAssessment(models.Model):
+    class ASA(models.TextChoices):
+        ASA1 = 'I',   'ASA I – Normal healthy patient'
+        ASA2 = 'II',  'ASA II – Mild systemic disease'
+        ASA3 = 'III', 'ASA III – Severe systemic disease'
+        ASA4 = 'IV',  'ASA IV – Severe systemic disease, life threat'
+        ASA5 = 'V',   'ASA V – Moribund patient'
+        ASA6 = 'VI',  'ASA VI – Brain-dead (organ donation)'
+
+    consultation      = models.OneToOneField(SurgicalConsultation, on_delete=models.CASCADE, related_name='preop_assessment')
+    assessment_date   = models.DateField()
+    assessed_by       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='preop_assessments')
+    asa_class         = models.CharField(max_length=5, choices=ASA.choices, blank=True)
+
+    # Checklist
+    hb_done           = models.BooleanField(default=False, verbose_name='Hb / FBC done')
+    xmatch_done       = models.BooleanField(default=False, verbose_name='Group & X-match done')
+    ecg_done          = models.BooleanField(default=False, verbose_name='ECG done')
+    cxr_done          = models.BooleanField(default=False, verbose_name='CXR done')
+    lft_done          = models.BooleanField(default=False, verbose_name='LFTs done')
+    rft_done          = models.BooleanField(default=False, verbose_name='RFTs / Electrolytes done')
+    clotting_done     = models.BooleanField(default=False, verbose_name='Clotting studies done')
+    urinalysis_done   = models.BooleanField(default=False, verbose_name='Urinalysis done')
+    consent_signed    = models.BooleanField(default=False)
+    npo_confirmed     = models.BooleanField(default=False, verbose_name='NPO confirmed')
+    site_marked       = models.BooleanField(default=False, verbose_name='Surgical site marked')
+    iv_access         = models.BooleanField(default=False, verbose_name='IV access secured')
+    pre_med_given     = models.BooleanField(default=False, verbose_name='Pre-medication given')
+    antibiotic_given  = models.BooleanField(default=False, verbose_name='Prophylactic antibiotic given')
+    dvt_prophylaxis   = models.BooleanField(default=False, verbose_name='DVT prophylaxis given')
+
+    airway_notes      = models.TextField(blank=True)
+    anaesthesia_plan  = models.TextField(blank=True)
+    special_concerns  = models.TextField(blank=True)
+    notes             = models.TextField(blank=True)
+    created_at        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pre-operative Assessment'
+
+    def __str__(self):
+        return f"Pre-op – {self.consultation.patient} ({self.assessment_date})"
+
+
+class SurgicalOperativeNote(models.Model):
+    class WoundClass(models.TextChoices):
+        CLEAN             = 'clean',             'Clean'
+        CLEAN_CONTAMINATED= 'clean_contaminated','Clean-Contaminated'
+        CONTAMINATED      = 'contaminated',      'Contaminated'
+        DIRTY             = 'dirty',             'Dirty / Infected'
+
+    consultation      = models.OneToOneField(SurgicalConsultation, on_delete=models.CASCADE, related_name='operative_note')
+    procedure_date    = models.DateField()
+    start_time        = models.TimeField(null=True, blank=True)
+    end_time          = models.TimeField(null=True, blank=True)
+    surgeon           = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='operative_notes')
+    assistant_surgeon = models.CharField(max_length=150, blank=True)
+    anaesthetist      = models.CharField(max_length=150, blank=True)
+    scrub_nurse       = models.CharField(max_length=150, blank=True)
+
+    procedure_performed  = models.CharField(max_length=300)
+    anaesthesia_type     = models.CharField(max_length=100, blank=True)
+    position             = models.CharField(max_length=100, blank=True)
+    incision             = models.CharField(max_length=200, blank=True)
+    findings             = models.TextField(blank=True)
+    procedure_details    = models.TextField()
+    closure              = models.TextField(blank=True)
+    wound_class          = models.CharField(max_length=25, choices=WoundClass.choices, blank=True)
+    ebl                  = models.PositiveIntegerField(null=True, blank=True, verbose_name='Estimated Blood Loss (mL)')
+    specimens_sent       = models.TextField(blank=True)
+    drains_placed        = models.TextField(blank=True)
+    complications        = models.TextField(blank=True)
+    post_op_orders       = models.TextField(blank=True)
+    notes                = models.TextField(blank=True)
+    created_at           = models.DateTimeField(auto_now_add=True)
+    updated_at           = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Operative Note'
+
+    def __str__(self):
+        return f"Surgical Op Note – {self.consultation.patient} – {self.procedure_performed} ({self.procedure_date})"
+
+    @property
+    def duration_display(self):
+        if self.start_time and self.end_time:
+            from datetime import datetime, date as d
+            start = datetime.combine(d.today(), self.start_time)
+            end = datetime.combine(d.today(), self.end_time)
+            diff = end - start
+            h, rem = divmod(int(diff.total_seconds()), 3600)
+            m = rem // 60
+            return f"{h}h {m}m"
+        return '—'
+
+
+class SurgicalPostOpNote(models.Model):
+    class Status(models.TextChoices):
+        STABLE    = 'stable',    'Stable'
+        IMPROVING = 'improving', 'Improving'
+        CONCERNS  = 'concerns',  'With Concerns'
+        CRITICAL  = 'critical',  'Critical'
+        DISCHARGED= 'discharged','Discharged'
+
+    consultation      = models.ForeignKey(SurgicalConsultation, on_delete=models.CASCADE, related_name='postop_notes')
+    note_date         = models.DateField()
+    pod               = models.PositiveSmallIntegerField(verbose_name='Post-op Day', default=1)
+    written_by        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='postop_notes')
+
+    bp_systolic   = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic  = models.PositiveSmallIntegerField(null=True, blank=True)
+    pulse         = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature   = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    spo2          = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    pain_score        = models.PositiveSmallIntegerField(null=True, blank=True, help_text='0–10 VAS')
+    oral_intake       = models.CharField(max_length=100, blank=True)
+    urine_output      = models.CharField(max_length=100, blank=True)
+    drain_output      = models.CharField(max_length=100, blank=True)
+    wound_condition   = models.TextField(blank=True)
+    subjective        = models.TextField(blank=True)
+    objective         = models.TextField(blank=True)
+    assessment        = models.TextField(blank=True)
+    plan              = models.TextField(blank=True)
+    status            = models.CharField(max_length=15, choices=Status.choices, default=Status.STABLE)
+    discharge_planned = models.BooleanField(default=False)
+    created_at        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['pod']
+        verbose_name = 'Surgical Post-op Note'
+
+    def __str__(self):
+        return f"Surgical Post-op Day {self.pod} – {self.consultation.patient} ({self.note_date})"
+
+
+class WoundFollowUp(models.Model):
+    class WoundStatus(models.TextChoices):
+        HEALING         = 'healing',         'Healing Well'
+        INFECTED        = 'infected',        'Signs of Infection'
+        DEHISCED        = 'dehisced',        'Wound Dehiscence'
+        GRANULATING     = 'granulating',     'Granulating'
+        HEALED          = 'healed',          'Fully Healed'
+
+    consultation  = models.ForeignKey(SurgicalConsultation, on_delete=models.CASCADE, related_name='wound_followups')
+    visit_date    = models.DateField()
+    pod           = models.PositiveSmallIntegerField(verbose_name='Post-op Day', null=True, blank=True)
+    seen_by       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='wound_followups')
+    wound_status  = models.CharField(max_length=20, choices=WoundStatus.choices)
+    wound_findings= models.TextField(blank=True)
+    sutures_removed=models.BooleanField(default=False)
+    dressing_done = models.BooleanField(default=False)
+    dressing_type = models.CharField(max_length=100, blank=True)
+    plan          = models.TextField(blank=True)
+    next_visit    = models.DateField(null=True, blank=True)
+    notes         = models.TextField(blank=True)
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['visit_date']
+        verbose_name = 'Wound Follow-up'
+
+    def __str__(self):
+        return f"Wound FU – {self.consultation.patient} – {self.get_wound_status_display()} ({self.visit_date})"
+
+
+# ── Cardiology Module ──────────────────────────────────────────────────────────
+
+class CardiologyConsultation(models.Model):
+    class ClinicType(models.TextChoices):
+        GENERAL        = 'general',        'General Cardiology'
+        HEART_FAILURE  = 'heart_failure',  'Heart Failure Clinic'
+        HYPERTENSION   = 'hypertension',   'Hypertension Clinic'
+        ARRHYTHMIA     = 'arrhythmia',     'Arrhythmia / Electrophysiology'
+        INTERVENTIONAL = 'interventional', 'Interventional Cardiology'
+        PREVENTIVE     = 'preventive',     'Preventive Cardiology'
+        PAEDIATRIC     = 'paediatric',     'Paediatric Cardiology'
+        REHAB          = 'rehab',          'Cardiac Rehabilitation'
+
+    class VisitType(models.TextChoices):
+        NEW      = 'new',      'New Patient'
+        FOLLOWUP = 'followup', 'Follow-up'
+        URGENT   = 'urgent',   'Urgent / Referral'
+        REVIEW   = 'review',   'Results Review'
+
+    class NYHAClass(models.TextChoices):
+        I   = 'I',   'Class I – No limitation'
+        II  = 'II',  'Class II – Slight limitation'
+        III = 'III', 'Class III – Marked limitation'
+        IV  = 'IV',  'Class IV – Symptoms at rest'
+        NA  = 'na',  'Not Applicable'
+
+    patient             = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='cardiology_consultations')
+    visit               = models.ForeignKey(Visit, on_delete=models.SET_NULL, null=True, blank=True, related_name='cardiology_consultations')
+    consultation_date   = models.DateField()
+    clinic_type         = models.CharField(max_length=20, choices=ClinicType.choices, default=ClinicType.GENERAL)
+    visit_type          = models.CharField(max_length=10, choices=VisitType.choices, default=VisitType.NEW)
+    cardiologist        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='cardiology_consultations')
+
+    # Vitals
+    bp_systolic         = models.PositiveSmallIntegerField(null=True, blank=True)
+    bp_diastolic        = models.PositiveSmallIntegerField(null=True, blank=True)
+    pulse               = models.PositiveSmallIntegerField(null=True, blank=True)
+    temperature         = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_kg           = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    height_cm           = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    spo2                = models.PositiveSmallIntegerField(null=True, blank=True)
+    rr                  = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # Cardiac-specific vitals
+    nyha_class          = models.CharField(max_length=5, choices=NYHAClass.choices, default=NYHAClass.NA)
+    jvp                 = models.CharField(max_length=100, blank=True, verbose_name='JVP')
+    heart_sounds        = models.CharField(max_length=200, blank=True)
+    murmur              = models.CharField(max_length=200, blank=True)
+    peripheral_pulses   = models.CharField(max_length=200, blank=True)
+    pedal_edema         = models.CharField(max_length=100, blank=True)
+
+    # Symptoms (checkboxes stored as boolean)
+    chest_pain          = models.BooleanField(default=False)
+    dyspnea             = models.BooleanField(default=False)
+    orthopnea           = models.BooleanField(default=False)
+    pnd                 = models.BooleanField(default=False, verbose_name='Paroxysmal Nocturnal Dyspnea')
+    palpitations        = models.BooleanField(default=False)
+    syncope             = models.BooleanField(default=False)
+    presyncope          = models.BooleanField(default=False)
+    fatigue             = models.BooleanField(default=False)
+    ankle_swelling      = models.BooleanField(default=False)
+
+    # History
+    chief_complaint         = models.TextField()
+    history                 = models.TextField(blank=True)
+    past_cardiac_history    = models.TextField(blank=True)
+    past_medical_history    = models.TextField(blank=True)
+    family_history          = models.TextField(blank=True)
+    social_history          = models.TextField(blank=True)
+    current_medications     = models.TextField(blank=True)
+    allergies               = models.CharField(max_length=300, blank=True)
+
+    # Risk factors
+    hypertension            = models.BooleanField(default=False)
+    diabetes                = models.BooleanField(default=False)
+    dyslipidaemia           = models.BooleanField(default=False)
+    smoking                 = models.BooleanField(default=False)
+    obesity                 = models.BooleanField(default=False)
+    family_hx_cad           = models.BooleanField(default=False, verbose_name='Family Hx of CAD')
+    ckd                     = models.BooleanField(default=False, verbose_name='CKD')
+
+    # Examination & plan
+    physical_examination    = models.TextField(blank=True)
+    ecg_findings            = models.TextField(blank=True, verbose_name='ECG Findings')
+    investigations          = models.TextField(blank=True)
+    diagnosis               = models.TextField(blank=True)
+    icd10_code              = models.CharField(max_length=20, blank=True)
+    plan                    = models.TextField(blank=True)
+    referral                = models.TextField(blank=True)
+    follow_up_date          = models.DateField(null=True, blank=True)
+    notes                   = models.TextField(blank=True)
+    created_at              = models.DateTimeField(auto_now_add=True)
+    updated_at              = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-consultation_date', '-created_at']
+        verbose_name = 'Cardiology Consultation'
+
+    def __str__(self):
+        return f"Cardiology – {self.patient} ({self.consultation_date})"
+
+    @property
+    def bmi(self):
+        if self.weight_kg and self.height_cm and float(self.height_cm) > 0:
+            h = float(self.height_cm) / 100
+            return round(float(self.weight_kg) / (h * h), 1)
+        return None
+
+    @property
+    def bp_display(self):
+        if self.bp_systolic and self.bp_diastolic:
+            return f"{self.bp_systolic}/{self.bp_diastolic}"
+        return '—'
+
+
+class ECGRecord(models.Model):
+    class Rhythm(models.TextChoices):
+        SINUS_NORMAL  = 'sinus_normal',  'Normal Sinus Rhythm'
+        SINUS_TACHY   = 'sinus_tachy',   'Sinus Tachycardia'
+        SINUS_BRADY   = 'sinus_brady',   'Sinus Bradycardia'
+        AF            = 'af',            'Atrial Fibrillation'
+        AFLUTTER      = 'aflutter',      'Atrial Flutter'
+        SVT           = 'svt',           'SVT'
+        VT            = 'vt',            'Ventricular Tachycardia'
+        VF            = 'vf',            'Ventricular Fibrillation'
+        HEART_BLOCK   = 'heart_block',   'Heart Block'
+        PACED         = 'paced',         'Paced Rhythm'
+        OTHER         = 'other',         'Other'
+
+    class Axis(models.TextChoices):
+        NORMAL    = 'normal',    'Normal Axis'
+        LAD       = 'lad',       'Left Axis Deviation'
+        RAD       = 'rad',       'Right Axis Deviation'
+        EXTREME   = 'extreme',   'Extreme Axis Deviation'
+
+    consultation    = models.ForeignKey(CardiologyConsultation, on_delete=models.CASCADE, related_name='ecg_records', null=True, blank=True)
+    patient         = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='ecg_records')
+    recording_date  = models.DateField()
+    recording_time  = models.TimeField(null=True, blank=True)
+    recorded_by     = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='ecg_recordings')
+
+    heart_rate      = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Heart Rate (bpm)')
+    rhythm          = models.CharField(max_length=20, choices=Rhythm.choices, default=Rhythm.SINUS_NORMAL)
+    axis            = models.CharField(max_length=10, choices=Axis.choices, default=Axis.NORMAL)
+
+    pr_interval     = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='PR interval (ms)')
+    qrs_duration    = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='QRS duration (ms)')
+    qt_interval     = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='QT interval (ms)')
+    qtc_interval    = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='QTc interval (ms)')
+
+    st_changes      = models.BooleanField(default=False, verbose_name='ST changes present')
+    st_details      = models.TextField(blank=True, verbose_name='ST change details')
+    t_wave_changes  = models.BooleanField(default=False)
+    t_wave_details  = models.TextField(blank=True)
+    lbbb            = models.BooleanField(default=False, verbose_name='LBBB')
+    rbbb            = models.BooleanField(default=False, verbose_name='RBBB')
+    lvh             = models.BooleanField(default=False, verbose_name='LVH')
+    rvh             = models.BooleanField(default=False, verbose_name='RVH')
+    q_waves         = models.BooleanField(default=False, verbose_name='Pathological Q waves')
+    q_wave_details  = models.TextField(blank=True)
+
+    interpretation  = models.TextField(blank=True)
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recording_date', '-created_at']
+        verbose_name = 'ECG Record'
+
+    def __str__(self):
+        return f"ECG – {self.patient} – {self.get_rhythm_display()} ({self.recording_date})"
+
+
+class EchoReport(models.Model):
+    class EchoType(models.TextChoices):
+        TTE   = 'tte',   'Transthoracic Echo (TTE)'
+        TEE   = 'tee',   'Transoesophageal Echo (TEE)'
+        STRESS= 'stress','Stress Echo'
+        DOBU  = 'dobu',  'Dobutamine Stress Echo'
+
+    class LVFunction(models.TextChoices):
+        NORMAL        = 'normal',        'Normal (EF ≥ 55%)'
+        MILDLY_RED    = 'mildly_red',    'Mildly Reduced (EF 45–54%)'
+        MODERATELY_RED= 'moderately_red','Moderately Reduced (EF 30–44%)'
+        SEVERELY_RED  = 'severely_red',  'Severely Reduced (EF < 30%)'
+        HYPERDYNAMIC  = 'hyperdynamic',  'Hyperdynamic (EF > 70%)'
+
+    consultation    = models.ForeignKey(CardiologyConsultation, on_delete=models.CASCADE, related_name='echo_reports', null=True, blank=True)
+    patient         = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='echo_reports')
+    study_date      = models.DateField()
+    echo_type       = models.CharField(max_length=10, choices=EchoType.choices, default=EchoType.TTE)
+    performed_by    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='echo_reports')
+
+    # LV dimensions
+    lvedd           = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='LVEDd (mm)')
+    lvesd           = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='LVESd (mm)')
+    ivsd            = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='IVSd (mm)')
+    pwd             = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='PWd (mm)')
+    lv_mass         = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True, verbose_name='LV Mass (g)')
+
+    # Function
+    ef_percent      = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Ejection Fraction (%)')
+    lv_function     = models.CharField(max_length=20, choices=LVFunction.choices, blank=True)
+    wall_motion     = models.TextField(blank=True, verbose_name='Wall Motion Abnormalities')
+    diastolic_function = models.TextField(blank=True)
+
+    # Chambers
+    la_size         = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='LA size (mm)')
+    ra_size         = models.CharField(max_length=50, blank=True, verbose_name='RA size')
+    rvedd           = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='RVEDd (mm)')
+    rv_function     = models.CharField(max_length=100, blank=True)
+    tapse           = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name='TAPSE (mm)')
+    pasp            = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='PASP (mmHg)')
+
+    # Valves
+    aortic_valve    = models.TextField(blank=True)
+    mitral_valve    = models.TextField(blank=True)
+    tricuspid_valve = models.TextField(blank=True)
+    pulmonary_valve = models.TextField(blank=True)
+    pericardium     = models.TextField(blank=True)
+    aortic_root     = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True, verbose_name='Aortic Root (mm)')
+
+    impression      = models.TextField(blank=True)
+    recommendation  = models.TextField(blank=True)
+    notes           = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-study_date', '-created_at']
+        verbose_name = 'Echocardiogram Report'
+
+    def __str__(self):
+        return f"Echo – {self.patient} – EF {self.ef_percent}% ({self.study_date})"
+
+
+class CardiacProcedure(models.Model):
+    class ProcedureType(models.TextChoices):
+        CORONARY_ANGIO  = 'coronary_angio',  'Coronary Angiography'
+        PCI             = 'pci',             'Percutaneous Coronary Intervention (PCI)'
+        PACEMAKER_IMPL  = 'pacemaker_impl',  'Pacemaker Implantation'
+        PACEMAKER_CHECK = 'pacemaker_check', 'Pacemaker/ICD Check'
+        CARDIOVERSION   = 'cardioversion',   'Electrical Cardioversion (DCCV)'
+        ABLATION        = 'ablation',        'Cardiac Ablation'
+        HOLTER          = 'holter',          'Holter Monitor'
+        STRESS_TEST     = 'stress_test',     'Exercise Stress Test'
+        TILT_TEST       = 'tilt_test',       'Tilt Table Test'
+        PERICARDIO      = 'pericardio',      'Pericardiocentesis'
+        OTHER           = 'other',           'Other'
+
+    class Outcome(models.TextChoices):
+        SUCCESS     = 'success',     'Successful'
+        PARTIAL     = 'partial',     'Partially Successful'
+        FAILED      = 'failed',      'Failed'
+        ABORTED     = 'aborted',     'Aborted'
+        COMPLICATION= 'complication','Complication Encountered'
+
+    consultation        = models.ForeignKey(CardiologyConsultation, on_delete=models.CASCADE, related_name='cardiac_procedures', null=True, blank=True)
+    patient             = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='cardiac_procedures')
+    procedure_date      = models.DateField()
+    procedure_type      = models.CharField(max_length=25, choices=ProcedureType.choices)
+    performed_by        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='cardiac_procedures')
+    assistant           = models.CharField(max_length=150, blank=True)
+
+    indication          = models.TextField(blank=True)
+    technique           = models.TextField(blank=True)
+    findings            = models.TextField(blank=True)
+    outcome             = models.CharField(max_length=15, choices=Outcome.choices, default=Outcome.SUCCESS)
+    complications       = models.TextField(blank=True)
+    post_procedure_plan = models.TextField(blank=True)
+    contrast_used       = models.CharField(max_length=100, blank=True)
+    radiation_dose      = models.CharField(max_length=100, blank=True)
+    notes               = models.TextField(blank=True)
+    created_at          = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-procedure_date', '-created_at']
+        verbose_name = 'Cardiac Procedure'
+
+    def __str__(self):
+        return f"{self.get_procedure_type_display()} – {self.patient} ({self.procedure_date})"
+
+
+# ── Specialty Referral ────────────────────────────────────────────────────────
+
+class SpecialtyReferral(models.Model):
+    """Internal referral from one specialty to another within the same hospital."""
+
+    class Urgency(models.TextChoices):
+        ROUTINE   = 'routine',   'Routine'
+        URGENT    = 'urgent',    'Urgent'
+        EMERGENCY = 'emergency', 'Emergency'
+
+    class Status(models.TextChoices):
+        PENDING     = 'pending',     'Pending'
+        ACCEPTED    = 'accepted',    'Accepted'
+        IN_PROGRESS = 'in_progress', 'In Progress'
+        COMPLETED   = 'completed',   'Completed'
+        DECLINED    = 'declined',    'Declined'
+
+    patient          = models.ForeignKey(Patient, on_delete=models.CASCADE,   related_name='specialty_referrals')
+    from_visit       = models.ForeignKey(Visit,   on_delete=models.SET_NULL,  null=True, blank=True, related_name='outgoing_referrals')
+    from_specialty   = models.ForeignKey(Specialization, on_delete=models.PROTECT, related_name='outgoing_referrals')
+    to_specialty     = models.ForeignKey(Specialization, on_delete=models.PROTECT, related_name='incoming_referrals')
+    from_doctor      = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals_made')
+    to_doctor        = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals_received')
+    urgency          = models.CharField(max_length=20, choices=Urgency.choices, default=Urgency.ROUTINE, db_index=True)
+    status           = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    reason           = models.TextField()
+    clinical_summary = models.TextField(blank=True, help_text='Clinical notes, diagnoses, and relevant results to transfer.')
+    response_notes   = models.TextField(blank=True)
+    appointment      = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
+    created_by       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='referrals_created')
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+    accepted_at      = models.DateTimeField(null=True, blank=True)
+    completed_at     = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Specialty Referral'
+        verbose_name_plural = 'Specialty Referrals'
+
+    def __str__(self):
+        return f'Referral #{self.pk} — {self.patient} → {self.to_specialty} ({self.get_status_display()})'

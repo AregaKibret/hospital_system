@@ -121,10 +121,22 @@ def nursing_dashboard(request):
 
     new_admissions = all_admitted.filter(admitted_at__date=today).order_by('-admitted_at')
 
-    meds_due = MAREntry.objects.filter(
-        status=MAREntry.Status.SCHEDULED, scheduled_time__lte=now,
-        visit__admissions__status=Admission.Status.ADMITTED,
-    ).select_related('prescription_item', 'visit__patient').order_by('scheduled_time')[:25]
+    # Meds due now + up to 1 hour ahead, for all currently admitted patients.
+    # Use visit_id__in to avoid duplicate rows from multi-admission traversal.
+    admitted_visit_ids_for_meds = Admission.objects.filter(
+        status=Admission.Status.ADMITTED,
+    ).values_list('visit_id', flat=True)
+    meds_window_end = now + timedelta(hours=1)
+    meds_due = (
+        MAREntry.objects
+        .filter(
+            status=MAREntry.Status.SCHEDULED,
+            scheduled_time__lte=meds_window_end,
+            visit_id__in=admitted_visit_ids_for_meds,
+        )
+        .select_related('prescription_item', 'medication_order', 'visit__patient', 'visit')
+        .order_by('scheduled_time')[:30]
+    )
 
     admitted_visit_ids = all_admitted.values_list('visit_id', flat=True)
     vitals_due = all_admitted.exclude(
@@ -156,6 +168,7 @@ def nursing_dashboard(request):
 
     return render(request, 'nursing/dashboard.html', {
         'today': today,
+        'now': now,
         'my_patients': my_patients,
         'by_ward': by_ward,
         'new_admissions': new_admissions,
@@ -168,6 +181,7 @@ def nursing_dashboard(request):
         'low_stock': low_stock,
         'handovers': handovers,
         'total_admitted': all_admitted.count(),
+        'ward_stores': my_ward_stores,
     })
 
 
@@ -463,6 +477,62 @@ def ward_consumable_use(request, visit_id):
     return render(request, 'nursing/consumable_use_form.html', {
         'visit': visit, 'stores': stores, 'store': store, 'consumables': consumables,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ward Stock Medications API — AJAX for MAR modal
+# ─────────────────────────────────────────────────────────────────────────────
+
+from django.http import JsonResponse as _JsonResponse
+
+@hms_permission_required('core.record_vital_signs')
+def ward_stock_meds_api(request):
+    """Return medications available in a ward store for the MAR source selector."""
+    store_id = request.GET.get('store_id', '')
+    try:
+        store = DepartmentStore.objects.get(pk=store_id, is_active=True)
+    except (DepartmentStore.DoesNotExist, ValueError):
+        return _JsonResponse({'items': []})
+
+    stocks = (
+        DepartmentStock.objects
+        .filter(department_store=store, medication__isnull=False, quantity_available__gt=0)
+        .select_related('medication')
+        .order_by('medication__brand_name')
+    )
+
+    results = []
+    for s in stocks:
+        med = s.medication
+        # Best available price from PharmacyStock
+        unit_price = 0
+        try:
+            ps = med.pharmacy_stocks.filter(is_active=True).first()
+            if ps:
+                unit_price = float(ps.selling_price or 0)
+        except Exception:
+            pass
+
+        # Available batches ordered by expiry (FEFO)
+        batches = list(
+            s.batches.filter(is_active=True, quantity_available__gt=0)
+            .order_by('expiration_date')
+            .values('id', 'batch_number', 'expiration_date', 'quantity_available')
+        )
+        for b in batches:
+            if b['expiration_date']:
+                b['expiration_date'] = b['expiration_date'].strftime('%Y-%m-%d')
+
+        results.append({
+            'id': s.pk,
+            'name': med.brand_name or med.generic_name,
+            'generic': med.generic_name,
+            'qty': s.quantity_available,
+            'unit_price': unit_price,
+            'batches': batches,
+        })
+
+    return _JsonResponse({'items': results})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

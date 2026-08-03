@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{% if consultation %}Edit{% else %}New{% endif %} Cardiology Consultation{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'cardiology_consultation_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultations</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{% if consultation %}Edit Consultation — {{ consultation.patient }}{% else %}New Cardiology Consultation{% endif %}</h1>
+  </div>
+  {% if messages %}<div class="space-y-2">{% for m in messages %}<div class="rounded-xl px-4 py-3 text-sm {% if m.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-emerald-50 text-emerald-700{% endif %}">{{ m }}</div>{% endfor %}</div>{% endif %}
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    {% if not consultation %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Patient</h2>
+      <div class="relative">
+        <input type="text" id="patient-search" placeholder="Search by name or MRN…" autocomplete="off" class="form-input w-full">
+        <input type="hidden" name="patient" id="patient-id" required>
+        <div id="patient-results" class="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg hidden"></div>
+      </div>
+      <p id="patient-display" class="mt-2 text-sm text-emerald-600 hidden"></p>
+    </div>
+    {% endif %}
+
+    <!-- Visit details -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Date *</label><input type="date" name="consultation_date" required value="{{ consultation.consultation_date|default:today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Clinic</label><select name="clinic_type" class="form-input w-full">{% for val,label in clinic_choices %}<option value="{{ val }}" {% if consultation.clinic_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">Visit Type</label><select name="visit_type" class="form-input w-full">{% for val,label in visit_choices %}<option value="{{ val }}" {% if consultation.visit_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+
+    <!-- Vitals -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Vitals</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">BP Systolic</label><input type="number" name="bp_systolic" value="{{ consultation.bp_systolic|default:'' }}" class="form-input w-full" placeholder="mmHg"></div>
+        <div><label class="form-label">BP Diastolic</label><input type="number" name="bp_diastolic" value="{{ consultation.bp_diastolic|default:'' }}" class="form-input w-full" placeholder="mmHg"></div>
+        <div><label class="form-label">Pulse</label><input type="number" name="pulse" value="{{ consultation.pulse|default:'' }}" class="form-input w-full" placeholder="bpm"></div>
+        <div><label class="form-label">SpO₂ (%)</label><input type="number" name="spo2" value="{{ consultation.spo2|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">RR</label><input type="number" name="rr" value="{{ consultation.rr|default:'' }}" class="form-input w-full" placeholder="/min"></div>
+        <div><label class="form-label">Temp (°C)</label><input type="number" name="temperature" step="0.1" value="{{ consultation.temperature|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Weight (kg)</label><input type="number" name="weight_kg" step="0.1" value="{{ consultation.weight_kg|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Height (cm)</label><input type="number" name="height_cm" step="0.1" value="{{ consultation.height_cm|default:'' }}" class="form-input w-full"></div>
+      </div>
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">NYHA Class</label><select name="nyha_class" class="form-input w-full">{% for val,label in nyha_choices %}<option value="{{ val }}" {% if consultation.nyha_class == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">JVP</label><input type="text" name="jvp" value="{{ consultation.jvp|default:'' }}" class="form-input w-full" placeholder="e.g. Not raised, Raised 3 cm…"></div>
+        <div><label class="form-label">Heart Sounds</label><input type="text" name="heart_sounds" value="{{ consultation.heart_sounds|default:'' }}" class="form-input w-full" placeholder="S1 S2 heard, no S3…"></div>
+        <div><label class="form-label">Murmur</label><input type="text" name="murmur" value="{{ consultation.murmur|default:'' }}" class="form-input w-full" placeholder="None / describe…"></div>
+        <div><label class="form-label">Peripheral Pulses</label><input type="text" name="peripheral_pulses" value="{{ consultation.peripheral_pulses|default:'' }}" class="form-input w-full"></div>
+        <div><label class="form-label">Pedal Oedema</label><input type="text" name="pedal_edema" value="{{ consultation.pedal_edema|default:'' }}" class="form-input w-full" placeholder="None / Grade 1-4…"></div>
+      </div>
+    </div>
+
+    <!-- Symptoms -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Symptoms</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {% with syms="chest_pain,dyspnea,orthopnea,pnd,palpitations,syncope,presyncope,fatigue,ankle_swelling" labels="Chest Pain,Dyspnoea,Orthopnoea,PND,Palpitations,Syncope,Pre-syncope,Fatigue,Ankle Swelling" %}
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="chest_pain" class="w-4 h-4" {% if consultation.chest_pain %}checked{% endif %}><span class="text-sm">Chest Pain</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="dyspnea" class="w-4 h-4" {% if consultation.dyspnea %}checked{% endif %}><span class="text-sm">Dyspnoea</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="orthopnea" class="w-4 h-4" {% if consultation.orthopnea %}checked{% endif %}><span class="text-sm">Orthopnoea</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="pnd" class="w-4 h-4" {% if consultation.pnd %}checked{% endif %}><span class="text-sm">PND</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="palpitations" class="w-4 h-4" {% if consultation.palpitations %}checked{% endif %}><span class="text-sm">Palpitations</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="syncope" class="w-4 h-4" {% if consultation.syncope %}checked{% endif %}><span class="text-sm">Syncope</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="presyncope" class="w-4 h-4" {% if consultation.presyncope %}checked{% endif %}><span class="text-sm">Pre-syncope</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="fatigue" class="w-4 h-4" {% if consultation.fatigue %}checked{% endif %}><span class="text-sm">Fatigue</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="ankle_swelling" class="w-4 h-4" {% if consultation.ankle_swelling %}checked{% endif %}><span class="text-sm">Ankle Swelling</span></label>
+        {% endwith %}
+      </div>
+    </div>
+
+    <!-- Risk factors -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Cardiovascular Risk Factors</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="hypertension" class="w-4 h-4" {% if consultation.hypertension %}checked{% endif %}><span class="text-sm">Hypertension</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="diabetes" class="w-4 h-4" {% if consultation.diabetes %}checked{% endif %}><span class="text-sm">Diabetes</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="dyslipidaemia" class="w-4 h-4" {% if consultation.dyslipidaemia %}checked{% endif %}><span class="text-sm">Dyslipidaemia</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="smoking" class="w-4 h-4" {% if consultation.smoking %}checked{% endif %}><span class="text-sm">Smoking</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="obesity" class="w-4 h-4" {% if consultation.obesity %}checked{% endif %}><span class="text-sm">Obesity</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="family_hx_cad" class="w-4 h-4" {% if consultation.family_hx_cad %}checked{% endif %}><span class="text-sm">Family Hx CAD</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="ckd" class="w-4 h-4" {% if consultation.ckd %}checked{% endif %}><span class="text-sm">CKD</span></label>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">History</h2>
+      <div><label class="form-label">Chief Complaint *</label><textarea name="chief_complaint" rows="2" required class="form-input w-full">{{ consultation.chief_complaint|default:'' }}</textarea></div>
+      <div><label class="form-label">History of Presenting Illness</label><textarea name="history" rows="4" class="form-input w-full">{{ consultation.history|default:'' }}</textarea></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Past Cardiac History</label><textarea name="past_cardiac_history" rows="2" class="form-input w-full">{{ consultation.past_cardiac_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Past Medical History</label><textarea name="past_medical_history" rows="2" class="form-input w-full">{{ consultation.past_medical_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Family History</label><textarea name="family_history" rows="2" class="form-input w-full">{{ consultation.family_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Social History</label><textarea name="social_history" rows="2" class="form-input w-full">{{ consultation.social_history|default:'' }}</textarea></div>
+        <div><label class="form-label">Current Medications</label><textarea name="current_medications" rows="2" class="form-input w-full">{{ consultation.current_medications|default:'' }}</textarea></div>
+        <div><label class="form-label">Allergies</label><input type="text" name="allergies" value="{{ consultation.allergies|default:'' }}" class="form-input w-full" placeholder="NKDA or list…"></div>
+      </div>
+    </div>
+
+    <!-- Examination & Plan -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Examination & Plan</h2>
+      <div><label class="form-label">Physical Examination</label><textarea name="physical_examination" rows="4" class="form-input w-full">{{ consultation.physical_examination|default:'' }}</textarea></div>
+      <div><label class="form-label">ECG Findings</label><textarea name="ecg_findings" rows="2" class="form-input w-full" placeholder="Rhythm, rate, intervals, ST changes…">{{ consultation.ecg_findings|default:'' }}</textarea></div>
+      <div><label class="form-label">Investigations Ordered</label><textarea name="investigations" rows="2" class="form-input w-full" placeholder="FBC, LFTs, troponin, echo, stress test…">{{ consultation.investigations|default:'' }}</textarea></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Diagnosis *</label><textarea name="diagnosis" rows="2" required class="form-input w-full">{{ consultation.diagnosis|default:'' }}</textarea></div>
+        <div><label class="form-label">ICD-10 Code</label><input type="text" name="icd10_code" value="{{ consultation.icd10_code|default:'' }}" class="form-input w-full" placeholder="e.g. I50.0"></div>
+      </div>
+      <div><label class="form-label">Management Plan</label><textarea name="plan" rows="4" class="form-input w-full">{{ consultation.plan|default:'' }}</textarea></div>
+      <div><label class="form-label">Referral</label><textarea name="referral" rows="2" class="form-input w-full">{{ consultation.referral|default:'' }}</textarea></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="form-label">Follow-up Date</label><input type="date" name="follow_up_date" value="{{ consultation.follow_up_date|default:'' }}" class="form-input w-full"></div>
+      </div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full">{{ consultation.notes|default:'' }}</textarea></div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        {% if consultation %}Save Changes{% else %}Create Consultation{% endif %}
+      </button>
+      <a href="{% url 'cardiology_consultation_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const si=document.getElementById('patient-search'),hi=document.getElementById('patient-id'),rd=document.getElementById('patient-results'),dp=document.getElementById('patient-display');
+if(si){let t;si.addEventListener('input',function(){clearTimeout(t);const q=this.value.trim();if(q.length<2){rd.classList.add('hidden');return;}t=setTimeout(()=>{fetch(`{% url 'cardiology_patient_search' %}?q=${encodeURIComponent(q)}`).then(r=>r.json()).then(data=>{if(!data.length){rd.classList.add('hidden');return;}rd.innerHTML=data.map(p=>`<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm border-b border-slate-100 dark:border-slate-700 last:border-0" data-id="${p.id}" data-name="${p.name}">${p.name} <span class="text-xs text-slate-400">${p.mrn||''}</span></button>`).join('');rd.classList.remove('hidden');rd.querySelectorAll('button').forEach(btn=>{btn.addEventListener('click',function(){hi.value=this.dataset.id;si.value=this.dataset.name;dp.textContent='Selected: '+this.dataset.name;dp.classList.remove('hidden');rd.classList.add('hidden');});});});},300);});document.addEventListener('click',e=>{if(!rd.contains(e.target)&&e.target!==si)rd.classList.add('hidden');});}
+</script>
+{% endblock %}

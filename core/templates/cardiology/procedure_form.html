@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Cardiac Procedure{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">Cardiac Procedure</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }}</p>
+  </div>
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Procedure Date *</label><input type="date" name="procedure_date" required value="{{ today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Procedure Type *</label><select name="procedure_type" required class="form-input w-full">{% for val,label in procedure_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">Assistant</label><input type="text" name="assistant" class="form-input w-full"></div>
+        <div><label class="form-label">Outcome</label><select name="outcome" class="form-input w-full">{% for val,label in outcome_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">Contrast Used</label><input type="text" name="contrast_used" class="form-input w-full" placeholder="Type and volume…"></div>
+        <div><label class="form-label">Radiation Dose</label><input type="text" name="radiation_dose" class="form-input w-full" placeholder="mGy / DAP…"></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <div><label class="form-label">Indication</label><textarea name="indication" rows="2" class="form-input w-full"></textarea></div>
+      <div><label class="form-label">Technique</label><textarea name="technique" rows="3" class="form-input w-full" placeholder="Access site, catheter used, steps performed…"></textarea></div>
+      <div><label class="form-label">Findings</label><textarea name="findings" rows="4" class="form-input w-full" placeholder="Coronary anatomy, stenosis, haemodynamics…"></textarea></div>
+      <div><label class="form-label">Complications</label><textarea name="complications" rows="2" class="form-input w-full" placeholder="None / describe…"></textarea></div>
+      <div><label class="form-label">Post-procedure Plan</label><textarea name="post_procedure_plan" rows="3" class="form-input w-full" placeholder="Medications, monitoring, follow-up…"></textarea></div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full"></textarea></div>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save Procedure
+      </button>
+      <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

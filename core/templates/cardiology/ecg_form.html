@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}ECG Record{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">ECG Record</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }}</p>
+  </div>
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Recording Date *</label><input type="date" name="recording_date" required value="{{ today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Time</label><input type="time" name="recording_time" class="form-input w-full"></div>
+        <div><label class="form-label">Heart Rate (bpm)</label><input type="number" name="heart_rate" class="form-input w-full" placeholder="bpm"></div>
+        <div><label class="form-label">Rhythm</label><select name="rhythm" class="form-input w-full">{% for val,label in rhythm_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">Axis</label><select name="axis" class="form-input w-full">{% for val,label in axis_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Intervals (ms)</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">PR interval</label><input type="number" name="pr_interval" class="form-input w-full" placeholder="ms"></div>
+        <div><label class="form-label">QRS duration</label><input type="number" name="qrs_duration" class="form-input w-full" placeholder="ms"></div>
+        <div><label class="form-label">QT interval</label><input type="number" name="qt_interval" class="form-input w-full" placeholder="ms"></div>
+        <div><label class="form-label">QTc interval</label><input type="number" name="qtc_interval" class="form-input w-full" placeholder="ms"></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Findings</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="st_changes" class="w-4 h-4"><span class="text-sm">ST Changes</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="t_wave_changes" class="w-4 h-4"><span class="text-sm">T-wave Changes</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="lbbb" class="w-4 h-4"><span class="text-sm">LBBB</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="rbbb" class="w-4 h-4"><span class="text-sm">RBBB</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="lvh" class="w-4 h-4"><span class="text-sm">LVH</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="rvh" class="w-4 h-4"><span class="text-sm">RVH</span></label>
+        <label class="flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 transition"><input type="checkbox" name="q_waves" class="w-4 h-4"><span class="text-sm">Pathological Q waves</span></label>
+      </div>
+      <div class="space-y-3">
+        <div><label class="form-label">ST change details</label><textarea name="st_details" rows="2" class="form-input w-full" placeholder="Lead distribution, elevation/depression…"></textarea></div>
+        <div><label class="form-label">T-wave details</label><textarea name="t_wave_details" rows="2" class="form-input w-full"></textarea></div>
+        <div><label class="form-label">Q-wave details</label><textarea name="q_wave_details" rows="2" class="form-input w-full" placeholder="Leads with Q waves…"></textarea></div>
+        <div><label class="form-label">Interpretation</label><textarea name="interpretation" rows="3" class="form-input w-full" placeholder="Overall ECG interpretation and clinical correlation…"></textarea></div>
+        <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full"></textarea></div>
+      </div>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save ECG Record
+      </button>
+      <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

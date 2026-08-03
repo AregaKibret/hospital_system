@@ -7,7 +7,7 @@
 {% endif %}
 
 <!-- Header -->
-<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-5">
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 mb-4">
   <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
     <div>
       <div class="flex items-center gap-2 flex-wrap mb-2">
@@ -15,17 +15,154 @@
         {% include "surgery/_priority_badge.html" with priority=order.priority %}
         {% include "surgery/_status_badge.html" with status=order.status %}
       </div>
-      <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ order.planned_procedure }}</h1>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.patient.full_name }} · {{ order.patient.card_number }} · {{ order.ordered_at|date:"d M Y H:i" }}</p>
+      <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if order.procedure_master %}{{ order.procedure_master.name }}{% else %}{{ order.planned_procedure }}{% endif %}</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ order.patient.full_name }} &bull; {{ order.patient.card_number }} &bull; {{ order.ordered_at|date:"d M Y H:i" }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
       {% if perms.core.upload_attachment %}
-      <a href="{% url 'patient_attachment_upload' order.patient_id %}?surgery={{ order.pk }}" class="btn-secondary text-sm">Attach Document</a>
+      <a href="{% url 'patient_attachment_upload' order.patient_id %}?surgery={{ order.pk }}" class="btn-secondary text-sm">Attach</a>
       {% endif %}
       {% if perms.core.order_surgery and order.status in "ordered pending_review" %}
       <a href="{% url 'surgery_order_edit' order.pk %}" class="btn-secondary text-sm">Edit</a>
       {% endif %}
-      <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">← All Orders</a>
+      <a href="{% url 'surgery_order_list' %}" class="btn-secondary text-sm">&larr; All Orders</a>
+      <a href="{% url 'surgery_dashboard' %}" class="btn-secondary text-sm">Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Patient Journey Timeline ─────────────────────────────────────────────── -->
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-5 overflow-hidden">
+  <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+    <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient Journey</h2>
+    {% include "surgery/_status_badge.html" with status=order.status %}
+  </div>
+  <div class="overflow-x-auto">
+    <div class="flex items-start gap-0 min-w-max px-5 py-4">
+
+      {% comment %}
+      Journey steps — hardcoded to avoid needing a custom 'split' template tag.
+      State logic: done (green ✓), current (blue + ring), pending (grey).
+      {% endcomment %}
+
+      {% with s=order.status %}
+
+      {% comment %}Step 1: Ordered{% endcomment %}
+      {% if s == 'ordered' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Ordered" num="1" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="done" label="Ordered" num="1" %}
+      {% endif %}
+      {% include "surgery/_journey_connector.html" with done=True %}
+
+      {% comment %}Step 2: Approved{% endcomment %}
+      {% if s == 'approved' or s == 'pending_review' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Approved" num="2" %}
+      {% elif s in "awaiting_decision booking_deposit" %}
+        {% include "surgery/_journey_step.html" with state="current" label="Counselling" num="2" %}
+      {% elif s in "scheduled awaiting_admission patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="Approved" num="2" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Approved" num="2" %}
+      {% endif %}
+      {% if s in "scheduled awaiting_admission patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 3: Scheduled{% endcomment %}
+      {% if s == 'scheduled' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Scheduled" num="3" %}
+      {% elif s in "awaiting_admission patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="Scheduled" num="3" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Scheduled" num="3" %}
+      {% endif %}
+      {% if s in "awaiting_admission patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 4: Pre-op Assessment{% endcomment %}
+      {% if s == 'awaiting_admission' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Pre-op" num="4" %}
+      {% elif s in "patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="Pre-op" num="4" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Pre-op" num="4" %}
+      {% endif %}
+      {% if s in "patient_prepared in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 5: Admitted & Prepared{% endcomment %}
+      {% if s == 'patient_prepared' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Prepared" num="5" %}
+      {% elif s in "in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="Prepared" num="5" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Prepared" num="5" %}
+      {% endif %}
+      {% if s in "in_or recovery post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 6: In OR{% endcomment %}
+      {% if s == 'in_or' %}
+        {% include "surgery/_journey_step.html" with state="current" label="In OR" num="6" color="red" %}
+      {% elif s in "recovery post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="In OR" num="6" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="In OR" num="6" %}
+      {% endif %}
+      {% if s in "recovery post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 7: Recovery / PACU{% endcomment %}
+      {% if s == 'recovery' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Recovery" num="7" color="orange" %}
+      {% elif s in "post_op completed discharged" %}
+        {% include "surgery/_journey_step.html" with state="done" label="Recovery" num="7" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Recovery" num="7" %}
+      {% endif %}
+      {% if s in "post_op completed discharged" %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 8: Post-op Ward{% endcomment %}
+      {% if s == 'post_op' or s == 'completed' %}
+        {% include "surgery/_journey_step.html" with state="current" label="Ward" num="8" color="sky" %}
+      {% elif s == 'discharged' %}
+        {% include "surgery/_journey_step.html" with state="done" label="Ward" num="8" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Ward" num="8" %}
+      {% endif %}
+      {% if s == 'discharged' %}
+        {% include "surgery/_journey_connector.html" with done=True %}
+      {% else %}
+        {% include "surgery/_journey_connector.html" with done=False %}
+      {% endif %}
+
+      {% comment %}Step 9: Discharged{% endcomment %}
+      {% if s == 'discharged' %}
+        {% include "surgery/_journey_step.html" with state="done" label="Discharged" num="9" %}
+      {% else %}
+        {% include "surgery/_journey_step.html" with state="pending" label="Discharged" num="9" %}
+      {% endif %}
+
+      {% endwith %}
     </div>
   </div>
 </div>
@@ -171,19 +308,33 @@
 
     <!-- OR Operative Note -->
     {% if operative_note %}
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    {# Draft notes are only visible to users who can write them; submitted notes are visible to everyone #}
+    {% if operative_note.is_finalized or perms.core.write_operative_note %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border {% if operative_note.is_finalized %}border-slate-200 dark:border-slate-700{% else %}border-amber-200 dark:border-amber-700{% endif %} shadow-sm">
       <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <h2 class="text-sm font-semibold text-slate-900 dark:text-white">OR Operative Note</h2>
-          {% if operative_note.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized v{{ operative_note.version }}</span>
-          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft v{{ operative_note.version }}</span>{% endif %}
+          {% if operative_note.is_finalized %}
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+            &#10003; Submitted v{{ operative_note.version }}
+          </span>
+          {% else %}
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            Draft v{{ operative_note.version }} — not visible to nurses
+          </span>
+          {% endif %}
         </div>
         <div class="flex items-center gap-3">
-          {% if perms.core.write_operative_note %}<a href="{% url 'operative_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+          {% if perms.core.write_operative_note %}<a href="{% url 'operative_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">{% if operative_note.is_finalized %}Revise{% else %}Edit Draft{% endif %}</a>{% endif %}
           {% if perms.core.read_periop_document_history %}<a href="{% url 'operative_note_history' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">History</a>{% endif %}
-          <a href="{% url 'operative_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>
+          {% if operative_note.is_finalized %}<a href="{% url 'operative_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>{% endif %}
         </div>
       </div>
+      {% if not operative_note.is_finalized %}
+      <div class="px-5 py-2 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-800">
+        <p class="text-xs text-amber-700 dark:text-amber-400">This operative note is still a draft. Nurses cannot see it until you submit and sign it.</p>
+      </div>
+      {% endif %}
       <div class="p-5 space-y-4 text-sm">
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div><span class="text-xs text-slate-400 block">Procedure Performed</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ operative_note.procedure_performed }}</span></div>
@@ -194,37 +345,60 @@
           {% if operative_note.blood_loss_ml %}<div><span class="text-xs text-slate-400 block">Blood Loss</span><span class="text-slate-700 dark:text-slate-300">{{ operative_note.blood_loss_ml }} mL</span></div>{% endif %}
           {% if operative_note.complications %}<div><span class="text-xs text-slate-400 block text-red-500">Complications</span><span class="text-red-700 dark:text-red-300">{{ operative_note.complications }}</span></div>{% endif %}
         </div>
-        <div><p class="text-xs text-slate-400 mb-1">Findings</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.findings }}</p></div>
-        <div><p class="text-xs text-slate-400 mb-1">Procedure Steps</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.procedure_steps }}</p></div>
+        {% if operative_note.findings %}<div><p class="text-xs text-slate-400 mb-1">Findings</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.findings }}</p></div>{% endif %}
+        {% if operative_note.procedure_steps %}<div><p class="text-xs text-slate-400 mb-1">Procedure Steps</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-700/40 rounded p-3">{{ operative_note.procedure_steps }}</p></div>{% endif %}
         {% if operative_note.post_op_instructions %}<div><p class="text-xs text-slate-400 mb-1">Post-op Instructions</p><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ operative_note.post_op_instructions }}</p></div>{% endif %}
+        {% if operative_note.is_finalized and operative_note.finalized_at %}
+        <p class="text-xs text-purple-600 dark:text-purple-400">Signed by {{ operative_note.signature_name }} on {{ operative_note.finalized_at|date:"d M Y H:i" }}</p>
+        {% endif %}
       </div>
-      {% include "surgery/_nursing_addendum_panel.html" with doc_type="operative" doc_label="Operative Note" %}
+      {% if operative_note.is_finalized %}{% include "surgery/_nursing_addendum_panel.html" with doc_type="operative" doc_label="Operative Note" %}{% endif %}
     </div>
+    {% endif %}
     {% endif %}
 
     <!-- Post-Operative Note -->
     {% if postop_note %}
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+    {% if postop_note.is_finalized or perms.core.write_postop_note %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border {% if postop_note.is_finalized %}border-slate-200 dark:border-slate-700{% else %}border-amber-200 dark:border-amber-700{% endif %} shadow-sm">
       <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Post-Operative Note</h2>
-          {% if postop_note.is_finalized %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Finalized v{{ postop_note.version }}</span>
-          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Draft v{{ postop_note.version }}</span>{% endif %}
+          {% if postop_note.is_finalized %}
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+            &#10003; Submitted v{{ postop_note.version }}
+          </span>
+          {% else %}
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            Draft v{{ postop_note.version }} — not visible to nurses
+          </span>
+          {% endif %}
         </div>
         <div class="flex items-center gap-3">
-          {% if perms.core.write_postop_note %}<a href="{% url 'postop_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">Edit</a>{% endif %}
+          {% if perms.core.write_postop_note %}<a href="{% url 'postop_note_create' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">{% if postop_note.is_finalized %}Revise{% else %}Edit Draft{% endif %}</a>{% endif %}
           {% if perms.core.read_periop_document_history %}<a href="{% url 'postop_note_history' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">History</a>{% endif %}
-          {% if perms.core.read_postop_note %}<a href="{% url 'postop_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>{% endif %}
+          {% if postop_note.is_finalized and perms.core.read_postop_note %}<a href="{% url 'postop_note_print' order.pk %}" class="text-xs text-slate-500 hover:underline dark:text-slate-400">Print</a>{% endif %}
         </div>
       </div>
+      {% if not postop_note.is_finalized %}
+      <div class="px-5 py-2 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-800">
+        <p class="text-xs text-amber-700 dark:text-amber-400">This post-operative note is still a draft. Nurses cannot see it until you submit and sign it.</p>
+      </div>
+      {% endif %}
       <div class="p-5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
         <div><span class="text-xs text-slate-400 block">Disposition</span><span class="font-medium text-slate-800 dark:text-slate-100">{{ postop_note.get_disposition_display|default:"—" }}</span></div>
         {% if postop_note.consciousness_level %}<div><span class="text-xs text-slate-400 block">Consciousness</span><span class="text-slate-700 dark:text-slate-300">{{ postop_note.get_consciousness_level_display }}</span></div>{% endif %}
         {% if postop_note.pain_score is not None %}<div><span class="text-xs text-slate-400 block">Pain Score</span><span class="text-slate-700 dark:text-slate-300">{{ postop_note.pain_score }}/10</span></div>{% endif %}
         {% if postop_note.post_op_complications %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Complications</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ postop_note.post_op_complications }}</p></div>{% endif %}
+        {% if postop_note.nursing_instructions %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Nursing Instructions</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ postop_note.nursing_instructions }}</p></div>{% endif %}
+        {% if postop_note.pain_management_plan %}<div class="sm:col-span-3"><span class="text-xs text-slate-400 block mb-1">Pain Management</span><p class="text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ postop_note.pain_management_plan }}</p></div>{% endif %}
+        {% if postop_note.is_finalized and postop_note.finalized_at %}
+        <div class="sm:col-span-3"><p class="text-xs text-purple-600 dark:text-purple-400">Signed by {{ postop_note.signature_name }} on {{ postop_note.finalized_at|date:"d M Y H:i" }}</p></div>
+        {% endif %}
       </div>
-      {% include "surgery/_nursing_addendum_panel.html" with doc_type="postop" doc_label="Post-Op Note" %}
+      {% if postop_note.is_finalized %}{% include "surgery/_nursing_addendum_panel.html" with doc_type="postop" doc_label="Post-Op Note" %}{% endif %}
     </div>
+    {% endif %}
     {% elif perms.core.write_postop_note and order.status in "completed recovery post_op discharged" %}
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 shadow-sm p-5 text-center">
       <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">No post-operative note recorded yet.</p>
@@ -368,8 +542,21 @@
           <button type="submit" class="w-full btn-primary text-sm bg-orange-600 hover:bg-orange-700">Start Surgery (In OR)</button>
         </form>
         {% else %}
+        {# Invoice raised but unpaid — show warning + credit-override for authorised staff #}
         <button type="button" disabled class="w-full text-sm bg-slate-200 dark:bg-slate-700 text-slate-400 rounded-lg py-2 cursor-not-allowed">Start Surgery (In OR)</button>
-        <p class="text-xs text-red-500 mt-1">Surgery billing must be paid, credit-approved, or waived before entering OR.</p>
+        <div class="mt-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-3 py-2">
+          <p class="text-xs text-amber-700 dark:text-amber-300 font-medium">Surgery invoice is unpaid. Clear payment or use the override below.</p>
+          {% if perms.core.approve_surgery_order or perms.core.manage_or_schedule %}
+          <form method="post" action="{% url 'surgery_order_update_status' order.pk %}" class="mt-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_credit_and_in_or" />
+            <button type="submit" class="w-full text-xs font-semibold py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition"
+              data-confirm="Mark payment as Credit and move patient to OR?" data-confirm-danger>
+              Mark as Credit &amp; Proceed to OR
+            </button>
+          </form>
+          {% endif %}
+        </div>
         {% endif %}
         {% endif %}
 
@@ -462,6 +649,85 @@
 
       </div>
     </div>
+
+    <!-- Pre-Op Checklist -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Pre-Op Checklist</h2>
+        {% if perms.core.read_surgery %}
+        <a href="{% url 'surgery_preop_checklist' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">
+          {% if order.preop_checklist %}Edit{% else %}Open{% endif %}
+        </a>
+        {% endif %}
+      </div>
+      <div class="p-4">
+        {% if preop_checklist %}
+          {% with chk=preop_checklist %}
+          <div class="mb-2 flex items-center gap-2">
+            <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full {% if chk.is_cleared %}bg-emerald-500{% else %}bg-amber-400{% endif %}"
+                   style="width:{{ chk.completion_percent }}%"></div>
+            </div>
+            <span class="text-xs font-semibold {% if chk.is_cleared %}text-emerald-600{% else %}text-amber-600{% endif %}">{{ chk.completion_percent }}%</span>
+          </div>
+          {% if chk.is_cleared %}
+          <p class="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">✓ Cleared for OR</p>
+          {% elif chk.emergency_override %}
+          <p class="text-xs text-red-600 dark:text-red-400 font-semibold">⚠ Emergency override active</p>
+          {% else %}
+          <div class="text-xs text-slate-500 space-y-1 mt-2">
+            {% if not chk.surgical_consent_signed %}<p class="text-red-500">✗ Surgical consent not signed</p>{% endif %}
+            {% if not chk.anesthesia_clearance %}<p class="text-amber-500">✗ Anesthesia clearance pending</p>{% endif %}
+            {% if not chk.patient_identified %}<p class="text-amber-500">✗ Patient identity not verified</p>{% endif %}
+            {% if not chk.npo_confirmed %}<p class="text-amber-500">✗ NPO not confirmed</p>{% endif %}
+          </div>
+          {% endif %}
+          {% endwith %}
+        {% else %}
+        <p class="text-xs text-slate-400">No checklist started yet.</p>
+        {% if perms.core.read_surgery %}
+        <a href="{% url 'surgery_preop_checklist' order.pk %}" class="mt-2 block text-xs text-center py-1.5 px-3 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">Start Pre-Op Checklist</a>
+        {% endif %}
+        {% endif %}  {# preop_checklist #}
+      </div>
+    </div>
+
+    <!-- PACU Record -->
+    {% if order.status in "completed recovery post_op discharged" %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">PACU / Recovery Record</h2>
+        {% if perms.core.read_surgery %}
+        <a href="{% url 'surgery_pacu_record' order.pk %}" class="text-xs text-blue-600 hover:underline dark:text-blue-400">
+          {% if order.pacu_records.exists %}Edit{% else %}Create{% endif %}
+        </a>
+        {% endif %}
+      </div>
+      <div class="p-4">
+        {% with pacu=pacu_record %}
+        {% if pacu %}
+        <div class="text-xs space-y-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="{% if pacu.is_finalized %}text-emerald-600 dark:text-emerald-400{% else %}text-amber-600 dark:text-amber-400{% endif %} font-semibold">
+              {% if pacu.is_finalized %}✓ Finalized{% else %}📝 Draft{% endif %}
+            </span>
+            <span class="text-slate-400">v{{ pacu.version }}</span>
+          </div>
+          {% if pacu.arrival_bp_systolic %}<p class="text-slate-600 dark:text-slate-300">BP: {{ pacu.arrival_bp_systolic }}/{{ pacu.arrival_bp_diastolic }} &bull; Pulse: {{ pacu.arrival_pulse|default:"—" }}</p>{% endif %}
+          {% if pacu.arrival_pain_score is not None %}<p class="text-slate-600 dark:text-slate-300">Pain Score: {{ pacu.arrival_pain_score }}/10</p>{% endif %}
+          {% if pacu.aldrete_total is not None %}<p class="{% if pacu.aldrete_total >= 9 %}text-emerald-600 dark:text-emerald-400{% else %}text-amber-600{% endif %} font-medium">Aldrete: {{ pacu.aldrete_total }}/10</p>{% endif %}
+          {% if pacu.discharge_criteria_met %}<p class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ Discharge criteria met</p>{% endif %}
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-400">No PACU record yet.</p>
+        {% if perms.core.read_surgery %}
+        <a href="{% url 'surgery_pacu_record' order.pk %}" class="mt-2 block text-xs text-center py-1.5 px-3 rounded-lg border border-sky-300 dark:border-sky-700 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition">Start PACU Record</a>
+        {% endif %}
+        {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Procedure Master Info -->
     {% if order.procedure_master %}

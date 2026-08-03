@@ -34,38 +34,29 @@
       </p>
     </div>
 
-    <!-- Patient Search -->
+    <!-- Patient Search (PatientPicker widget) -->
     <div class="px-6 pt-5 pb-0">
       <p class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Step 1 — Find Patient</p>
-      <form method="get" class="flex items-center gap-2 mb-3">
-        <div class="field-wrapper flex-1">
-          <input type="text" name="patient_q" value="{{ patient_search }}"
-                 placeholder="Type patient name or MRN to search…" class="w-full">
-        </div>
-        <button type="submit"
-                class="shrink-0 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
-          Search
-        </button>
-      </form>
+      <div data-patient-picker
+           data-name="patient_id_picker"
+           data-placeholder="Search by name, card number, or phone…"
+           data-actions="false"
+           {% if selected_patient %}
+           data-initial-id="{{ selected_patient.id }}"
+           data-initial-label="{{ selected_patient.full_name }} ({{ selected_patient.card_number }})"
+           {% endif %}></div>
+      <p class="text-xs text-slate-400 mt-1.5 mb-4">Start typing (2+ characters) to see matching patients.</p>
 
-      {% if patients %}
-      <div class="mb-5 border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden">
-        {% for p in patients %}
-        <button type="button"
-                onclick="selectPatient({{ p.id }}, '{{ p.full_name|escapejs }}', '{{ p.card_number }}')"
-                class="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-0 flex items-center justify-between gap-2">
-          <div>
-            <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ p.full_name }}</p>
-            <p class="text-xs font-mono text-slate-400">{{ p.card_number }} &mdash; {{ p.sex }}{% if p.age_display %}, {{ p.age_display }}{% elif p.date_of_birth %}, b. {{ p.date_of_birth|date:"Y" }}{% endif %}</p>
-          </div>
-          <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </button>
-        {% endfor %}
+      {% if selected_patient %}
+      <div class="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          {{ selected_patient.first_name|slice:":1" }}{{ selected_patient.last_name|slice:":1" }}
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ selected_patient.full_name }}</p>
+          <p class="text-xs font-mono text-slate-400">{{ selected_patient.card_number }}{% if selected_patient.sex %} · {{ selected_patient.sex }}{% endif %}{% if selected_patient.age_display %}, {{ selected_patient.age_display }}{% endif %}</p>
+        </div>
       </div>
-      {% elif patient_search %}
-      <p class="text-sm text-slate-400 mb-5">No patients matched "{{ patient_search }}".</p>
       {% endif %}
     </div>
 
@@ -73,18 +64,6 @@
     <form method="post" class="px-6 pb-6 space-y-5">
       {% csrf_token %}
       <input type="hidden" name="patient_id" id="patient-id-field" value="{{ selected_patient.id|default:'' }}">
-
-      <!-- Selected Patient Display -->
-      <div id="selected-patient-info"
-           class="{% if not selected_patient %}hidden {% endif %}bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
-        <p class="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wide mb-0.5">Selected Patient</p>
-        <p id="patient-display-name" class="font-semibold text-slate-900 dark:text-white">
-          {{ selected_patient.full_name|default:"" }}
-        </p>
-        <p id="patient-display-card" class="text-xs font-mono text-slate-400">
-          {{ selected_patient.card_number|default:"" }}
-        </p>
-      </div>
 
       <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
         <p class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide">Step 2 — Invoice Details</p>
@@ -119,34 +98,38 @@
         </div>
 
         <div class="flex items-center gap-3">
-          <button type="submit" id="create-btn"
-                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+          <button type="submit" id="create-btn" class="btn btn-primary" data-loading>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             Create Invoice
           </button>
-          <a href="{% url 'invoice_list' %}"
-             class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-sm transition-colors">
-            Cancel
-          </a>
+          <a href="{% url 'invoice_list' %}" class="btn btn-secondary">Cancel</a>
         </div>
       </div>
     </form>
   </div>
 </div>
 
+{% block extra_js %}
 <script>
-function selectPatient(id, name, card) {
-  document.getElementById('patient-id-field').value = id;
-  document.getElementById('patient-display-name').textContent = name;
-  document.getElementById('patient-display-card').textContent = card;
-  document.getElementById('selected-patient-info').classList.remove('hidden');
-  // Reload page with patient_id param to get visits
-  var url = new URL(window.location.href);
-  url.searchParams.set('patient_id', id);
-  if (url.searchParams.has('patient_q')) {
-    url.searchParams.set('patient_q', '');
-  }
-  window.location.href = url.toString();
-}
+(function () {
+  // When the PatientPicker selects a patient, sync patient_id and reload
+  // the page so the server can load that patient's visits.
+  document.addEventListener('change', function (e) {
+    if (e.target.name === 'patient_id_picker' && e.target.type === 'hidden') {
+      var pid = e.target.value;
+      if (!pid) return;
+      // Also update the POST hidden field (in case form is submitted quickly)
+      var postField = document.getElementById('patient-id-field');
+      if (postField) postField.value = pid;
+      // Reload to fetch visits for this patient
+      var url = new URL(window.location.href);
+      url.searchParams.set('patient_id', pid);
+      url.searchParams.delete('patient_q');
+      window.location.href = url.toString();
+    }
+  });
+})();
 </script>
+{% endblock %}
 
 {% endblock %}

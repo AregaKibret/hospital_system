@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Record Vaccine{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'immunization_list' patient.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Immunization Record</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-2">Record Vaccine</h1>
+    <p class="text-sm text-slate-500">{{ patient }}</p>
+  </div>
+  <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="form-label">Vaccine *</label>
+      <input type="text" name="vaccine_name" list="vaccine-list" required class="form-input w-full" placeholder="Type or select vaccine">
+      <datalist id="vaccine-list">{% for v,_ in vaccine_schedule %}<option value="{{ v }}">{% endfor %}</datalist>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="form-label">Dose Number</label><input type="number" name="dose_number" value="1" min="1" class="form-input w-full"></div>
+      <div>
+        <label class="form-label">Status</label>
+        <select name="status" class="form-input w-full">
+          {% for val,label in status_choices %}<option value="{{ val }}" {% if val == 'given' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-input w-full"></div>
+      <div><label class="form-label">Date Given</label><input type="date" name="date_given" class="form-input w-full" value="{{ today }}"></div>
+      <div><label class="form-label">Batch Number</label><input type="text" name="batch_number" class="form-input w-full"></div>
+      <div><label class="form-label">Injection Site</label><input type="text" name="site" placeholder="e.g. Left thigh" class="form-input w-full"></div>
+    </div>
+    <div><label class="form-label">Adverse Reaction</label><textarea name="reaction" rows="2" class="form-input w-full" placeholder="Any adverse reaction observed…"></textarea></div>
+    <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full"></textarea></div>
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save
+      </button>
+      <a href="{% url 'immunization_list' patient.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

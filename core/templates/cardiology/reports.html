@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Cardiology Reports{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Cardiology Reports</h1>
+      <p class="text-sm text-slate-500">Analytics and statistics for the Cardiology department</p>
+    </div>
+    <a href="{% url 'cardiology_dashboard' %}" class="btn-secondary text-sm">Dashboard</a>
+  </div>
+
+  <!-- KPI row -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    {% for item in kpis %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+      <p class="text-xs text-slate-500 uppercase tracking-wide">{{ item.label }}</p>
+      <p class="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{{ item.value }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Consultations by Clinic</h2>
+      <div class="h-64 flex items-center justify-center"><canvas id="clinicChart"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">NYHA Class Distribution</h2>
+      <div class="h-64"><canvas id="nyhaChart"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Cardiovascular Risk Factors</h2>
+      <div class="h-64"><canvas id="riskChart"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">LV Function (Echo Reports)</h2>
+      <div class="h-64 flex items-center justify-center"><canvas id="lvChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark'
+  || (window.matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.getAttribute('data-theme') !== 'light');
+
+const textColor = () => isDark() ? '#cbd5e1' : '#475569';
+const gridColor = () => isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+const PALETTE = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
+
+// Clinic doughnut
+const clinicData = {{ by_clinic|safe }};
+new Chart(document.getElementById('clinicChart'), {
+  type: 'doughnut',
+  data: {
+    labels: clinicData.map(d => d.label),
+    datasets: [{ data: clinicData.map(d => d.count), backgroundColor: PALETTE, borderWidth: 2, borderColor: isDark() ? '#1e293b' : '#fff' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { color: textColor(), font: { size: 12 }, padding: 12 } } }
+  }
+});
+
+// NYHA bar
+const nyhaData = {{ by_nyha|safe }};
+new Chart(document.getElementById('nyhaChart'), {
+  type: 'bar',
+  data: {
+    labels: nyhaData.map(d => d.label),
+    datasets: [{ label: 'Patients', data: nyhaData.map(d => d.count), backgroundColor: ['#10b981','#f59e0b','#f97316','#ef4444','#6366f1'], borderRadius: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color: textColor() }, grid: { color: gridColor() } },
+      y: { ticks: { color: textColor() }, grid: { color: gridColor() }, beginAtZero: true }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Risk factor bar
+const riskData = {{ risk_data|safe }};
+new Chart(document.getElementById('riskChart'), {
+  type: 'bar',
+  data: {
+    labels: riskData.map(d => d.label),
+    datasets: [{ label: 'Patients', data: riskData.map(d => d.count), backgroundColor: '#6366f1', borderRadius: 6 }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color: textColor() }, grid: { color: gridColor() }, beginAtZero: true },
+      y: { ticks: { color: textColor() }, grid: { color: gridColor() } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// LV function doughnut
+const lvData = {{ by_lv|safe }};
+new Chart(document.getElementById('lvChart'), {
+  type: 'doughnut',
+  data: {
+    labels: lvData.map(d => d.label),
+    datasets: [{ data: lvData.map(d => d.count), backgroundColor: ['#10b981','#f59e0b','#f97316','#ef4444','#6366f1'], borderWidth: 2, borderColor: isDark() ? '#1e293b' : '#fff' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { color: textColor(), font: { size: 12 }, padding: 12 } } }
+  }
+});
+</script>
+{% endblock %}

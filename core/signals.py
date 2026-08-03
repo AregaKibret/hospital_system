@@ -181,10 +181,13 @@ def _sync_linked_order_from_item(item):
 
 @receiver(post_save, sender=InvoiceItem)
 def sync_order_payment_on_item_save(sender, instance, **kwargs):
+    import logging
     try:
         _sync_linked_order_from_item(instance)
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger(__name__).exception(
+            'sync_order_payment_on_item_save failed for InvoiceItem pk=%s: %s', instance.pk, exc
+        )
 
 
 # ── Inpatient Deposit Auto-Deduction ─────────────────────────────────────────

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Echocardiogram Report{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div>
+    <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultation</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">Echocardiogram Report</h1>
+    <p class="text-sm text-slate-500">{{ consultation.patient }}</p>
+  </div>
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+    <!-- Study info -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div><label class="form-label">Study Date *</label><input type="date" name="study_date" required value="{{ today }}" class="form-input w-full"></div>
+        <div><label class="form-label">Echo Type</label><select name="echo_type" class="form-input w-full">{% for val,label in echo_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="form-label">LV Function</label><select name="lv_function" class="form-input w-full"><option value="">Select…</option>{% for val,label in lv_function_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+    <!-- LV dimensions -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">LV Dimensions (mm)</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">LVEDd</label><input type="number" name="lvedd" step="0.1" class="form-input w-full" placeholder="mm"></div>
+        <div><label class="form-label">LVESd</label><input type="number" name="lvesd" step="0.1" class="form-input w-full" placeholder="mm"></div>
+        <div><label class="form-label">IVSd</label><input type="number" name="ivsd" step="0.1" class="form-input w-full" placeholder="mm"></div>
+        <div><label class="form-label">PWd</label><input type="number" name="pwd" step="0.1" class="form-input w-full" placeholder="mm"></div>
+        <div><label class="form-label">LV Mass (g)</label><input type="number" name="lv_mass" step="0.1" class="form-input w-full"></div>
+        <div><label class="form-label">EF (%)</label><input type="number" name="ef_percent" min="0" max="100" class="form-input w-full" placeholder="e.g. 60"></div>
+        <div><label class="form-label">Aortic Root (mm)</label><input type="number" name="aortic_root" step="0.1" class="form-input w-full"></div>
+      </div>
+    </div>
+    <!-- Chambers -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Chambers & RV</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div><label class="form-label">LA size (mm)</label><input type="number" name="la_size" step="0.1" class="form-input w-full"></div>
+        <div><label class="form-label">RA size</label><input type="text" name="ra_size" class="form-input w-full" placeholder="Normal / Dilated…"></div>
+        <div><label class="form-label">RVEDd (mm)</label><input type="number" name="rvedd" step="0.1" class="form-input w-full"></div>
+        <div><label class="form-label">TAPSE (mm)</label><input type="number" name="tapse" step="0.1" class="form-input w-full"></div>
+        <div><label class="form-label">PASP (mmHg)</label><input type="number" name="pasp" class="form-input w-full"></div>
+        <div class="sm:col-span-2"><label class="form-label">RV Function</label><input type="text" name="rv_function" class="form-input w-full" placeholder="Normal / Mildly impaired…"></div>
+      </div>
+    </div>
+    <!-- Wall motion, diastolic, valves -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Wall Motion & Diastolic Function</h2>
+      <div><label class="form-label">Wall Motion Abnormalities</label><textarea name="wall_motion" rows="2" class="form-input w-full" placeholder="Normal / Hypokinesia in segments…"></textarea></div>
+      <div><label class="form-label">Diastolic Function</label><textarea name="diastolic_function" rows="2" class="form-input w-full" placeholder="Grade I-IV diastolic dysfunction / Normal…"></textarea></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Valves & Pericardium</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="form-label">Aortic Valve</label><textarea name="aortic_valve" rows="2" class="form-input w-full" placeholder="Trileaflet, no stenosis/regurgitation…"></textarea></div>
+        <div><label class="form-label">Mitral Valve</label><textarea name="mitral_valve" rows="2" class="form-input w-full" placeholder="Normal leaflets, no MR/MS…"></textarea></div>
+        <div><label class="form-label">Tricuspid Valve</label><textarea name="tricuspid_valve" rows="2" class="form-input w-full"></textarea></div>
+        <div><label class="form-label">Pulmonary Valve</label><textarea name="pulmonary_valve" rows="2" class="form-input w-full"></textarea></div>
+        <div class="sm:col-span-2"><label class="form-label">Pericardium</label><textarea name="pericardium" rows="2" class="form-input w-full" placeholder="No pericardial effusion…"></textarea></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+      <div><label class="form-label">Impression *</label><textarea name="impression" rows="3" required class="form-input w-full" placeholder="Summary of echo findings…"></textarea></div>
+      <div><label class="form-label">Recommendation</label><textarea name="recommendation" rows="2" class="form-input w-full"></textarea></div>
+      <div><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-input w-full"></textarea></div>
+    </div>
+    <div class="flex gap-3">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save Echo Report
+      </button>
+      <a href="{% url 'cardiology_consultation_detail' consultation.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

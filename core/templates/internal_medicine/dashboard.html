@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Internal Medicine Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Internal Medicine</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">General Medicine · Chronic Disease · Specialty Clinics</p>
+    </div>
+    <div class="flex gap-2">
+      {% if perms.core.manage_im_consultation %}
+      <a href="{% url 'im_consultation_create' %}" class="btn-primary">+ New Consultation</a>
+      {% endif %}
+      {% if perms.core.view_im_reports %}
+      <a href="{% url 'im_reports' %}" class="btn-secondary">Reports</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Today</p>
+      <p class="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">{{ kpis.today }}</p>
+      <p class="text-xs text-slate-400 mt-1">Consultations today</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">This Month</p>
+      <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{{ kpis.this_month }}</p>
+      <p class="text-xs text-slate-400 mt-1">Consultations this month</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Chronic Plans</p>
+      <p class="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{{ kpis.chronic_plans }}</p>
+      <p class="text-xs text-slate-400 mt-1">Active disease management plans</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Risk Assessments</p>
+      <p class="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-1">{{ kpis.risk_assessments }}</p>
+      <p class="text-xs text-slate-400 mt-1">Clinical risk scores recorded</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Clinic Distribution -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Clinic Distribution</h2>
+      </div>
+      <div class="p-5">
+        <canvas id="clinicChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Quick Access</h2>
+      </div>
+      <div class="p-4 grid grid-cols-2 gap-3">
+        <a href="{% url 'im_consultation_list' %}" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 transition text-center">
+          <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Consultations</span>
+        </a>
+        <a href="{% url 'chronic_plan_list' %}" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-slate-700 transition text-center">
+          <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Chronic Plans</span>
+        </a>
+        {% if perms.core.manage_im_consultation %}
+        <a href="{% url 'im_consultation_create' %}?clinic_type=hypertension" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-slate-700 transition text-center">
+          <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span class="text-xs font-medium text-slate-600 dark:text-slate-400">HTN Clinic</span>
+        </a>
+        <a href="{% url 'im_consultation_create' %}?clinic_type=diabetes" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-amber-50 dark:hover:bg-slate-700 transition text-center">
+          <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Diabetes Clinic</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Consultations -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Consultations</h2>
+        <a href="{% url 'im_consultation_list' %}" class="text-xs text-indigo-600 hover:underline">View all</a>
+      </div>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        {% for c in recent %}
+        <a href="{% url 'im_consultation_detail' c.pk %}" class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+          <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xs font-bold flex-shrink-0">
+            {{ c.patient.first_name|first }}{{ c.patient.last_name|first }}
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{{ c.patient }}</p>
+            <p class="text-xs text-slate-400">{{ c.get_clinic_type_display }} · {{ c.consultation_date }}</p>
+          </div>
+        </a>
+        {% empty %}
+        <p class="px-5 py-8 text-sm text-slate-400 text-center">No consultations yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const labels = [{% for c in clinic_data %}"{{ c.label }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const data   = [{% for c in clinic_data %}{{ c.count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const colors = ['#3B82F6','#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#06B6D4','#84CC16'];
+if (labels.length) {
+  new Chart(document.getElementById('clinicChart'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } } }, cutout: '60%' }
+  });
+}
+</script>
+{% endblock %}

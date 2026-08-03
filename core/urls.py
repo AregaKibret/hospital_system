@@ -5,10 +5,11 @@ from . import (
     views, views_admin, views_admissions, views_anesthesia, views_appointments, views_attachments,
     views_audit, views_billing,
     views_cards, views_certificates, views_dept_pharmacy, views_doctor, views_facility, views_hr, views_inventory,
-    views_lab, views_med_inventory, views_nursing, views_or, views_patient_flow, views_pharmacy,
-    views_pharmacy_pos, views_physical_count, views_physical_exam, views_prescription, views_queue, views_radiology,
-    views_receptionist, views_reports, views_session, views_signatures, views_specialization,
-    views_store, views_surgery, views_config,
+    views_im, views_lab, views_med_inventory, views_nursing, views_obgyn, views_or, views_patient_flow, views_pediatrics,
+    views_pharmacy, views_pharmacy_pos, views_physical_count, views_physical_exam, views_prescription, views_queue,
+    views_radiology, views_receptionist, views_reports, views_session, views_signatures, views_specialization,
+    views_store, views_surgery, views_surgery_consult, views_config,
+    views_cardiology, views_specialty_mgmt,
 )
 
 urlpatterns = [
@@ -17,6 +18,8 @@ urlpatterns = [
     path('register-patient/', views.register_patient, name='register_patient'),
     path('patient/<int:patient_id>/next-action/', views.patient_next_action, name='patient_next_action'),
     path('patient-search/', views.patient_search, name='patient_search'),
+    path('api/patients/search/', views.api_patient_search, name='api_patient_search'),
+    path('api/global-search/', views.api_global_search, name='api_global_search'),
     path('create-visit/<int:patient_id>/', views.create_visit, name='create_visit'),
     path('access-denied/', views.access_denied, name='access_denied'),
 
@@ -688,6 +691,7 @@ urlpatterns = [
     path('nursing/visit/<int:visit_id>/care-plan/new/', views_nursing.care_plan_create, name='care_plan_create'),
     path('nursing/care-plan/<int:plan_id>/status/', views_nursing.care_plan_update_status, name='care_plan_update_status'),
     path('nursing/visit/<int:visit_id>/consumable/', views_nursing.ward_consumable_use, name='ward_consumable_use'),
+    path('nursing/api/ward-stock-meds/', views_nursing.ward_stock_meds_api, name='ward_stock_meds_api'),
 
     # Procedure Master
     path('surgery/procedures/', views_surgery.procedure_master_list, name='procedure_master_list'),
@@ -702,8 +706,12 @@ urlpatterns = [
     path('surgery/reports/surgeon-performance/', views_surgery.report_surgeon_performance, name='report_surgeon_performance'),
     path('surgery/reports/or-utilization/', views_surgery.report_or_utilization, name='report_or_utilization'),
     path('surgery/reports/or-inventory/', views_surgery.report_or_inventory, name='report_or_inventory'),
+    # Pre-op checklist & PACU
+    path('surgery/orders/<int:order_id>/preop-checklist/', views_surgery.preop_checklist, name='surgery_preop_checklist'),
+    path('surgery/orders/<int:order_id>/pacu-record/', views_surgery.pacu_record_create, name='surgery_pacu_record'),
     # API endpoints
     path('surgery/api/procedure-info/<int:proc_id>/', views_surgery.api_procedure_info, name='api_procedure_info'),
+    path('surgery/api/journey/<int:order_id>/', views_surgery.surgery_journey_api, name='surgery_journey_api'),
 
     # ── Patient Flow module ───────────────────────────────────────────────────
     path('flow/', views_patient_flow.patient_flow_dashboard, name='patient_flow_dashboard'),
@@ -756,6 +764,93 @@ urlpatterns = [
     path('or/reports/daily/', views_or.report_or_daily, name='report_or_daily'),
     path('or/reports/utilization/', views_or.report_or_utilization, name='report_or_utilization'),
     path('or/reports/surgeon-schedule/', views_or.report_surgeon_schedule, name='report_surgeon_schedule'),
+
+    # ── OB/GYN Module ────────────────────────────────────────────────────────
+    path('obgyn/',                                          views_obgyn.obgyn_dashboard,           name='obgyn_dashboard'),
+    path('obgyn/pregnancies/',                              views_obgyn.pregnancy_list,             name='pregnancy_list'),
+    path('obgyn/pregnancies/register/',                     views_obgyn.pregnancy_register,         name='pregnancy_register'),
+    path('obgyn/pregnancies/<int:pk>/',                     views_obgyn.pregnancy_detail,           name='pregnancy_detail'),
+    path('obgyn/pregnancies/<int:pk>/edit/',                views_obgyn.pregnancy_edit,             name='pregnancy_edit'),
+    path('obgyn/pregnancies/<int:pregnancy_pk>/anc/new/',   views_obgyn.anc_visit_create,           name='anc_visit_create'),
+    path('obgyn/anc/<int:pk>/edit/',                        views_obgyn.anc_visit_edit,             name='anc_visit_edit'),
+    path('obgyn/pregnancies/<int:pregnancy_pk>/delivery/new/', views_obgyn.delivery_record_create,  name='delivery_record_create'),
+    path('obgyn/delivery/<int:pk>/edit/',                   views_obgyn.delivery_record_edit,       name='delivery_record_edit'),
+    path('obgyn/delivery/<int:delivery_pk>/pnc/new/',       views_obgyn.pnc_visit_create,           name='pnc_visit_create'),
+    path('obgyn/pnc/<int:pk>/edit/',                        views_obgyn.pnc_visit_edit,             name='pnc_visit_edit'),
+    path('obgyn/gyn/',                                      views_obgyn.gyn_consultation_list,      name='gyn_consultation_list'),
+    path('obgyn/gyn/new/',                                  views_obgyn.gyn_consultation_create,    name='gyn_consultation_create'),
+    path('obgyn/gyn/<int:pk>/',                             views_obgyn.gyn_consultation_detail,    name='gyn_consultation_detail'),
+    path('obgyn/gyn/<int:pk>/edit/',                        views_obgyn.gyn_consultation_edit,      name='gyn_consultation_edit'),
+    path('obgyn/fp/',                                       views_obgyn.fp_visit_list,              name='fp_visit_list'),
+    path('obgyn/fp/new/',                                   views_obgyn.fp_visit_create,            name='fp_visit_create'),
+    path('obgyn/infertility/',                              views_obgyn.infertility_case_list,      name='infertility_case_list'),
+    path('obgyn/infertility/new/',                          views_obgyn.infertility_case_create,    name='infertility_case_create'),
+    path('obgyn/infertility/<int:pk>/edit/',                views_obgyn.infertility_case_edit,      name='infertility_case_edit'),
+    path('obgyn/reports/',                                  views_obgyn.obgyn_reports,              name='obgyn_reports'),
+
+    # ── Internal Medicine ────────────────────────────────────────────────────
+    path('im/',                                             views_im.im_dashboard,                  name='im_dashboard'),
+    path('im/consultations/',                               views_im.im_consultation_list,          name='im_consultation_list'),
+    path('im/consultations/new/',                           views_im.im_consultation_create,        name='im_consultation_create'),
+    path('im/consultations/<int:pk>/',                      views_im.im_consultation_detail,        name='im_consultation_detail'),
+    path('im/consultations/<int:pk>/edit/',                 views_im.im_consultation_edit,          name='im_consultation_edit'),
+    path('im/chronic/',                                     views_im.chronic_plan_list,             name='chronic_plan_list'),
+    path('im/chronic/new/',                                 views_im.chronic_plan_create,           name='chronic_plan_create'),
+    path('im/chronic/<int:pk>/edit/',                       views_im.chronic_plan_edit,             name='chronic_plan_edit'),
+    path('im/patient-search/',                              views_im.im_patient_search,             name='im_patient_search'),
+    path('im/reports/',                                     views_im.im_reports,                    name='im_reports'),
+
+    # ── Pediatrics ───────────────────────────────────────────────────────────
+    path('peds/',                                           views_pediatrics.peds_dashboard,        name='peds_dashboard'),
+    path('peds/consultations/',                             views_pediatrics.peds_consultation_list, name='peds_consultation_list'),
+    path('peds/consultations/new/',                         views_pediatrics.peds_consultation_create, name='peds_consultation_create'),
+    path('peds/consultations/<int:pk>/',                    views_pediatrics.peds_consultation_detail, name='peds_consultation_detail'),
+    path('peds/consultations/<int:pk>/edit/',               views_pediatrics.peds_consultation_edit, name='peds_consultation_edit'),
+    path('peds/growth/',                                    views_pediatrics.growth_record_list,    name='growth_record_list'),
+    path('peds/growth/new/',                                views_pediatrics.growth_record_create,  name='growth_record_create'),
+    path('peds/patient/<int:patient_pk>/immunizations/',    views_pediatrics.immunization_list,     name='immunization_list'),
+    path('peds/patient/<int:patient_pk>/immunizations/new/', views_pediatrics.immunization_record, name='immunization_record'),
+    path('peds/dev-assessment/new/',                        views_pediatrics.dev_assessment_create, name='dev_assessment_create'),
+    path('peds/patient-search/',                            views_pediatrics.peds_patient_search,   name='peds_patient_search'),
+    path('peds/reports/',                                   views_pediatrics.peds_reports,          name='peds_reports'),
+
+    # ── General Surgery ──────────────────────────────────────────────────────
+    path('surgery/',                                        views_surgery_consult.surgery_consult_dashboard,       name='surgery_consult_dashboard'),
+    path('surgery/consultations/',                          views_surgery_consult.surgical_consultation_list,      name='surgical_consultation_list'),
+    path('surgery/consultations/new/',                      views_surgery_consult.surgical_consultation_create,    name='surgical_consultation_create'),
+    path('surgery/consultations/<int:pk>/',                 views_surgery_consult.surgical_consultation_detail,    name='surgical_consultation_detail'),
+    path('surgery/consultations/<int:pk>/edit/',            views_surgery_consult.surgical_consultation_edit,      name='surgical_consultation_edit'),
+    path('surgery/consultations/<int:consult_pk>/preop/',   views_surgery_consult.preop_assessment_create,         name='preop_assessment_create'),
+    path('surgery/preop/<int:pk>/edit/',                    views_surgery_consult.preop_assessment_edit,           name='preop_assessment_edit'),
+    path('surgery/consultations/<int:consult_pk>/op-note/', views_surgery_consult.operative_note_create_consult,   name='operative_note_create_consult'),
+    path('surgery/consultations/<int:consult_pk>/op-note/edit/', views_surgery_consult.operative_note_edit_consult, name='operative_note_edit_consult'),
+    path('surgery/consultations/<int:consult_pk>/postop/',  views_surgery_consult.postop_note_create_consult,      name='postop_note_create_consult'),
+    path('surgery/consultations/<int:consult_pk>/wound/',   views_surgery_consult.wound_followup_create,           name='wound_followup_create'),
+    path('surgery/patient-search/',                         views_surgery_consult.surgery_consult_patient_search,  name='surgery_consult_patient_search'),
+    path('surgery/reports/',                                views_surgery_consult.surgery_consult_reports,         name='surgery_consult_reports'),
+
+    # ── Cardiology ───────────────────────────────────────────────────────────
+    path('cardiology/',                                              views_cardiology.cardiology_dashboard,          name='cardiology_dashboard'),
+    path('cardiology/consultations/',                                views_cardiology.cardiology_consultation_list,  name='cardiology_consultation_list'),
+    path('cardiology/consultations/new/',                            views_cardiology.cardiology_consultation_create, name='cardiology_consultation_create'),
+    path('cardiology/consultations/<int:pk>/',                       views_cardiology.cardiology_consultation_detail, name='cardiology_consultation_detail'),
+    path('cardiology/consultations/<int:pk>/edit/',                  views_cardiology.cardiology_consultation_edit,  name='cardiology_consultation_edit'),
+    path('cardiology/consultations/<int:consult_pk>/ecg/',           views_cardiology.ecg_record_create,             name='ecg_record_create'),
+    path('cardiology/consultations/<int:consult_pk>/echo/',          views_cardiology.echo_report_create,            name='echo_report_create'),
+    path('cardiology/consultations/<int:consult_pk>/procedure/',     views_cardiology.cardiac_procedure_create,      name='cardiac_procedure_create'),
+    path('cardiology/reports/',                                      views_cardiology.cardiology_reports,            name='cardiology_reports'),
+    path('cardiology/patient-search/',                               views_cardiology.cardiology_patient_search,     name='cardiology_patient_search'),
+
+    # ── Specialty Assignment & Referrals ─────────────────────────────────────
+    path('referrals/',                                           views_specialty_mgmt.referral_list,        name='referral_list'),
+    path('referrals/<int:pk>/',                                  views_specialty_mgmt.referral_detail,      name='referral_detail'),
+    path('referrals/<int:pk>/accept/',                           views_specialty_mgmt.referral_accept,      name='referral_accept'),
+    path('referrals/<int:pk>/complete/',                         views_specialty_mgmt.referral_complete,    name='referral_complete'),
+    path('referrals/<int:pk>/decline/',                          views_specialty_mgmt.referral_decline,     name='referral_decline'),
+    path('visits/<int:visit_pk>/refer/',                         views_specialty_mgmt.referral_create,      name='referral_create'),
+    path('specialty-reports/',                                   views_specialty_mgmt.specialty_reports,    name='specialty_reports'),
+    path('api/doctor-specialty/',                                views_specialty_mgmt.get_doctor_specialty, name='get_doctor_specialty'),
+    path('api/doctors-for-specialty/',                           views_specialty_mgmt.get_doctors_for_specialty, name='get_doctors_for_specialty'),
 
     # ── System Configuration ─────────────────────────────────────────────────
     path('config/hospital/',   views_config.hospital_profile,  name='hospital_profile'),

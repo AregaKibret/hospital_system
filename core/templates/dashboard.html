@@ -5,7 +5,7 @@
 {% block content %}
 
 <!-- Welcome header -->
-<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-7">
     <div>
         <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
             Welcome back, {{ user.first_name|default:user.username }}
@@ -16,6 +16,20 @@
             <span class="inline-block font-medium {{ user_role_badge }} px-2 py-0.5 rounded-full">{{ user_role_name }}</span>
             {% endif %}
         </p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+        {% if perms.core.view_patient %}
+        <a href="{% url 'patient_search' %}" class="btn btn-secondary btn-sm">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Search Patient
+        </a>
+        {% endif %}
+        {% if perms.core.add_patient %}
+        <a href="{% url 'register_patient' %}" class="btn btn-primary btn-sm">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+            Register Patient
+        </a>
+        {% endif %}
     </div>
 </div>
 
@@ -46,18 +60,18 @@
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 flex items-center gap-4">
         <div class="w-11 h-11 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
             <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
         </div>
         <div>
-            <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats.queue_waiting }}</p>
+            <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ stats.queue_waiting }}</p>
             <p class="text-xs text-slate-500 dark:text-slate-400">Waiting in Queue</p>
         </div>
     </div>
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 flex items-center gap-4">
         <div class="w-11 h-11 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center shrink-0">
             <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
             </svg>
         </div>
         <div>
@@ -67,9 +81,157 @@
     </div>
 </div>
 
+<!-- Quick Actions -->
+<div class="mb-8">
+    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Quick Actions</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+
+        {% if perms.core.add_patient %}
+        <a href="{% url 'register_patient' %}" class="qa-card group">
+            <div class="qa-card-icon bg-blue-100 dark:bg-blue-900/40">
+                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+            </div>
+            <span class="qa-card-title">Register Patient</span>
+            <span class="qa-card-desc">Add a new patient record</span>
+            <span class="qa-card-arrow text-blue-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.view_patient %}
+        <a href="{% url 'patient_search' %}" class="qa-card group">
+            <div class="qa-card-icon bg-indigo-100 dark:bg-indigo-900/40">
+                <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <span class="qa-card-title">Search Patient</span>
+            <span class="qa-card-desc">Find patient by name or ID</span>
+            <span class="qa-card-arrow text-indigo-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_appointment %}
+        <a href="{% url 'appointment_create' %}" class="qa-card group">
+            <div class="qa-card-icon bg-sky-100 dark:bg-sky-900/40">
+                <svg class="w-5 h-5 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <span class="qa-card-title">New Appointment</span>
+            <span class="qa-card-desc">Schedule a patient visit</span>
+            <span class="qa-card-arrow text-sky-500">Open →</span>
+        </a>
+        <a href="{% url 'receptionist_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-cyan-100 dark:bg-cyan-900/40">
+                <svg class="w-5 h-5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+            <span class="qa-card-title">Today's Appointments</span>
+            <span class="qa-card-desc">View front desk queue</span>
+            <span class="qa-card-arrow text-cyan-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_billing %}
+        <a href="{% url 'billing_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-emerald-100 dark:bg-emerald-900/40">
+                <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <span class="qa-card-title">Billing</span>
+            <span class="qa-card-desc">Invoices &amp; payments</span>
+            <span class="qa-card-arrow text-emerald-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_lab_request %}
+        <a href="{% url 'lab_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-green-100 dark:bg-green-900/40">
+                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+            </div>
+            <span class="qa-card-title">Laboratory</span>
+            <span class="qa-card-desc">Lab orders &amp; results</span>
+            <span class="qa-card-arrow text-green-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_imaging_request %}
+        <a href="{% url 'radiology_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-purple-100 dark:bg-purple-900/40">
+                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+            </div>
+            <span class="qa-card-title">Imaging</span>
+            <span class="qa-card-desc">Radiology &amp; X-ray</span>
+            <span class="qa-card-arrow text-purple-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_medication_inventory %}
+        <a href="{% url 'pharmacy_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-teal-100 dark:bg-teal-900/40">
+                <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+            <span class="qa-card-title">Pharmacy</span>
+            <span class="qa-card-desc">Medications &amp; dispensing</span>
+            <span class="qa-card-arrow text-teal-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.view_admission_dashboard %}
+        <a href="{% url 'admission_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-rose-100 dark:bg-rose-900/40">
+                <svg class="w-5 h-5 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            </div>
+            <span class="qa-card-title">Admissions</span>
+            <span class="qa-card-desc">Inpatient management</span>
+            <span class="qa-card-arrow text-rose-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_surgery %}
+        <a href="{% url 'surgery_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-violet-100 dark:bg-violet-900/40">
+                <svg class="w-5 h-5 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+            </div>
+            <span class="qa-card-title">Surgery</span>
+            <span class="qa-card-desc">OR &amp; surgery schedule</span>
+            <span class="qa-card-arrow text-violet-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_inventory %}
+        <a href="{% url 'inventory_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-orange-100 dark:bg-orange-900/40">
+                <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            </div>
+            <span class="qa-card-title">Inventory</span>
+            <span class="qa-card-desc">Stock &amp; supplies</span>
+            <span class="qa-card-arrow text-orange-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.read_clinical_reports %}
+        <a href="{% url 'reports_dashboard' %}" class="qa-card group">
+            <div class="qa-card-icon bg-slate-100 dark:bg-slate-700">
+                <svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <span class="qa-card-title">Reports</span>
+            <span class="qa-card-desc">Analytics &amp; exports</span>
+            <span class="qa-card-arrow text-slate-500">Open →</span>
+        </a>
+        {% endif %}
+
+        {% if perms.core.manage_users %}
+        <a href="{% url 'user_list' %}" class="qa-card group">
+            <div class="qa-card-icon bg-slate-100 dark:bg-slate-700">
+                <svg class="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+            <span class="qa-card-title">User Management</span>
+            <span class="qa-card-desc">Staff &amp; permissions</span>
+            <span class="qa-card-arrow text-slate-500">Open →</span>
+        </a>
+        {% endif %}
+
+    </div>
+</div>
+
 <!-- Module cards grid -->
 {% if modules %}
-<p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Your Modules</p>
+<p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">All Modules</p>
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
     {% for module in modules %}
 
@@ -84,10 +246,7 @@
         <h3 class="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">{{ module.title }}</h3>
         <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">{{ module.description }}</p>
         <div class="mt-3 flex items-center gap-1 text-{{ module.color }}-600 dark:text-{{ module.color }}-400 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-            Open
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
+            Open <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
     </a>
 

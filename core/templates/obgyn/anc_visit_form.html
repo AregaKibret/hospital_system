@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}ANC Visit #{{ visit_number }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center gap-3 mb-5">
+  <a href="{% url 'pregnancy_detail' pregnancy.pk %}" class="text-slate-400 hover:text-slate-600 text-sm">← {{ pregnancy.registration_number }}</a>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">{% if edit %}Edit{% else %}Record{% endif %} ANC Visit #{{ visit_number }}</h1>
+</div>
+
+<div class="mb-4 bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-700 rounded-xl p-3 flex items-center gap-3 text-sm">
+  <span class="font-semibold text-slate-800 dark:text-white">{{ pregnancy.patient.full_name }}</span>
+  <span class="text-slate-400">·</span>
+  <span class="text-slate-600 dark:text-slate-300">{{ pregnancy.registration_number }}</span>
+  <span class="text-slate-400">·</span>
+  <span class="text-pink-600 font-medium">{{ pregnancy.ga_display }} GA</span>
+  <span class="text-slate-400">·</span>
+  <span>EDD: {{ pregnancy.edd|default:"—" }}</span>
+</div>
+
+{% if messages %}{% for m in messages %}<div class="mb-3 p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200">{{ m }}</div>{% endfor %}{% endif %}
+
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+
+  <!-- Visit Date & GA -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Visit Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Visit Date *</label>
+        <input name="visit_date" type="date" value="{{ anc.visit_date|default:today }}" required class="date-picker">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">GA Weeks</label>
+        <input name="ga_weeks" type="number" min="4" max="44" value="{{ anc.ga_weeks|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">GA Days</label>
+        <input name="ga_days" type="number" min="0" max="6" value="{{ anc.ga_days|default:0 }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Weight (kg)</label>
+        <input name="weight_kg" type="number" step="0.1" value="{{ anc.weight_kg|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Vitals -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Vital Signs</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Systolic</label>
+        <input name="bp_systolic" type="number" value="{{ anc.bp_systolic|default:'' }}" placeholder="mmHg">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">BP Diastolic</label>
+        <input name="bp_diastolic" type="number" value="{{ anc.bp_diastolic|default:'' }}" placeholder="mmHg">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Pulse (bpm)</label>
+        <input name="pulse" type="number" value="{{ anc.pulse|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Temperature (°C)</label>
+        <input name="temperature" type="number" step="0.1" value="{{ anc.temperature|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Obstetric Exam -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Obstetric Examination</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Fundal Height (cm)</label>
+        <input name="fundal_height_cm" type="number" step="0.5" value="{{ anc.fundal_height_cm|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Presentation</label>
+        <select name="presentation">
+          {% for val, label in presentation_choices %}
+          <option value="{{ val }}" {% if anc.presentation == val %}selected{% elif not anc and val == 'unknown' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">FHR (bpm)</label>
+        <input name="fetal_heart_rate" type="number" value="{{ anc.fetal_heart_rate|default:'' }}">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">FHR Status</label>
+        <select name="fhr_status">
+          {% for val, label in fhr_choices %}
+          <option value="{{ val }}" {% if anc.fhr_status == val %}selected{% elif not anc and val == 'na' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Fetal Movement</label>
+        <select name="fetal_movement">
+          <option value="">Not Assessed</option>
+          <option value="1" {% if anc.fetal_movement %}selected{% endif %}>Present</option>
+          <option value="0" {% if anc.fetal_movement is False %}selected{% endif %}>Absent</option>
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Oedema</label>
+        <input name="oedema" type="text" value="{{ anc.oedema|default:'' }}" placeholder="e.g. Nil, +1 pitting">
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Urine Protein</label>
+        <select name="urine_protein">
+          <option value="">Not Tested</option>
+          <option value="negative" {% if anc.urine_protein == 'negative' %}selected{% endif %}>Negative</option>
+          <option value="trace" {% if anc.urine_protein == 'trace' %}selected{% endif %}>Trace</option>
+          <option value="+1" {% if anc.urine_protein == '+1' %}selected{% endif %}>+1</option>
+          <option value="+2" {% if anc.urine_protein == '+2' %}selected{% endif %}>+2</option>
+          <option value="+3" {% if anc.urine_protein == '+3' %}selected{% endif %}>+3</option>
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Urine Glucose</label>
+        <select name="urine_glucose">
+          <option value="">Not Tested</option>
+          <option value="negative" {% if anc.urine_glucose == 'negative' %}selected{% endif %}>Negative</option>
+          <option value="positive" {% if anc.urine_glucose == 'positive' %}selected{% endif %}>Positive</option>
+        </select>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Haemoglobin (g/dL)</label>
+        <input name="hb_level" type="number" step="0.1" value="{{ anc.hb_level|default:'' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Interventions -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Interventions Given</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <label class="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-pink-400 transition-colors">
+        <input type="checkbox" name="iron_given" value="1" class="accent-pink-600" {% if anc.iron_given %}checked{% endif %}>
+        <span class="text-sm text-slate-700 dark:text-slate-300">Iron Supplement</span>
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-pink-400 transition-colors">
+        <input type="checkbox" name="folic_given" value="1" class="accent-pink-600" {% if anc.folic_given %}checked{% endif %}>
+        <span class="text-sm text-slate-700 dark:text-slate-300">Folic Acid</span>
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-pink-400 transition-colors">
+        <input type="checkbox" name="tt_given" value="1" class="accent-pink-600" {% if anc.tt_given %}checked{% endif %}>
+        <span class="text-sm text-slate-700 dark:text-slate-300">TT Vaccination</span>
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-pink-400 transition-colors">
+        <input type="checkbox" name="ipt_given" value="1" class="accent-pink-600" {% if anc.ipt_given %}checked{% endif %}>
+        <span class="text-sm text-slate-700 dark:text-slate-300">IPT</span>
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-pink-400 transition-colors">
+        <input type="checkbox" name="llin_given" value="1" class="accent-pink-600" {% if anc.llin_given %}checked{% endif %}>
+        <span class="text-sm text-slate-700 dark:text-slate-300">LLIN (Bed net)</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Notes & Plan -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Clinical Notes &amp; Plan</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Clinical Notes</label>
+        <textarea name="clinical_notes" rows="4">{{ anc.clinical_notes|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Management Plan</label>
+        <textarea name="management_plan" rows="4">{{ anc.management_plan|default:'' }}</textarea>
+      </div>
+      <div class="field-wrapper">
+        <label class="block text-xs text-slate-500 mb-1">Next Visit Date</label>
+        <input name="next_visit_date" type="date" value="{{ anc.next_visit_date|default:'' }}" class="date-picker">
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="btn btn-primary" data-loading>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      Save ANC Visit
+    </button>
+    <a href="{% url 'pregnancy_detail' pregnancy.pk %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>flatpickr('.date-picker', { dateFormat: 'Y-m-d', allowInput: true });</script>
+{% endblock %}

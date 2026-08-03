@@ -124,6 +124,20 @@
                 </div>
             </div>
 
+            <div class="field-wrapper mb-4">
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                    Specialty
+                    <span class="font-normal text-slate-400 ml-1">(auto-filled from doctor)</span>
+                </label>
+                <select name="specialty" id="appt_specialty"
+                        class="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                    <option value="">— Not specified —</option>
+                    {% for s in specializations %}
+                    <option value="{{ s.id }}" {% if post.specialty == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div class="field-wrapper">
                     <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Chief Complaint</label>
@@ -156,9 +170,10 @@
 
         <!-- Actions -->
         <div class="flex justify-end gap-3">
-            <a href="{% url 'appt_list' %}" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">Cancel</a>
-            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
-                Create Appointment
+            <a href="{% url 'appt_list' %}" class="btn btn-secondary btn-sm">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-sm" data-loading>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Create Appointment
             </button>
         </div>
     </form>
@@ -220,6 +235,14 @@ function loadSlots() {
 // Auto-load slot suggestions when doctor or date changes
 document.getElementById('doctor_id').addEventListener('change', loadSlots);
 document.getElementById('appointment_date').addEventListener('change', loadSlots);
+
+// Auto-select specialty from doctor's primary specialization
+var apptDoctorSpecMap = {{ doctor_specialty_map|safe }};
+document.getElementById('doctor_id').addEventListener('change', function() {
+    var sid = apptDoctorSpecMap[this.value];
+    var sel = document.getElementById('appt_specialty');
+    if (sid && sel) sel.value = String(sid);
+});
 
 // Live patient search (AJAX)
 let patientSearchTimer = null;

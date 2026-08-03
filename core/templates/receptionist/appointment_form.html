@@ -45,21 +45,19 @@
         <span class="text-xs text-blue-600 dark:text-blue-400 font-medium">Pre-selected</span>
       </div>
       {% else %}
-      <!-- Patient live search -->
-      <div class="relative">
+      <!-- Patient live search (PatientPicker widget) -->
+      <div>
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
           Patient <span class="text-red-500">*</span>
         </label>
-        <div class="field-wrapper">
-          <input type="text" id="patient_search" placeholder="Type name, card number, or mobile…"
-                 value="{% if selected_patient %}{{ selected_patient.full_name }} ({{ selected_patient.card_number }}){% endif %}"
-                 autocomplete="off">
-        </div>
-        <div id="patient_results" class="hidden absolute z-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto"></div>
-        <input type="hidden" name="patient" id="patient_id" value="{% if selected_patient %}{{ selected_patient.pk }}{% endif %}">
-        <p id="patient_selected_note" class="mt-1 text-xs {% if selected_patient %}text-emerald-600 dark:text-emerald-400{% else %}text-slate-400{% endif %}">
-          {% if selected_patient %}Selected: {{ selected_patient.full_name }} ({{ selected_patient.card_number }}){% else %}Start typing to search — no patient selected yet.{% endif %}
-        </p>
+        <div data-patient-picker
+             data-name="patient"
+             data-placeholder="Search by name, card number, or phone…"
+             data-actions="false"
+             {% if selected_patient %}
+             data-initial-id="{{ selected_patient.pk }}"
+             data-initial-label="{{ selected_patient.full_name }} ({{ selected_patient.card_number }})"
+             {% endif %}></div>
       </div>
       {% endif %}
     </div>
@@ -210,14 +208,11 @@
 
     <!-- ── Submit ──────────────────────────────────────────────────── -->
     <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-      <button type="submit"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {% if is_edit %}Save Changes{% else %}Create Appointment{% endif %}
       </button>
-      <a href="{% url 'appointment_list' %}"
-         class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
-        Cancel
-      </a>
+      <a href="{% url 'appointment_list' %}" class="btn btn-secondary">Cancel</a>
     </div>
 
   </form>
@@ -227,76 +222,17 @@
 (function () {
   'use strict';
 
-  /* ── 1. Patient live search (AJAX) ─────────────────────────────── */
-  var patientSearchTimer = null;
-  var patientSearchInput = document.getElementById('patient_search');
-  var patientResults = document.getElementById('patient_results');
-  var patientIdInput = document.getElementById('patient_id');
-  var patientSelectedNote = document.getElementById('patient_selected_note');
-
-  if (patientSearchInput && patientResults && patientIdInput && patientSelectedNote) {
-    patientSearchInput.addEventListener('input', function () {
-      var q = this.value.trim();
-      // Typing again invalidates whatever was previously selected.
-      patientIdInput.value = '';
-      patientSelectedNote.textContent = 'Start typing to search — no patient selected yet.';
-      patientSelectedNote.className = 'mt-1 text-xs text-slate-400';
-
-      clearTimeout(patientSearchTimer);
-      if (q.length < 2) {
-        patientResults.classList.add('hidden');
-        patientResults.innerHTML = '';
-        return;
-      }
-      patientSearchTimer = setTimeout(function () {
-        fetch('{% url "appt_patient_search" %}?q=' + encodeURIComponent(q))
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            patientResults.innerHTML = '';
-            if (!data.results || data.results.length === 0) {
-              patientResults.innerHTML = '<div class="px-3 py-2.5 text-sm text-slate-400">No patients found</div>';
-              patientResults.classList.remove('hidden');
-              return;
-            }
-            data.results.forEach(function (p) {
-              var row = document.createElement('div');
-              row.className = 'px-3 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0';
-              row.innerHTML = '<p class="font-medium text-slate-800 dark:text-slate-100">' + p.name + '</p>' +
-                '<p class="text-xs text-slate-400 font-mono">' + p.card_number + (p.mobile ? ' · ' + p.mobile : '') + '</p>';
-              row.addEventListener('click', function () {
-                patientIdInput.value = p.id;
-                patientSearchInput.value = p.name + ' (' + p.card_number + ')';
-                patientSelectedNote.textContent = 'Selected: ' + p.name + ' (' + p.card_number + ')';
-                patientSelectedNote.className = 'mt-1 text-xs text-emerald-600 dark:text-emerald-400';
-                patientResults.classList.add('hidden');
-                patientResults.innerHTML = '';
-              });
-              patientResults.appendChild(row);
-            });
-            patientResults.classList.remove('hidden');
-          })
-          .catch(function () {
-            patientResults.innerHTML = '<div class="px-3 py-2.5 text-sm text-red-500">Search failed — try again.</div>';
-            patientResults.classList.remove('hidden');
-          });
-      }, 250);
-    });
-
-    document.addEventListener('click', function (e) {
-      if (e.target !== patientSearchInput && !patientResults.contains(e.target)) {
-        patientResults.classList.add('hidden');
-      }
-    });
-
-    document.getElementById('appointment-form').addEventListener('submit', function (e) {
-      if (!patientIdInput.value) {
-        e.preventDefault();
-        patientSelectedNote.textContent = 'Please search and select a patient from the list before submitting.';
-        patientSelectedNote.className = 'mt-1 text-xs text-red-500';
-        patientSearchInput.focus();
-      }
-    });
-  }
+  /* ── 1. Patient validation on submit ─────────────────────────── */
+  document.getElementById('appointment-form').addEventListener('submit', function (e) {
+    var patientField = this.querySelector('input[name="patient"][type="hidden"]');
+    if (patientField && !patientField.value) {
+      e.preventDefault();
+      var wrapper = patientField.closest('[data-patient-picker]') || patientField.closest('.hms-pp');
+      var inp = wrapper && wrapper.querySelector('.hms-pp-input');
+      if (inp) { inp.focus(); inp.style.borderColor = '#ef4444'; }
+      alert('Please search and select a patient before submitting.');
+    }
+  });
 
   /* ── 2. Doctor → Department hint & auto-fill ───────────────────── */
   var doctorSelect = document.getElementById('doctor-select');

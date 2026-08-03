@@ -181,6 +181,404 @@
         [data-theme="ocean"] [data-theme-btn][data-active="true"] {
             background-color: rgba(255,255,255,.9); color: #0e7490;
         }
+
+        /* ── Global Search ─────────────────────────────────────────── */
+        #hms-gsearch-wrap {
+            position: relative;
+        }
+        #hms-gsearch-input {
+            width: 220px;
+            padding: .38rem .75rem .38rem 2.1rem;
+            font-size: .8rem;
+            border: 1px solid #e2e8f0;
+            border-radius: .6rem;
+            background: #f8fafc;
+            color: #1e293b;
+            outline: none;
+            transition: width .2s, border-color .15s, box-shadow .15s;
+        }
+        #hms-gsearch-input:focus {
+            width: 290px;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+            background: #fff;
+        }
+        #hms-gsearch-input::placeholder { color: #94a3b8; }
+        #hms-gsearch-icon {
+            position: absolute; left: .55rem; top: 50%; transform: translateY(-50%);
+            width: 14px; height: 14px; color: #94a3b8; pointer-events: none;
+        }
+        #hms-gsearch-results {
+            position: absolute; top: calc(100% + 6px); left: 0;
+            min-width: 420px; max-width: 500px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: .85rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .gsearch-section-hdr {
+            padding: .45rem .85rem .2rem;
+            font-size: .65rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .06em;
+            color: #94a3b8;
+        }
+        .gsearch-row {
+            display: flex; align-items: center; gap: .6rem;
+            padding: .5rem .85rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .1s;
+        }
+        .gsearch-row:hover { background: #f1f5f9; }
+        .gsearch-row-icon {
+            width: 28px; height: 28px;
+            border-radius: .4rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: .7rem; font-weight: 700; color: #fff;
+        }
+        .gsearch-row-main { font-size: .82rem; font-weight: 600; color: #1e293b; }
+        .gsearch-row-sub  { font-size: .72rem; color: #64748b; }
+        .gsearch-footer {
+            padding: .5rem .85rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: .75rem; color: #6366f1; cursor: pointer;
+            text-align: center;
+        }
+        .gsearch-footer:hover { background: #f8fafc; }
+        /* dark */
+        .dark #hms-gsearch-input {
+            background: #1e293b; border-color: #334155; color: #f1f5f9;
+        }
+        .dark #hms-gsearch-input:focus {
+            border-color: #60a5fa; background: #0f172a;
+            box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+        }
+        .dark #hms-gsearch-results {
+            background: #1e293b; border-color: #334155;
+            box-shadow: 0 8px 32px rgba(0,0,0,.5);
+        }
+        .dark .gsearch-row:hover   { background: #0f172a; }
+        .dark .gsearch-row-main    { color: #f1f5f9; }
+        .dark .gsearch-row-sub     { color: #94a3b8; }
+        .dark .gsearch-section-hdr { color: #475569; }
+        .dark .gsearch-footer { border-color: #334155; color: #818cf8; }
+        .dark .gsearch-footer:hover { background: #0f172a; }
+        /* Patient chart button in search results */
+        .gsearch-chart-btn {
+            flex-shrink: 0;
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 3px 9px;
+            font-size: .68rem; font-weight: 700;
+            color: #2563eb; border: 1.5px solid #bfdbfe;
+            border-radius: .4rem; background: #eff6ff;
+            white-space: nowrap; text-decoration: none;
+            transition: background .12s, border-color .12s;
+            cursor: pointer;
+        }
+        .gsearch-chart-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+        .dark .gsearch-chart-btn { background: #1e3a5f; border-color: #1e40af; color: #93c5fd; }
+        .dark .gsearch-chart-btn:hover { background: #1e40af; }
+        /* ocean */
+        [data-theme="ocean"] #hms-gsearch-input {
+            background: rgba(255,255,255,.15);
+            border-color: rgba(255,255,255,.3);
+            color: #fff;
+        }
+        [data-theme="ocean"] #hms-gsearch-input::placeholder { color: rgba(255,255,255,.6); }
+        [data-theme="ocean"] #hms-gsearch-input:focus {
+            background: rgba(255,255,255,.25);
+            border-color: rgba(255,255,255,.7);
+            box-shadow: 0 0 0 3px rgba(255,255,255,.15);
+        }
+        [data-theme="ocean"] #hms-gsearch-icon { color: rgba(255,255,255,.7); }
+
+        /* ── PatientPicker widget ───────────────────────────────────── */
+        .hms-pp { position: relative; }
+        .hms-pp-field {
+            display: flex; align-items: center;
+            border: 1px solid #cbd5e1; border-radius: .5rem;
+            background: #fff; overflow: hidden;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .hms-pp-field:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+        }
+        .hms-pp-icon { flex-shrink: 0; margin-left: .6rem; color: #94a3b8; width:15px; height:15px; }
+        .hms-pp-input {
+            flex: 1; padding: .5rem .5rem .5rem .4rem;
+            font-size: .875rem; border: none; outline: none;
+            background: transparent; color: #1e293b;
+            min-width: 0;
+        }
+        .hms-pp-input::placeholder { color: #94a3b8; }
+        .hms-pp-spinner { flex-shrink:0; margin-right:.5rem; color:#3b82f6; animation:hms-spin 1s linear infinite; }
+        @keyframes hms-spin { to { transform: rotate(360deg); } }
+        .hms-pp-clear {
+            flex-shrink: 0; margin-right: .35rem;
+            width: 20px; height: 20px; border-radius: 50%;
+            border: none; background: #e2e8f0; color: #64748b;
+            font-size: .8rem; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: background .1s;
+        }
+        .hms-pp-clear:hover { background: #cbd5e1; }
+        .hms-pp-dropdown {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            background: #fff; border: 1px solid #e2e8f0;
+            border-radius: .75rem;
+            box-shadow: 0 8px 28px rgba(0,0,0,.11), 0 2px 6px rgba(0,0,0,.05);
+            z-index: 9000; overflow: hidden; max-height: 360px; overflow-y: auto;
+        }
+        .hms-pp-result {
+            display: flex; align-items: flex-start; gap: .65rem;
+            padding: .6rem .8rem; cursor: pointer;
+            border-bottom: 1px solid #f8fafc;
+            transition: background .1s;
+        }
+        .hms-pp-result:last-child { border-bottom: none; }
+        .hms-pp-result:hover, .hms-pp-result.hms-focused { background: #f1f5f9; }
+        .hms-pp-avatar {
+            width: 36px; height: 36px; border-radius: .5rem;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .8rem; font-weight: 700; color: #fff;
+            flex-shrink: 0;
+        }
+        .hms-pp-info { flex: 1; min-width: 0; }
+        .hms-pp-name { font-size: .83rem; font-weight: 600; color: #1e293b; }
+        .hms-pp-meta { font-size: .72rem; color: #64748b; margin-top: .1rem; }
+        .hms-pp-card { font-size: .7rem; color: #94a3b8; font-family: monospace; }
+        .hms-pp-actions { display: flex; gap: .3rem; margin-top: .35rem; flex-wrap: wrap; }
+        .hms-pp-action-btn {
+            font-size: .65rem; font-weight: 600; padding: .18rem .5rem;
+            border-radius: .35rem; border: 1px solid;
+            cursor: pointer; white-space: nowrap; text-decoration: none;
+            transition: all .1s;
+        }
+        .hms-pp-empty {
+            padding: 1rem; text-align: center;
+            font-size: .82rem; color: #94a3b8;
+        }
+        .hms-pp-footer {
+            padding: .45rem .8rem;
+            border-top: 1px solid #f1f5f9;
+            font-size: .74rem; color: #6366f1;
+            text-align: center;
+        }
+        /* dark mode PatientPicker */
+        .dark .hms-pp-field {
+            background: #334155; border-color: #475569;
+        }
+        .dark .hms-pp-field:focus-within {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96,165,250,.15);
+        }
+        .dark .hms-pp-input { color: #f1f5f9; }
+        .dark .hms-pp-clear { background: #475569; color: #94a3b8; }
+        .dark .hms-pp-clear:hover { background: #64748b; }
+        .dark .hms-pp-dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+        .dark .hms-pp-result { border-bottom-color: #0f172a; }
+        .dark .hms-pp-result:hover, .dark .hms-pp-result.hms-focused { background: #0f172a; }
+        .dark .hms-pp-name { color: #f1f5f9; }
+        .dark .hms-pp-meta { color: #94a3b8; }
+        .dark .hms-pp-card { color: #64748b; }
+        .dark .hms-pp-empty { color: #475569; }
+        .dark .hms-pp-footer { border-top-color: #334155; color: #818cf8; }
+
+        /* ═══════════════════════════════════════════════════════════
+           HMS BUTTON SYSTEM  –  apply globally across all templates
+           ═══════════════════════════════════════════════════════════ */
+
+        /* ── Base ──────────────────────────────────────────────────── */
+        .btn,
+        .btn-primary, .btn-secondary, .btn-success, .btn-warning,
+        .btn-danger, .btn-info, .btn-neutral, .btn-purple, .btn-teal {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: .375rem;
+            font-weight: 600; font-size: .875rem; line-height: 1.25;
+            padding: .5rem 1rem;
+            border-radius: .625rem; border: none;
+            cursor: pointer; text-decoration: none;
+            transition: background .14s, box-shadow .14s, transform .08s, border-color .14s;
+            white-space: nowrap; user-select: none;
+            position: relative; overflow: hidden;
+        }
+        .btn svg { flex-shrink: 0; }
+        .btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+        .btn:active:not(:disabled):not(.btn-loading) { transform: translateY(1px); }
+        .btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+        /* ── Sizes ─────────────────────────────────────────────────── */
+        .btn-xs  { font-size: .7rem;  padding: .2rem .5rem;   gap: .22rem; border-radius: .4rem; }
+        .btn-sm  { font-size: .78rem; padding: .32rem .7rem;  gap: .3rem;  border-radius: .5rem; }
+        .btn-lg  { font-size: 1rem;   padding: .65rem 1.35rem; gap: .45rem; border-radius: .75rem; }
+        .btn-xl  { font-size: 1.05rem;padding: .8rem 1.75rem; gap: .5rem;  border-radius: .85rem; }
+
+        /* ── Icon-only ─────────────────────────────────────────────── */
+        .btn-icon    { padding: .45rem; border-radius: .5rem;  }
+        .btn-icon.btn-sm { padding: .32rem; border-radius: .4rem; }
+        .btn-icon.btn-xs { padding: .2rem;  border-radius: .35rem; }
+        .btn-icon.btn-lg { padding: .6rem;  border-radius: .65rem; }
+
+        /* ── Primary – blue ────────────────────────────────────────── */
+        .btn-primary { background: #2563eb; color: #fff; box-shadow: 0 1px 3px rgba(37,99,235,.25), 0 0 0 1px rgba(37,99,235,.1); }
+        .btn-primary:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+
+        /* ── Secondary – slate/ghost ───────────────────────────────── */
+        .btn-secondary { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: #1e293b; }
+        .dark .btn-secondary { background: #1e293b; color: #cbd5e1; border-color: #334155; }
+        .dark .btn-secondary:hover:not(:disabled) { background: #334155; color: #f1f5f9; border-color: #475569; }
+
+        /* ── Success – green ───────────────────────────────────────── */
+        .btn-success { background: #16a34a; color: #fff; box-shadow: 0 1px 3px rgba(22,163,74,.25); }
+        .btn-success:hover:not(:disabled) { background: #15803d; box-shadow: 0 4px 14px rgba(22,163,74,.35); }
+
+        /* ── Warning – amber ───────────────────────────────────────── */
+        .btn-warning { background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(217,119,6,.25); }
+        .btn-warning:hover:not(:disabled) { background: #b45309; box-shadow: 0 4px 14px rgba(217,119,6,.35); }
+
+        /* ── Danger – red ──────────────────────────────────────────── */
+        .btn-danger  { background: #dc2626; color: #fff; box-shadow: 0 1px 3px rgba(220,38,38,.25); }
+        .btn-danger:hover:not(:disabled)  { background: #b91c1c; box-shadow: 0 4px 14px rgba(220,38,38,.35); }
+
+        /* ── Info – sky ────────────────────────────────────────────── */
+        .btn-info    { background: #0284c7; color: #fff; box-shadow: 0 1px 3px rgba(2,132,199,.25); }
+        .btn-info:hover:not(:disabled)    { background: #0369a1; box-shadow: 0 4px 14px rgba(2,132,199,.35); }
+
+        /* ── Neutral – slate ───────────────────────────────────────── */
+        .btn-neutral { background: #475569; color: #fff; box-shadow: 0 1px 3px rgba(71,85,105,.25); }
+        .btn-neutral:hover:not(:disabled) { background: #334155; box-shadow: 0 4px 14px rgba(71,85,105,.35); }
+
+        /* ── Purple ────────────────────────────────────────────────── */
+        .btn-purple  { background: #7c3aed; color: #fff; box-shadow: 0 1px 3px rgba(124,58,237,.25); }
+        .btn-purple:hover:not(:disabled)  { background: #6d28d9; box-shadow: 0 4px 14px rgba(124,58,237,.35); }
+
+        /* ── Teal ──────────────────────────────────────────────────── */
+        .btn-teal    { background: #0d9488; color: #fff; box-shadow: 0 1px 3px rgba(13,148,136,.25); }
+        .btn-teal:hover:not(:disabled)    { background: #0f766e; box-shadow: 0 4px 14px rgba(13,148,136,.35); }
+
+        /* ── Outline variants ──────────────────────────────────────── */
+        .btn-outline-primary { background: transparent; color: #2563eb; border: 1.5px solid #2563eb; }
+        .btn-outline-primary:hover:not(:disabled) { background: #eff6ff; }
+        .dark .btn-outline-primary { color: #60a5fa; border-color: #60a5fa; }
+        .dark .btn-outline-primary:hover:not(:disabled) { background: rgba(96,165,250,.12); }
+
+        .btn-outline-danger { background: transparent; color: #dc2626; border: 1.5px solid #dc2626; }
+        .btn-outline-danger:hover:not(:disabled) { background: #fef2f2; }
+        .dark .btn-outline-danger { color: #f87171; border-color: #f87171; }
+        .dark .btn-outline-danger:hover:not(:disabled) { background: rgba(248,113,113,.1); }
+
+        .btn-outline-success { background: transparent; color: #16a34a; border: 1.5px solid #16a34a; }
+        .btn-outline-success:hover:not(:disabled) { background: #f0fdf4; }
+        .dark .btn-outline-success { color: #4ade80; border-color: #4ade80; }
+        .dark .btn-outline-success:hover:not(:disabled) { background: rgba(74,222,128,.1); }
+
+        .btn-outline-warning { background: transparent; color: #d97706; border: 1.5px solid #d97706; }
+        .btn-outline-warning:hover:not(:disabled) { background: #fffbeb; }
+        .dark .btn-outline-warning { color: #fbbf24; border-color: #fbbf24; }
+        .dark .btn-outline-warning:hover:not(:disabled) { background: rgba(251,191,36,.1); }
+
+        /* ── Loading state ─────────────────────────────────────────── */
+        .btn-loading { color: transparent !important; pointer-events: none; }
+        .btn-loading::after {
+            content: '';
+            position: absolute; inset: 0;
+            margin: auto;
+            width: 1rem; height: 1rem;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: hms-spin .7s linear infinite;
+        }
+        .btn-loading.btn-secondary::after { border-color: rgba(100,116,139,.3); border-top-color: #475569; }
+        .dark .btn-loading.btn-secondary::after { border-color: rgba(203,213,225,.3); border-top-color: #cbd5e1; }
+
+        /* ── Tooltip for icon buttons ──────────────────────────────── */
+        .hms-tip {
+            position: relative;
+        }
+        .hms-tip::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 5px); left: 50%;
+            transform: translateX(-50%) scale(.9);
+            background: #1e293b; color: #f1f5f9;
+            font-size: .67rem; font-weight: 500; letter-spacing: .01em;
+            padding: .22rem .5rem; border-radius: .35rem;
+            white-space: nowrap; pointer-events: none;
+            opacity: 0; transition: opacity .15s, transform .15s;
+            z-index: 9999;
+        }
+        .hms-tip:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
+        .dark .hms-tip::after { background: #0f172a; border: 1px solid #334155; }
+
+        /* ── Table action cluster ──────────────────────────────────── */
+        .tbl-actions { display: flex; align-items: center; gap: .35rem; flex-wrap: nowrap; justify-content: flex-end; }
+
+        /* ── Quick-action cards ────────────────────────────────────── */
+        .qa-card {
+            display: flex; flex-direction: column;
+            padding: 1.15rem 1.1rem 1rem;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            text-decoration: none; cursor: pointer;
+            transition: transform .18s, box-shadow .18s, border-color .18s;
+        }
+        .qa-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.10); }
+        .qa-card:active { transform: translateY(-1px); }
+        .qa-card-icon {
+            width: 2.4rem; height: 2.4rem;
+            border-radius: .65rem;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: .7rem; flex-shrink: 0;
+        }
+        .qa-card-title { font-size: .85rem; font-weight: 700; color: #1e293b; line-height: 1.2; }
+        .qa-card-desc  { font-size: .7rem; color: #64748b; margin-top: .25rem; line-height: 1.4; }
+        .qa-card-arrow {
+            margin-top: .6rem; font-size: .7rem; font-weight: 600;
+            opacity: 0; transform: translateX(-4px);
+            transition: opacity .18s, transform .18s;
+        }
+        .qa-card:hover .qa-card-arrow { opacity: 1; transform: translateX(0); }
+        .dark .qa-card { background: #1e293b; border-color: #334155; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+        .dark .qa-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.45); border-color: #3b82f6; }
+        .dark .qa-card-title { color: #f1f5f9; }
+        .dark .qa-card-desc  { color: #94a3b8; }
+
+        /* ── Confirmation modal ────────────────────────────────────── */
+        .hms-modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,.5); backdrop-filter: blur(3px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; padding: 1rem;
+            opacity: 0; pointer-events: none;
+            transition: opacity .2s;
+        }
+        .hms-modal-overlay.open { opacity: 1; pointer-events: all; }
+        .hms-modal {
+            background: #fff; border-radius: 1.1rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.1);
+            max-width: 420px; width: 100%;
+            padding: 1.5rem;
+            transform: scale(.95) translateY(8px);
+            transition: transform .2s;
+        }
+        .hms-modal-overlay.open .hms-modal { transform: scale(1) translateY(0); }
+        .hms-modal-icon {
+            width: 3rem; height: 3rem; border-radius: .75rem;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .hms-modal-title { font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: .35rem; }
+        .hms-modal-body  { font-size: .875rem; color: #475569; line-height: 1.55; }
+        .hms-modal-footer { display: flex; gap: .65rem; justify-content: flex-end; margin-top: 1.25rem; }
+        .dark .hms-modal { background: #1e293b; }
+        .dark .hms-modal-title { color: #f1f5f9; }
+        .dark .hms-modal-body  { color: #94a3b8; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 min-h-screen flex flex-col antialiased text-slate-800 dark:text-slate-100 transition-colors duration-200">
@@ -203,8 +601,8 @@
                     </div>
                     {% endif %}
                     <div class="leading-tight">
-                        <div class="ocean-brand-title text-slate-900 dark:text-slate-100 font-bold text-sm tracking-tight">{{ hospital.short_name|default:hospital.name|default:"Hospital" }}</div>
-                        <div class="ocean-brand-sub text-slate-400 dark:text-slate-500 text-xs">{{ hospital.tagline|default:"Management System" }}</div>
+                        <div class="ocean-brand-title text-slate-900 dark:text-slate-100 font-bold text-sm tracking-tight">{% if hospital %}{{ hospital.short_name|default:hospital.name }}{% else %}Hospital{% endif %}</div>
+                        <div class="ocean-brand-sub text-slate-400 dark:text-slate-500 text-xs">{% if hospital %}{{ hospital.tagline }}{% else %}Management System{% endif %}</div>
                     </div>
                 </a>
 
@@ -258,180 +656,249 @@
                                 Modules
                                 <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
-                            <div id="modules-dropdown" class="hidden absolute left-0 top-full mt-1.5 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-1.5 z-50">
-                                <!-- Clinical -->
-                                <p class="px-4 pt-2 pb-1 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Clinical</p>
-                                {% if perms.core.read_appointment %}
-                                <a href="{% url 'receptionist_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    Front Desk
-                                </a>
-                                <a href="{% url 'consultation_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                    Appointments
-                                </a>
-                                {% endif %}
-                                {% if perms.core.write_clinical_note %}
-                                <a href="{% url 'doctor_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                    Doctor
-                                </a>
-                                {% endif %}
-                                {% if perms.core.perform_triage %}
-                                <a href="{% url 'triage_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                    Triage
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_queue %}
-                                <a href="{% url 'queue_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                                    Queue Management
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_lab_request %}
-                                <a href="{% url 'lab_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-                                    Laboratory
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_imaging_request %}
-                                <a href="{% url 'radiology_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
-                                    Radiology
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_anesthesia_record %}
-                                <a href="{% url 'anesthesia_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                                    Anesthesia
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_surgery %}
-                                <a href="{% url 'surgery_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
-                                    Surgery
-                                </a>
-                                <a href="{% url 'or_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                    OR Scheduling
-                                </a>
-                                {% endif %}
-                                {% if perms.core.view_patient_flow %}
-                                <a href="{% url 'patient_flow_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Patient Flow
-                                </a>
-                                {% endif %}
-                                {% if perms.core.view_nursing_dashboard %}
-                                <a href="{% url 'nursing_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                    Nursing Dashboard
-                                </a>
-                                {% endif %}
-                                {% if perms.core.view_admission_dashboard %}
-                                <a href="{% url 'admission_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                                    Admission
-                                </a>
-                                {% endif %}
-                                <!-- Operations -->
-                                <div class="my-1 border-t border-slate-100 dark:border-slate-700"></div>
-                                <p class="px-4 pt-1.5 pb-1 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Operations</p>
-                                {% if perms.core.read_medication_inventory %}
-                                <a href="{% url 'pharmacy_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                                    Pharmacy
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_billing %}
-                                <a href="{% url 'billing_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                    Billing
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_inventory %}
-                                <a href="{% url 'inventory_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                                    Inventory
-                                </a>
-                                {% endif %}
-                                {% if perms.core.perform_stock_count %}
-                                <a href="{% url 'physical_count_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
-                                    Physical Inventory Count
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_inventory_periods %}
-                                <a href="{% url 'inventory_period_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    Inventory Periods
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_medication_inventory %}
-                                <a href="{% url 'med_inventory_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
-                                    Medication Inventory
-                                </a>
-                                {% endif %}
-                                {% if perms.core.view_dept_inventory %}
-                                <a href="{% url 'dept_pharmacy_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                                    Dept Pharmacy
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_employee %}
-                                <a href="{% url 'hr_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                    Human Resources
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_clinical_reports %}
-                                <a href="{% url 'reports_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                                    Reports & Analytics
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_users %}
-                                <div class="my-1 border-t border-slate-100 dark:border-slate-700"></div>
-                                <a href="{% url 'user_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                                    User Management
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_roles %}
-                                <a href="{% url 'role_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                    Role Management
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_departments %}
-                                <a href="{% url 'dept_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                    Departments
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_card_types %}
-                                <a href="{% url 'card_type_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                                    Card & Consultation Types
-                                </a>
-                                {% endif %}
-                                {% if perms.core.manage_specializations %}
-                                <a href="{% url 'specialization_list' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                                    Specializations
-                                </a>
-                                {% endif %}
-                                {% if perms.core.read_audit_log %}
-                                <a href="{% url 'audit_dashboard' %}" class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                                    Audit Logs
-                                </a>
-                                {% endif %}
+                            <!-- Mega menu: horizontal columns -->
+                            <div id="modules-dropdown" class="hidden absolute left-0 top-full mt-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50" style="min-width:680px;max-width:900px;">
+                                <div class="flex divide-x divide-slate-100 dark:divide-slate-700 p-2">
+
+                                    <!-- Column 1: Clinical -->
+                                    <div class="flex-1 px-2 py-1 min-w-0">
+                                        <p class="px-2 pt-1 pb-2 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Clinical</p>
+                                        {% if perms.core.read_appointment %}
+                                        <a href="{% url 'receptionist_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            Front Desk
+                                        </a>
+                                        <a href="{% url 'consultation_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-cyan-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                            Appointments
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.write_clinical_note %}
+                                        <a href="{% url 'doctor_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                            Doctor
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.perform_triage %}
+                                        <a href="{% url 'triage_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                            Triage
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_queue %}
+                                        <a href="{% url 'queue_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                                            Queue
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_lab_request %}
+                                        <a href="{% url 'lab_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                            Laboratory
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_imaging_request %}
+                                        <a href="{% url 'radiology_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                                            Radiology
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_nursing_dashboard %}
+                                        <a href="{% url 'nursing_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-pink-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            Nursing
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_patient_flow %}
+                                        <a href="{% url 'patient_flow_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            Patient Flow
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_specialty_referral %}
+                                        <a href="{% url 'referral_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                            Referrals
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_admission_dashboard %}
+                                        <a href="{% url 'admission_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-cyan-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                            Admission
+                                        </a>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Column 2: Specialty & Theatre -->
+                                    <div class="flex-1 px-2 py-1 min-w-0">
+                                        <p class="px-2 pt-1 pb-2 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Specialties</p>
+                                        {% if perms.core.view_obgyn_dashboard %}
+                                        <a href="{% url 'obgyn_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                            OB/GYN
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_im_dashboard %}
+                                        <a href="{% url 'im_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                            Internal Medicine
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_peds_dashboard %}
+                                        <a href="{% url 'peds_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            Pediatrics
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_surgery_consult_dashboard %}
+                                        <a href="{% url 'surgery_consult_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            General Surgery
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_cardiology_dashboard %}
+                                        <a href="{% url 'cardiology_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                            Cardiology
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_anesthesia_record %}
+                                        <a href="{% url 'anesthesia_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-rose-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                            Anesthesia
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_surgery %}
+                                        <a href="{% url 'surgery_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                                            Surgery / OR
+                                        </a>
+                                        <a href="{% url 'or_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            OR Scheduling
+                                        </a>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Column 3: Operations -->
+                                    <div class="flex-1 px-2 py-1 min-w-0">
+                                        <p class="px-2 pt-1 pb-2 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Operations</p>
+                                        {% if perms.core.read_medication_inventory %}
+                                        <a href="{% url 'pharmacy_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                            Pharmacy
+                                        </a>
+                                        <a href="{% url 'med_inventory_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-teal-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+                                            Med. Inventory
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_billing %}
+                                        <a href="{% url 'billing_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                            Billing
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_inventory %}
+                                        <a href="{% url 'inventory_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                                            Inventory
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.perform_stock_count %}
+                                        <a href="{% url 'physical_count_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                                            Physical Count
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_inventory_periods %}
+                                        <a href="{% url 'inventory_period_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            Inventory Periods
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_dept_inventory %}
+                                        <a href="{% url 'dept_pharmacy_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                            Dept Pharmacy
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_employee %}
+                                        <a href="{% url 'hr_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-cyan-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            Human Resources
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_clinical_reports %}
+                                        <a href="{% url 'reports_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                            Reports &amp; Analytics
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.view_specialty_reports %}
+                                        <a href="{% url 'specialty_reports' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                            Specialty Reports
+                                        </a>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Column 4: Administration -->
+                                    <div class="flex-1 px-2 py-1 min-w-0">
+                                        <p class="px-2 pt-1 pb-2 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Administration</p>
+                                        {% if perms.core.manage_users %}
+                                        <a href="{% url 'user_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                            Users
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_roles %}
+                                        <a href="{% url 'role_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                            Roles
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_departments %}
+                                        <a href="{% url 'dept_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            Departments
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_card_types %}
+                                        <a href="{% url 'card_type_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                            Card Types
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.manage_specializations %}
+                                        <a href="{% url 'specialization_list' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                            Specializations
+                                        </a>
+                                        {% endif %}
+                                        {% if perms.core.read_audit_log %}
+                                        <a href="{% url 'audit_dashboard' %}" class="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap">
+                                            <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                                            Audit Logs
+                                        </a>
+                                        {% endif %}
+                                    </div>
+
+                                </div>
                             </div>
                         </div>
                     </nav>
+
+                    <!-- Global search -->
+                    {% if user.is_authenticated and perms.core.view_patient %}
+                    <div id="hms-gsearch-wrap" class="relative hidden md:block">
+                        <svg id="hms-gsearch-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input id="hms-gsearch-input" type="text" placeholder="Search patients, doctors…" autocomplete="off" aria-label="Global search">
+                        <div id="hms-gsearch-results" class="hidden"></div>
+                    </div>
+                    {% endif %}
 
                     <!-- Theme toggle -->
                     <div id="theme-toggle" aria-label="Switch theme">
@@ -662,6 +1129,8 @@
                 var el = document.getElementById(name + '-dropdown');
                 if (el) el.classList.add('hidden');
             });
+            var gs = document.getElementById('hms-gsearch-results');
+            if (gs) gs.classList.add('hidden');
             _activeDropdown = null;
         }
 
@@ -683,7 +1152,8 @@
             var inPatients = document.getElementById('patients-wrap') && document.getElementById('patients-wrap').contains(e.target);
             var inModules = document.getElementById('modules-wrap') && document.getElementById('modules-wrap').contains(e.target);
             var inUser = document.getElementById('user-menu-wrap') && document.getElementById('user-menu-wrap').contains(e.target);
-            if (!inPatients && !inModules && !inUser) {
+            var inGSearch = document.getElementById('hms-gsearch-wrap') && document.getElementById('hms-gsearch-wrap').contains(e.target);
+            if (!inPatients && !inModules && !inUser && !inGSearch) {
                 closeAllDropdowns();
             }
         });
@@ -731,7 +1201,344 @@
     })();
     </script>
 
+    <!-- ── PatientPicker + GlobalSearch ──────────────────────────────────── -->
+    <script>
+    (function () {
+        'use strict';
+
+        var AVATAR_COLORS = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899'];
+        function avatarColor(name) {
+            var code = 0;
+            for (var i = 0; i < name.length; i++) code += name.charCodeAt(i);
+            return AVATAR_COLORS[code % AVATAR_COLORS.length];
+        }
+        function initials(name) {
+            var parts = (name || '').trim().split(/\s+/);
+            return (parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : '');
+        }
+        function esc(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function debounce(fn, ms) {
+            var t; return function() { clearTimeout(t); t = setTimeout(fn.bind(this, ...arguments), ms); };
+        }
+
+        /* ─────────────────── PatientPicker ─────────────────────────── */
+        function buildResultHTML(p, actions) {
+            var bg = avatarColor(p.full_name || '');
+            var ini = initials(p.full_name || '').toUpperCase() || '?';
+            var meta = [p.age, p.sex, p.mobile].filter(Boolean).join(' · ');
+            var lastV = p.last_visit ? (p.last_visit + (p.doctor ? ' · Dr. ' + esc(p.doctor) : '')) : '';
+            var html = '<div class="hms-pp-avatar" style="background:' + bg + '">' + esc(ini) + '</div>'
+                + '<div class="hms-pp-info">'
+                + '<div class="hms-pp-name">' + esc(p.full_name) + '</div>'
+                + '<div class="hms-pp-card">' + esc(p.card_number) + '</div>'
+                + (meta ? '<div class="hms-pp-meta">' + esc(meta) + '</div>' : '')
+                + (lastV ? '<div class="hms-pp-meta" style="margin-top:.1rem">' + esc(lastV) + '</div>' : '');
+            if (actions && actions.length) {
+                html += '<div class="hms-pp-actions">';
+                actions.forEach(function(a) {
+                    html += '<a href="' + esc(a.url) + '" class="hms-pp-action-btn" '
+                        + 'style="color:' + a.color + ';border-color:' + a.color + '"'
+                        + ' onclick="event.stopPropagation()">'
+                        + esc(a.label) + '</a>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function getActions(p) {
+            {% if perms.core.add_visit %}
+            return [
+                { label: 'Create Visit',  color: '#3b82f6', url: '/create-visit/' + p.id + '/' },
+                { label: 'Appointment',   color: '#8b5cf6', url: '/receptionist/appointments/new/?patient=' + p.id },
+                { label: 'View History',  color: '#64748b', url: '/patient-search/?q=' + encodeURIComponent(p.card_number) },
+            ];
+            {% else %}
+            return [
+                { label: 'View History', color: '#64748b', url: '/patient-search/?q=' + encodeURIComponent(p.card_number) },
+            ];
+            {% endif %}
+        }
+
+        function PatientPicker(container) {
+            var fieldName    = container.dataset.name        || 'patient';
+            var placeholder  = container.dataset.placeholder || 'Search patient by name, card #, phone…';
+            var initialId    = container.dataset.initialId   || '';
+            var initialLabel = container.dataset.initialLabel || '';
+            var showActions  = container.dataset.actions !== 'false';
+
+            container.innerHTML =
+                '<div class="hms-pp">'
+                + '<div class="hms-pp-field">'
+                + '<svg class="hms-pp-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>'
+                + '<input class="hms-pp-input" type="text" placeholder="' + esc(placeholder) + '" value="' + esc(initialLabel) + '" autocomplete="off">'
+                + '<svg class="hms-pp-spinner hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'
+                + '<button class="hms-pp-clear hidden" type="button" title="Clear" aria-label="Clear selection">×</button>'
+                + '</div>'
+                + '<input class="hms-pp-value" type="hidden" name="' + esc(fieldName) + '" value="' + esc(initialId) + '">'
+                + '<div class="hms-pp-dropdown hidden"></div>'
+                + '</div>';
+
+            var wrap    = container.querySelector('.hms-pp');
+            var input   = wrap.querySelector('.hms-pp-input');
+            var hidden  = wrap.querySelector('.hms-pp-value');
+            var spinner = wrap.querySelector('.hms-pp-spinner');
+            var clear   = wrap.querySelector('.hms-pp-clear');
+            var drop    = wrap.querySelector('.hms-pp-dropdown');
+            var focusIdx = -1;
+
+            if (initialId) clear.classList.remove('hidden');
+
+            function select(p) {
+                input.value = p.full_name + ' (' + p.card_number + ')';
+                hidden.value = p.id;
+                clear.classList.remove('hidden');
+                drop.classList.add('hidden');
+                focusIdx = -1;
+                var evt = new Event('change', { bubbles: true });
+                hidden.dispatchEvent(evt);
+            }
+
+            function clearSelection() {
+                input.value = '';
+                hidden.value = '';
+                clear.classList.add('hidden');
+                drop.classList.add('hidden');
+                input.focus();
+            }
+
+            function renderResults(patients) {
+                if (!patients.length) {
+                    drop.innerHTML = '<div class="hms-pp-empty">No matching patients found.</div>';
+                } else {
+                    drop.innerHTML = patients.map(function(p, i) {
+                        var actions = showActions ? getActions(p) : [];
+                        return '<div class="hms-pp-result" data-idx="' + i + '">' + buildResultHTML(p, actions) + '</div>';
+                    }).join('') + '<div class="hms-pp-footer"><a href="/patient-search/?q=' + encodeURIComponent(input.value.trim()) + '" style="color:inherit;text-decoration:none">View all results →</a></div>';
+                    drop.querySelectorAll('.hms-pp-result').forEach(function(row, i) {
+                        row.addEventListener('click', function() { select(patients[i]); });
+                    });
+                }
+                drop.classList.remove('hidden');
+                focusIdx = -1;
+            }
+
+            var search = debounce(function(q) {
+                if (q.length < 2) { drop.classList.add('hidden'); spinner.classList.add('hidden'); return; }
+                spinner.classList.remove('hidden');
+                fetch('/api/patients/search/?q=' + encodeURIComponent(q) + '&limit=8')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) { spinner.classList.add('hidden'); renderResults(data.patients || []); })
+                    .catch(function() { spinner.classList.add('hidden'); });
+            }, 300);
+
+            input.addEventListener('input', function() { search(input.value.trim()); });
+            input.addEventListener('focus', function() { if (input.value.length >= 2) search(input.value.trim()); });
+
+            input.addEventListener('keydown', function(e) {
+                var rows = drop.querySelectorAll('.hms-pp-result');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    focusIdx = Math.min(focusIdx + 1, rows.length - 1);
+                    rows.forEach(function(r, i) { r.classList.toggle('hms-focused', i === focusIdx); });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    focusIdx = Math.max(focusIdx - 1, 0);
+                    rows.forEach(function(r, i) { r.classList.toggle('hms-focused', i === focusIdx); });
+                } else if (e.key === 'Enter' && focusIdx >= 0) {
+                    e.preventDefault();
+                    rows[focusIdx] && rows[focusIdx].click();
+                } else if (e.key === 'Escape') {
+                    drop.classList.add('hidden');
+                }
+            });
+
+            clear.addEventListener('click', clearSelection);
+
+            document.addEventListener('click', function(e) {
+                if (!wrap.contains(e.target)) drop.classList.add('hidden');
+            });
+        }
+
+        /* ─────────────────── GlobalSearch ──────────────────────────── */
+        var HMS_CAN_VIEW_CHART = {% if perms.core.read_clinical_note %}true{% else %}false{% endif %};
+        var gsInput   = document.getElementById('hms-gsearch-input');
+        var gsResults = document.getElementById('hms-gsearch-results');
+        if (gsInput && gsResults) {
+            var gsSearch = debounce(function(q) {
+                if (q.length < 2) { gsResults.classList.add('hidden'); return; }
+                fetch('/api/global-search/?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) { renderGS(data, q); })
+                    .catch(function() {});
+            }, 280);
+
+            gsInput.addEventListener('input', function() { gsSearch(gsInput.value.trim()); });
+            gsInput.addEventListener('focus', function() { if (gsInput.value.length >= 2) gsSearch(gsInput.value.trim()); });
+            gsInput.addEventListener('keydown', function(e) { if (e.key === 'Escape') gsResults.classList.add('hidden'); });
+
+            function renderGS(data, q) {
+                var html = '';
+                var total = 0;
+                if (data.patients && data.patients.length) {
+                    html += '<div class="gsearch-section-hdr">Patients</div>';
+                    data.patients.slice(0, 5).forEach(function(p) {
+                        var bg = avatarColor(p.full_name || '');
+                        var ini = initials(p.full_name || '').toUpperCase() || '?';
+                        var sub = [p.card_number, p.age, p.sex].filter(Boolean).join(' · ');
+                        var searchUrl = '/patient-search/?q=' + encodeURIComponent(p.card_number);
+                        var chartBtn = HMS_CAN_VIEW_CHART
+                            ? '<a href="/doctor/patient/' + p.id + '/history/" onclick="event.stopPropagation()" class="gsearch-chart-btn">'
+                              + '<svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'
+                              + 'View Chart</a>'
+                            : '';
+                        html += '<div class="gsearch-row" style="cursor:pointer" onclick="location.href=\'' + searchUrl + '\'">'
+                            + '<div class="gsearch-row-icon" style="background:' + bg + '">' + esc(ini) + '</div>'
+                            + '<div style="flex:1;min-width:0">'
+                            + '<div class="gsearch-row-main">' + esc(p.full_name) + '</div>'
+                            + '<div class="gsearch-row-sub">' + esc(sub) + '</div>'
+                            + '</div>'
+                            + chartBtn
+                            + '</div>';
+                        total++;
+                    });
+                }
+                if (data.doctors && data.doctors.length) {
+                    html += '<div class="gsearch-section-hdr">Doctors</div>';
+                    data.doctors.slice(0, 3).forEach(function(d) {
+                        html += '<a href="/settings/doctors/' + d.id + '/edit/" class="gsearch-row">'
+                            + '<div class="gsearch-row-icon" style="background:#8b5cf6">Dr</div>'
+                            + '<div><div class="gsearch-row-main">Dr. ' + esc(d.full_name) + '</div>'
+                            + '<div class="gsearch-row-sub">' + esc(d.specialization || '') + '</div></div></a>';
+                        total++;
+                    });
+                }
+                if (data.invoices && data.invoices.length) {
+                    html += '<div class="gsearch-section-hdr">Invoices</div>';
+                    data.invoices.slice(0, 3).forEach(function(inv) {
+                        html += '<a href="/billing/invoices/' + inv.id + '/" class="gsearch-row">'
+                            + '<div class="gsearch-row-icon" style="background:#10b981">$</div>'
+                            + '<div><div class="gsearch-row-main">' + esc(inv.invoice_number) + '</div>'
+                            + '<div class="gsearch-row-sub">' + esc(inv.patient_name || '') + '</div></div></a>';
+                        total++;
+                    });
+                }
+                if (!total) {
+                    html = '<div class="gsearch-section-hdr" style="padding:.85rem;text-align:center">No results for "' + esc(q) + '"</div>';
+                } else {
+                    html += '<div class="gsearch-footer" onclick="location.href=\'/patient-search/?q=\' + encodeURIComponent(gsInput.value)">See all results →</div>';
+                }
+                gsResults.innerHTML = html;
+                gsResults.classList.remove('hidden');
+            }
+        }
+
+        /* ─────────────────── Init pickers on page load ─────────────── */
+        function initPickers() {
+            document.querySelectorAll('[data-patient-picker]').forEach(function(el) {
+                if (!el.dataset.ppInit) {
+                    el.dataset.ppInit = '1';
+                    PatientPicker(el);
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPickers);
+        } else {
+            initPickers();
+        }
+
+        window.HMS = window.HMS || {};
+        window.HMS.PatientPicker = PatientPicker;
+        window.HMS.initPatientPickers = initPickers;
+    })();
+    </script>
+
     {% block extra_js %}{% endblock %}
+
+    <!-- ── HMS Confirm Modal ──────────────────────────────────────────────── -->
+    <div id="hms-confirm-overlay" class="hms-modal-overlay" role="dialog" aria-modal="true">
+      <div class="hms-modal">
+        <div class="hms-modal-icon" id="hms-confirm-icon-wrap">
+          <svg id="hms-confirm-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <p class="hms-modal-title" id="hms-confirm-title">Are you sure?</p>
+        <p class="hms-modal-body"  id="hms-confirm-body">This action cannot be undone.</p>
+        <div class="hms-modal-footer">
+          <button class="btn btn-secondary btn-sm" onclick="HMS.confirmClose()">Cancel</button>
+          <button class="btn btn-sm" id="hms-confirm-ok" onclick="HMS.confirmOk()">Confirm</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function() {
+      var overlay = document.getElementById('hms-confirm-overlay');
+      var _resolve = null;
+
+      HMS.confirm = function(opts) {
+        opts = opts || {};
+        var title   = opts.title   || 'Are you sure?';
+        var body    = opts.body    || 'This action cannot be undone.';
+        var okLabel = opts.ok      || 'Confirm';
+        var okCls   = opts.danger  ? 'btn-danger' : (opts.success ? 'btn-success' : 'btn-primary');
+        var iconColor = opts.danger ? '#dc2626' : (opts.success ? '#16a34a' : '#3b82f6');
+        var iconBg    = opts.danger ? '#fef2f2' : (opts.success ? '#f0fdf4' : '#eff6ff');
+
+        document.getElementById('hms-confirm-title').textContent = title;
+        document.getElementById('hms-confirm-body').textContent  = body;
+        var okBtn = document.getElementById('hms-confirm-ok');
+        okBtn.textContent = okLabel;
+        okBtn.className = 'btn btn-sm ' + okCls;
+        var iconWrap = document.getElementById('hms-confirm-icon-wrap');
+        iconWrap.style.background = iconBg;
+        iconWrap.querySelector('svg').style.color = iconColor;
+        overlay.classList.add('open');
+        return new Promise(function(res) { _resolve = res; });
+      };
+
+      HMS.confirmOk    = function() { overlay.classList.remove('open'); if (_resolve) { _resolve(true);  _resolve = null; } };
+      HMS.confirmClose = function() { overlay.classList.remove('open'); if (_resolve) { _resolve(false); _resolve = null; } };
+
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) HMS.confirmClose(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape') HMS.confirmClose(); });
+
+      /* Auto-wire all data-confirm buttons/links */
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-confirm]').forEach(function(el) {
+          el.addEventListener('click', async function(e) {
+            e.preventDefault();
+            var ok = await HMS.confirm({
+              title:   el.dataset.confirmTitle   || 'Are you sure?',
+              body:    el.dataset.confirmBody    || el.dataset.confirm || 'This action cannot be undone.',
+              ok:      el.dataset.confirmOk      || 'Confirm',
+              danger:  el.dataset.confirmDanger  !== undefined,
+              success: el.dataset.confirmSuccess !== undefined,
+            });
+            if (!ok) return;
+            if (el.tagName === 'A') { window.location.href = el.href; }
+            else if (el.type === 'submit') { el.form && el.form.submit(); }
+            else if (el.dataset.confirmHref) { window.location.href = el.dataset.confirmHref; }
+          });
+        });
+
+        /* Auto-wire btn-loading on form submit buttons */
+        document.querySelectorAll('form').forEach(function(form) {
+          form.addEventListener('submit', function() {
+            form.querySelectorAll('[data-loading]').forEach(function(btn) {
+              btn.classList.add('btn-loading');
+              btn.disabled = true;
+            });
+          });
+        });
+      });
+    })();
+    </script>
 
     {% if user.is_authenticated %}
     <script>

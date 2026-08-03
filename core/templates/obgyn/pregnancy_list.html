@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Pregnancies{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Pregnancy Register</h1>
+  <a href="{% url 'pregnancy_register' %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium rounded-lg transition-colors">
+    + Register Pregnancy
+  </a>
+</div>
+
+<!-- Filters -->
+<form method="get" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-end">
+  <div class="flex-1 min-w-48">
+    <label class="block text-xs font-medium text-slate-500 mb-1">Search</label>
+    <input name="q" value="{{ q }}" placeholder="Name, card no., ANC no…" class="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-400">
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
+    <select name="status" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-400">
+      <option value="">All</option>
+      {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white text-sm rounded-lg">Filter</button>
+  <a href="{% url 'pregnancy_list' %}" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">Clear</a>
+</form>
+
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500 font-semibold">
+      <tr>
+        <th class="px-4 py-3 text-left">ANC No.</th>
+        <th class="px-4 py-3 text-left">Patient</th>
+        <th class="px-4 py-3 text-left">GPALS</th>
+        <th class="px-4 py-3 text-left">LMP</th>
+        <th class="px-4 py-3 text-left">EDD</th>
+        <th class="px-4 py-3 text-left">GA</th>
+        <th class="px-4 py-3 text-left">Status</th>
+        <th class="px-4 py-3 text-left">Registered</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+      {% for preg in page_obj %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+        <td class="px-4 py-3 font-mono font-medium text-slate-800 dark:text-white">{{ preg.registration_number }}</td>
+        <td class="px-4 py-3">
+          <p class="font-medium text-slate-800 dark:text-white">{{ preg.patient.full_name }}</p>
+          <p class="text-xs text-slate-400">{{ preg.patient.card_number }}</p>
+        </td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">G{{ preg.gravida }}P{{ preg.para }}A{{ preg.abortion }}L{{ preg.living_children }}</td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ preg.lmp|default:"—" }}</td>
+        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ preg.edd|default:"—" }}</td>
+        <td class="px-4 py-3 font-medium text-pink-600">{% if preg.status == 'active' %}{{ preg.ga_display }}{% else %}—{% endif %}</td>
+        <td class="px-4 py-3">
+          <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium
+            {% if preg.status == 'active' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+            {% elif preg.status == 'delivered' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+            {% elif preg.status == 'aborted' %}bg-red-100 text-red-600
+            {% else %}bg-slate-100 text-slate-600{% endif %}">
+            {{ preg.get_status_display }}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-xs text-slate-400">{{ preg.created_at|date:"d M Y" }}</td>
+        <td class="px-4 py-3">
+          <a href="{% url 'pregnancy_detail' preg.pk %}" class="text-xs text-blue-600 hover:underline">View</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">No pregnancies found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-center gap-2 mt-4">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}" class="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">← Prev</a>{% endif %}
+  <span class="text-sm text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}" class="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Next →</a>{% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} IM Consultation{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+
+  <div>
+    <a href="{% url 'im_consultation_list' %}" class="text-sm text-indigo-600 hover:underline">&larr; Consultations</a>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mt-2">{{ action }} Consultation</h1>
+  </div>
+
+  <form method="post" id="consult-form">
+    {% csrf_token %}
+
+    <!-- Patient Search -->
+    {% if not consult %}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Patient</h2>
+      <input type="text" id="patient-search" placeholder="Search by name or card number…" autocomplete="off"
+             class="form-input w-full" {% if patient %}value="{{ patient }}"{% endif %}>
+      <input type="hidden" name="patient_id" id="patient_id" value="{% if patient %}{{ patient.pk }}{% endif %}">
+      <div id="patient-results" class="mt-2 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 hidden bg-white dark:bg-slate-800 shadow-lg z-10 max-h-48 overflow-y-auto"></div>
+      {% if patient %}<p class="text-xs text-emerald-600 mt-2">Selected: <strong>{{ patient }}</strong></p>{% endif %}
+    </div>
+    {% else %}
+    <input type="hidden" name="patient_id" value="{{ consult.patient.pk }}">
+    <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 text-sm text-slate-600 dark:text-slate-400">
+      Patient: <strong>{{ consult.patient }}</strong> ({{ consult.patient.card_number }})
+    </div>
+    {% endif %}
+
+    <!-- Consultation Type -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Consultation Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="form-label">Date *</label>
+          <input type="date" name="consultation_date" required class="form-input w-full" value="{{ consult.consultation_date|default:today }}">
+        </div>
+        <div>
+          <label class="form-label">Clinic Type *</label>
+          <select name="clinic_type" class="form-input w-full">
+            {% for val,label in clinic_choices %}<option value="{{ val }}" {% if consult.clinic_type == val or post.clinic_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Visit Type</label>
+          <select name="visit_type" class="form-input w-full">
+            {% for val,label in visit_type_choices %}<option value="{{ val }}" {% if consult.visit_type == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitals -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Vitals</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div>
+          <label class="form-label">BP Systolic</label>
+          <input type="number" name="bp_systolic" class="form-input w-full" placeholder="mmHg" value="{{ consult.bp_systolic|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">BP Diastolic</label>
+          <input type="number" name="bp_diastolic" class="form-input w-full" placeholder="mmHg" value="{{ consult.bp_diastolic|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">Pulse (bpm)</label>
+          <input type="number" name="pulse" class="form-input w-full" value="{{ consult.pulse|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">Temp (°C)</label>
+          <input type="number" step="0.1" name="temperature" class="form-input w-full" value="{{ consult.temperature|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">SpO₂ (%)</label>
+          <input type="number" name="spo2" class="form-input w-full" value="{{ consult.spo2|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">RR (/min)</label>
+          <input type="number" name="rr" class="form-input w-full" value="{{ consult.rr|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">Weight (kg)</label>
+          <input type="number" step="0.1" name="weight_kg" class="form-input w-full" value="{{ consult.weight_kg|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">Height (cm)</label>
+          <input type="number" step="0.1" name="height_cm" class="form-input w-full" value="{{ consult.height_cm|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">FBS (mmol/L)</label>
+          <input type="number" step="0.1" name="fbs" class="form-input w-full" value="{{ consult.fbs|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">RBS (mmol/L)</label>
+          <input type="number" step="0.1" name="rbs" class="form-input w-full" value="{{ consult.rbs|default:'' }}">
+        </div>
+        <div>
+          <label class="form-label">HbA1c (%)</label>
+          <input type="number" step="0.1" name="hba1c" class="form-input w-full" value="{{ consult.hba1c|default:'' }}">
+        </div>
+      </div>
+    </div>
+
+    <!-- SOAP -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Clinical History (SOAP)</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">Chief Complaint *</label>
+          <textarea name="chief_complaint" rows="2" class="form-input w-full" required>{{ consult.chief_complaint|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">History of Presenting Illness</label>
+            <textarea name="history_of_presenting" rows="4" class="form-input w-full">{{ consult.history_of_presenting|default:'' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Past Medical History</label>
+            <textarea name="past_medical_history" rows="4" class="form-input w-full">{{ consult.past_medical_history|default:'' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Current Medications</label>
+            <textarea name="current_medications" rows="3" class="form-input w-full">{{ consult.current_medications|default:'' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Allergies</label>
+            <textarea name="allergies" rows="3" class="form-input w-full">{{ consult.allergies|default:'' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Family History</label>
+            <textarea name="family_history" rows="2" class="form-input w-full">{{ consult.family_history|default:'' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">Social History</label>
+            <textarea name="social_history" rows="2" class="form-input w-full">{{ consult.social_history|default:'' }}</textarea>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Review of Systems</label>
+          <textarea name="review_of_systems" rows="3" class="form-input w-full">{{ consult.review_of_systems|default:'' }}</textarea>
+        </div>
+        <div>
+          <label class="form-label">Physical Examination</label>
+          <textarea name="physical_examination" rows="5" class="form-input w-full">{{ consult.physical_examination|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assessment & Plan -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Assessment &amp; Plan</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="form-label">Diagnosis</label>
+          <textarea name="diagnosis" rows="2" class="form-input w-full">{{ consult.diagnosis|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">ICD-10 Code</label>
+            <input type="text" name="icd10_code" class="form-input w-full font-mono" placeholder="e.g. I10" value="{{ consult.icd10_code|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Referral</label>
+            <input type="text" name="referral" class="form-input w-full" value="{{ consult.referral|default:'' }}">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Management Plan</label>
+          <textarea name="plan" rows="4" class="form-input w-full">{{ consult.plan|default:'' }}</textarea>
+        </div>
+        <div>
+          <label class="form-label">Investigations Ordered</label>
+          <textarea name="investigations" rows="2" class="form-input w-full">{{ consult.investigations|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Follow-up Date</label>
+            <input type="date" name="follow_up_date" class="form-input w-full" value="{{ consult.follow_up_date|default:'' }}">
+          </div>
+          <div>
+            <label class="form-label">Follow-up Instructions</label>
+            <input type="text" name="follow_up_notes" class="form-input w-full" value="{{ consult.follow_up_notes|default:'' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Save Consultation
+      </button>
+      <a href="{% url 'im_consultation_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const searchInput = document.getElementById('patient-search');
+const resultsDiv  = document.getElementById('patient-results');
+const pidInput    = document.getElementById('patient_id');
+if (searchInput) {
+  let timer;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = searchInput.value.trim();
+      if (q.length < 2) { resultsDiv.classList.add('hidden'); return; }
+      fetch(`{% url 'im_patient_search' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json()).then(data => {
+          resultsDiv.innerHTML = '';
+          if (!data.results.length) { resultsDiv.classList.add('hidden'); return; }
+          data.results.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700';
+            div.innerHTML = `<span class="font-medium">${p.name}</span> <span class="text-slate-400 text-xs ml-2">${p.card} · ${p.dob}</span>`;
+            div.onclick = () => { searchInput.value = p.name; pidInput.value = p.id; resultsDiv.classList.add('hidden'); };
+            resultsDiv.appendChild(div);
+          });
+          resultsDiv.classList.remove('hidden');
+        });
+    }, 300);
+  });
+  document.addEventListener('click', e => { if (!searchInput.contains(e.target)) resultsDiv.classList.add('hidden'); });
+}
+</script>
+{% endblock %}

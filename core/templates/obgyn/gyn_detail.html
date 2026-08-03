@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Gyn Consultation — {{ gyn.patient.full_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-5">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'gyn_consultation_list' %}" class="text-slate-400 hover:text-slate-600 text-sm">← Consultations</a>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Gynecology Consultation</h1>
+  </div>
+  <a href="{% url 'gyn_consultation_edit' gyn.pk %}" class="px-4 py-2 border border-slate-200 dark:border-slate-600 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">Edit</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <div class="lg:col-span-1 space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Patient</h2>
+      <p class="font-bold text-slate-900 dark:text-white">{{ gyn.patient.full_name }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">{{ gyn.patient.card_number }} · Age: {{ gyn.patient.age_display|default:"—" }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Consultation Info</h2>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Date</dt><dd class="font-medium text-slate-800 dark:text-white">{{ gyn.consultation_date }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Category</dt><dd><span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">{{ gyn.get_category_display }}</span></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Seen By</dt><dd class="text-slate-700 dark:text-slate-300">{{ gyn.seen_by.get_full_name|default:gyn.seen_by.username|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Follow-up</dt><dd class="text-slate-700 dark:text-slate-300">{{ gyn.follow_up_date|default:"—" }}</dd></div>
+      </dl>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Menstrual History</h2>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Menarche Age</dt><dd>{{ gyn.menarche_age|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Cycle Length</dt><dd>{{ gyn.cycle_length_days|default:"—" }} days</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Duration</dt><dd>{{ gyn.menstrual_duration_days|default:"—" }} days</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">LMP</dt><dd>{{ gyn.lmp|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Pattern</dt><dd class="text-right">{{ gyn.menstrual_pattern|default:"—" }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Dysmenorrhoea</dt><dd>{% if gyn.dysmenorrhoea is not None %}{% if gyn.dysmenorrhoea %}Yes{% else %}No{% endif %}{% else %}—{% endif %}</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="lg:col-span-2 space-y-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Chief Complaint</h2>
+      <p class="text-slate-800 dark:text-white">{{ gyn.chief_complaint }}</p>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Examination</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
+        {% if gyn.bp_systolic %}<div><p class="text-xs text-slate-500">BP</p><p>{{ gyn.bp_systolic }}/{{ gyn.bp_diastolic }}</p></div>{% endif %}
+        {% if gyn.bmi %}<div><p class="text-xs text-slate-500">BMI</p><p>{{ gyn.bmi }}</p></div>{% endif %}
+        {% if gyn.uterus_size %}<div><p class="text-xs text-slate-500">Uterus Size</p><p>{{ gyn.uterus_size }}</p></div>{% endif %}
+        {% if gyn.adnexa %}<div><p class="text-xs text-slate-500">Adnexa</p><p>{{ gyn.adnexa }}</p></div>{% endif %}
+      </div>
+      {% if gyn.per_speculum %}<div class="mb-3"><p class="text-xs text-slate-500 mb-1">Per Speculum</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ gyn.per_speculum }}</p></div>{% endif %}
+      {% if gyn.per_vaginum %}<div><p class="text-xs text-slate-500 mb-1">Per Vaginum</p><p class="text-sm text-slate-700 dark:text-slate-300">{{ gyn.per_vaginum }}</p></div>{% endif %}
+    </div>
+
+    {% if gyn.investigations_ordered %}
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Investigations Ordered</h2>
+      <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ gyn.investigations_ordered }}</p>
+    </div>
+    {% endif %}
+
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Diagnosis &amp; Plan</h2>
+      {% if gyn.diagnosis %}<div class="mb-3"><p class="text-xs text-slate-500 mb-1">Diagnosis</p><p class="text-sm font-medium text-slate-800 dark:text-white">{{ gyn.diagnosis }}</p></div>{% endif %}
+      {% if gyn.treatment_plan %}<div class="mb-3"><p class="text-xs text-slate-500 mb-1">Treatment Plan</p><p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ gyn.treatment_plan }}</p></div>{% endif %}
+      {% if gyn.via_result or gyn.pap_result %}
+      <div class="grid grid-cols-2 gap-3 text-sm mt-2">
+        {% if gyn.via_result %}<div class="bg-slate-50 dark:bg-slate-700/40 p-3 rounded-lg"><p class="text-xs text-slate-500 mb-1">VIA/VILI Result</p><p class="font-medium">{{ gyn.via_result }}</p></div>{% endif %}
+        {% if gyn.pap_result %}<div class="bg-slate-50 dark:bg-slate-700/40 p-3 rounded-lg"><p class="text-xs text-slate-500 mb-1">Pap Smear</p><p class="font-medium">{{ gyn.pap_result }}</p></div>{% endif %}
+      </div>
+      {% endif %}
+      {% if gyn.referral %}<div class="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg"><p class="text-xs text-amber-600 font-semibold mb-1">Referral</p><p class="text-sm text-amber-800 dark:text-amber-300">{{ gyn.referral }}</p></div>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

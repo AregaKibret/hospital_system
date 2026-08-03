@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}General Surgery Reports{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">General Surgery Reports</h1>
+    <a href="{% url 'surgery_consult_dashboard' %}" class="btn-secondary">&larr; Dashboard</a>
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-end">
+    <div><label class="form-label">From</label><input type="date" name="date_from" value="{{ date_from }}" class="form-input"></div>
+    <div><label class="form-label">To</label><input type="date" name="date_to" value="{{ date_to }}" class="form-input"></div>
+    <div>
+      <label class="form-label">Report Type</label>
+      <select name="report_type" class="form-input">
+        <option value="summary" {% if report_type == 'summary' %}selected{% endif %}>Summary</option>
+        <option value="detail" {% if report_type == 'detail' %}selected{% endif %}>Detailed</option>
+        <option value="theatre" {% if report_type == 'theatre' %}selected{% endif %}>Theatre List</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-primary">Generate</button>
+    <button type="button" onclick="window.print()" class="btn-secondary">Print / PDF</button>
+  </form>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Consultations</p>
+      <p class="text-3xl font-bold text-violet-600 dark:text-violet-400 mt-1">{{ total }}</p>
+      <p class="text-xs text-slate-400 mt-1">{{ date_from }} → {{ date_to }}</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Operations</p>
+      <p class="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{{ operations }}</p>
+      <p class="text-xs text-slate-400 mt-1">Operative notes written</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Emergency</p>
+      <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-1">{{ emergency_count }}</p>
+      <p class="text-xs text-slate-400 mt-1">Emergency cases</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">For Surgery</p>
+      <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{{ for_surgery_count }}</p>
+      <p class="text-xs text-slate-400 mt-1">Listed for operation</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">By Urgency</h2></div>
+      <div class="p-5"><canvas id="urgencyChart" height="220"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Decisions</h2></div>
+      <div class="p-5"><canvas id="decisionChart" height="220"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Consultations Over Time</h2></div>
+      <div class="p-5"><canvas id="trendChart" height="220"></canvas></div>
+    </div>
+  </div>
+
+  {% if report_type == 'detail' and consultations %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Consultation Detail</h2></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs font-semibold text-slate-500 uppercase">
+          <tr><th class="px-4 py-3 text-left">Patient</th><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Diagnosis</th><th class="px-4 py-3 text-left">Procedure</th><th class="px-4 py-3 text-left">Urgency</th><th class="px-4 py-3 text-left">Decision</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for c in consultations %}
+          <tr>
+            <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">{{ c.patient }}</td>
+            <td class="px-4 py-3 text-slate-500">{{ c.consultation_date }}</td>
+            <td class="px-4 py-3 max-w-xs truncate text-slate-600 dark:text-slate-400">{{ c.provisional_diagnosis|default:"—" }}</td>
+            <td class="px-4 py-3 max-w-xs truncate text-slate-600 dark:text-slate-400">{{ c.proposed_procedure|default:"—" }}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-xs font-semibold {% if c.urgency == 'emergency' %}bg-red-100 text-red-700{% elif c.urgency == 'urgent' %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ c.get_urgency_display }}</span>
+            </td>
+            <td class="px-4 py-3 text-slate-500">{{ c.get_decision_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if report_type == 'theatre' and operative_notes %}
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700"><h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Theatre List</h2></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs font-semibold text-slate-500 uppercase">
+          <tr><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Patient</th><th class="px-4 py-3 text-left">Procedure</th><th class="px-4 py-3 text-left">Surgeon</th><th class="px-4 py-3 text-left">Duration</th><th class="px-4 py-3 text-left">EBL</th><th class="px-4 py-3 text-left">Wound Class</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for op in operative_notes %}
+          <tr>
+            <td class="px-4 py-3 text-slate-500">{{ op.procedure_date }}</td>
+            <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">{{ op.consultation.patient }}</td>
+            <td class="px-4 py-3 max-w-xs truncate text-slate-600 dark:text-slate-400">{{ op.procedure_performed }}</td>
+            <td class="px-4 py-3 text-slate-500">{{ op.surgeon|default:"—" }}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ op.duration_display|default:"—" }}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ op.ebl|default:"—" }} mL</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ op.get_wound_class_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const ul=[{% for r in urgency_data %}"{{ r.label }}"{% if not forloop.last %},{% endif %}{% endfor %}],ud=[{% for r in urgency_data %}{{ r.n }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const dl=[{% for r in decision_data %}"{{ r.label }}"{% if not forloop.last %},{% endif %}{% endfor %}],dd=[{% for r in decision_data %}{{ r.n }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const tl=[{% for r in trend_data %}"{{ r.label }}"{% if not forloop.last %},{% endif %}{% endfor %}],td_=[{% for r in trend_data %}{{ r.n }}{% if not forloop.last %},{% endif %}{% endfor %}];
+if(ul.length)new Chart(document.getElementById('urgencyChart'),{type:'doughnut',data:{labels:ul,datasets:[{data:ud,backgroundColor:['#10B981','#F59E0B','#EF4444'],borderWidth:2}]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},cutout:'55%'}});
+if(dl.length)new Chart(document.getElementById('decisionChart'),{type:'bar',data:{labels:dl,datasets:[{data:dd,backgroundColor:'#7C3AED',borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},indexAxis:'y'}});
+if(tl.length)new Chart(document.getElementById('trendChart'),{type:'line',data:{labels:tl,datasets:[{data:td_,borderColor:'#7C3AED',backgroundColor:'rgba(124,58,237,0.1)',fill:true,tension:0.4,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+</script>
+{% endblock %}

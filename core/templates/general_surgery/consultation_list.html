@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Surgical Consultations{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Surgical Consultations</h1>
+    {% if perms.core.manage_surgical_consultation %}
+    <a href="{% url 'surgical_consultation_create' %}" class="btn-primary">+ New Consultation</a>
+    {% endif %}
+  </div>
+
+  <form method="get" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap gap-3 items-end">
+    <div><label class="form-label">Patient</label><input type="text" name="q" value="{{ q }}" placeholder="Name or MRN" class="form-input"></div>
+    <div>
+      <label class="form-label">Urgency</label>
+      <select name="urgency" class="form-input">
+        <option value="">All</option>
+        <option value="elective" {% if urgency == 'elective' %}selected{% endif %}>Elective</option>
+        <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent</option>
+        <option value="emergency" {% if urgency == 'emergency' %}selected{% endif %}>Emergency</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Decision</label>
+      <select name="decision" class="form-input">
+        <option value="">All</option>
+        {% for val,label in decision_choices %}<option value="{{ val }}" {% if decision == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="form-label">From</label><input type="date" name="date_from" value="{{ date_from }}" class="form-input"></div>
+    <div><label class="form-label">To</label><input type="date" name="date_to" value="{{ date_to }}" class="form-input"></div>
+    <button type="submit" class="btn-primary">Filter</button>
+    <a href="{% url 'surgical_consultation_list' %}" class="btn-secondary">Clear</a>
+  </form>
+
+  <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs font-semibold text-slate-500 uppercase">
+          <tr>
+            <th class="px-4 py-3 text-left">Patient</th>
+            <th class="px-4 py-3 text-left">Date</th>
+            <th class="px-4 py-3 text-left">Diagnosis</th>
+            <th class="px-4 py-3 text-left">Procedure</th>
+            <th class="px-4 py-3 text-left">Urgency</th>
+            <th class="px-4 py-3 text-left">Decision</th>
+            <th class="px-4 py-3 text-left">Op Note</th>
+            <th class="px-4 py-3 text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+          {% for c in consultations %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+            <td class="px-4 py-3">
+              <div class="font-medium text-slate-700 dark:text-slate-300">{{ c.patient }}</div>
+              <div class="text-xs text-slate-400">{{ c.patient.mrn|default:"" }}</div>
+            </td>
+            <td class="px-4 py-3 text-slate-500">{{ c.consultation_date }}</td>
+            <td class="px-4 py-3 text-slate-600 dark:text-slate-400 max-w-xs truncate">{{ c.provisional_diagnosis|default:"—" }}</td>
+            <td class="px-4 py-3 text-slate-600 dark:text-slate-400 max-w-xs truncate">{{ c.proposed_procedure|default:"—" }}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                {% if c.urgency == 'emergency' %}bg-red-100 text-red-700
+                {% elif c.urgency == 'urgent' %}bg-amber-100 text-amber-700
+                {% else %}bg-slate-100 text-slate-500{% endif %}">{{ c.get_urgency_display }}</span>
+            </td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                {% if c.decision == 'for_surgery' %}bg-violet-100 text-violet-700
+                {% elif c.decision == 'conservative' %}bg-emerald-100 text-emerald-700
+                {% else %}bg-slate-100 text-slate-500{% endif %}">{{ c.get_decision_display }}</span>
+            </td>
+            <td class="px-4 py-3">
+              {% if c.operative_note %}
+              <span class="text-emerald-600 text-xs font-medium">Yes</span>
+              {% else %}
+              <span class="text-slate-300 text-xs">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              <a href="{% url 'surgical_consultation_detail' c.pk %}" class="text-indigo-600 hover:underline text-xs">View</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">No consultations found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_paginated %}
+    <div class="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-sm">
+      <span class="text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary py-1">Prev</a>{% endif %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary py-1">Next</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{# Renders one step in the patient journey timeline.
+   Variables: state (done|current|pending), label, num, color (optional, default blue) #}
+<div class="flex flex-col items-center">
+  {% if state == 'done' %}
+  <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0">✓</div>
+  <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 whitespace-nowrap font-medium">{{ label }}</p>
+  {% elif state == 'current' %}
+    {% if color == 'red' %}
+    <div class="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold ring-2 ring-red-300 dark:ring-red-700 shrink-0">{{ num }}</div>
+    <p class="text-xs text-red-600 dark:text-red-400 mt-1.5 whitespace-nowrap font-bold">{{ label }}</p>
+    {% elif color == 'orange' %}
+    <div class="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold ring-2 ring-orange-300 dark:ring-orange-700 shrink-0">{{ num }}</div>
+    <p class="text-xs text-orange-600 dark:text-orange-400 mt-1.5 whitespace-nowrap font-bold">{{ label }}</p>
+    {% elif color == 'sky' %}
+    <div class="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-bold ring-2 ring-sky-300 dark:ring-sky-700 shrink-0">{{ num }}</div>
+    <p class="text-xs text-sky-600 dark:text-sky-400 mt-1.5 whitespace-nowrap font-bold">{{ label }}</p>
+    {% else %}
+    <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold ring-2 ring-blue-300 dark:ring-blue-700 shrink-0">{{ num }}</div>
+    <p class="text-xs text-blue-700 dark:text-blue-400 mt-1.5 whitespace-nowrap font-bold">{{ label }}</p>
+    {% endif %}
+  {% else %}
+  <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400 flex items-center justify-center text-xs shrink-0">{{ num }}</div>
+  <p class="text-xs text-slate-400 mt-1.5 whitespace-nowrap">{{ label }}</p>
+  {% endif %}
+</div>

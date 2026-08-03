@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}PACU Record — {{ order.order_number }}{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+  <div>
+    <div class="flex items-center gap-2 flex-wrap mb-1">
+      <span class="font-mono text-sm font-bold text-slate-500 dark:text-slate-400">{{ order.order_number }}</span>
+      {% include "surgery/_priority_badge.html" with priority=order.priority %}
+      {% include "surgery/_status_badge.html" with status=order.status %}
+    </div>
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">PACU / Recovery Room Record</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      {{ order.patient.full_name }} &bull; {{ order.patient.card_number }}
+      &bull; Dr. {{ order.surgeon.get_full_name|default:order.surgeon.username }}
+    </p>
+  </div>
+  <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary text-sm self-start">&larr; Back to Order</a>
+</div>
+
+{% if messages %}
+<div class="mb-4 space-y-2">{% for msg in messages %}<div class="px-4 py-3 rounded-xl text-sm font-medium {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-300{% elif msg.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>{% endfor %}</div>
+{% endif %}
+
+{% if record %}
+<div class="mb-4 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-sm flex items-center gap-3">
+  <span>{% if record.is_finalized %}✅{% else %}📝{% endif %}</span>
+  <span class="text-blue-800 dark:text-blue-300 font-medium">
+    {% if record.is_finalized %}Finalized v{{ record.version }} — {{ record.finalized_at|date:"d M Y H:i" }} by {{ record.finalized_by.get_full_name|default:record.finalized_by.username }}{% else %}Draft v{{ record.version }} saved{% endif %}
+  </span>
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- ── Arrival Vital Signs ─────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">❤️</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Arrival Vital Signs</h2>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Arrival Time</label>
+          <input type="datetime-local" name="arrival_time"
+                 value="{% if record.arrival_time %}{{ record.arrival_time|date:'Y-m-d' }}T{{ record.arrival_time|time:'H:i' }}{% endif %}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">BP Systolic (mmHg)</label>
+          <input type="number" name="arrival_bp_systolic" value="{{ record.arrival_bp_systolic|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">BP Diastolic (mmHg)</label>
+          <input type="number" name="arrival_bp_diastolic" value="{{ record.arrival_bp_diastolic|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Pulse (bpm)</label>
+          <input type="number" name="arrival_pulse" value="{{ record.arrival_pulse|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Resp Rate (rpm)</label>
+          <input type="number" name="arrival_rr" value="{{ record.arrival_rr|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Temp (°C)</label>
+          <input type="number" step="0.1" name="arrival_temp" value="{{ record.arrival_temp|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">SpO2 (%)</label>
+          <input type="number" name="arrival_spo2" value="{{ record.arrival_spo2|default:'' }}" min="0" max="100"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Pain Score (0–10)</label>
+          <input type="number" name="arrival_pain_score" value="{{ record.arrival_pain_score|default:'' }}" min="0" max="10"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Airway & Consciousness ───────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🫁</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Airway &amp; Consciousness</h2>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Level of Consciousness</label>
+          <select name="consciousness_level"
+                  class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+            <option value="">— Select —</option>
+            {% for val, label in consciousness_choices %}
+            <option value="{{ val }}" {% if record.consciousness_level == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Airway Status</label>
+          <input type="text" name="airway_status" value="{{ record.airway_status|default:'' }}"
+                 placeholder="e.g. Clear, patent, intubated..."
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">O2 Delivery</label>
+            <input type="text" name="o2_delivery_method" value="{{ record.o2_delivery_method|default:'' }}"
+                   placeholder="Mask, nasal prongs..."
+                   class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Flow Rate</label>
+            <input type="text" name="o2_flow_rate" value="{{ record.o2_flow_rate|default:'' }}"
+                   placeholder="e.g. 4 L/min"
+                   class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Wound Condition</label>
+          <input type="text" name="wound_condition" value="{{ record.wound_condition|default:'' }}"
+                 placeholder="Dressing intact, no soakage..."
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Drain Type</label>
+            <input type="text" name="drain_type" value="{{ record.drain_type|default:'' }}"
+                   placeholder="JP drain, Redivac..."
+                   class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Drain Output (mL)</label>
+            <input type="number" name="drain_output_ml" value="{{ record.drain_output_ml|default:'' }}"
+                   class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Bleeding Notes</label>
+          <textarea name="bleeding_notes" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Wound/drain bleeding status...">{{ record.bleeding_notes|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Medications in PACU ─────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">💊</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Medications Given in PACU</h2>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Analgesics</label>
+          <textarea name="analgesics_given" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="e.g. Morphine 2mg IV, Paracetamol 1g IV...">{{ record.analgesics_given|default:'' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Antiemetics</label>
+          <textarea name="antiemetics_given" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="e.g. Ondansetron 4mg IV...">{{ record.antiemetics_given|default:'' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">IV Fluids</label>
+          <textarea name="iv_fluids_given" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="e.g. NS 0.9% 500mL over 2 hrs...">{{ record.iv_fluids_given|default:'' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Other Medications</label>
+          <textarea name="other_medications" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Other drugs given in recovery...">{{ record.other_medications|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Aldrete Score ────────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📊</span>
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Aldrete Score (PACU Discharge Readiness)</h2>
+        </div>
+        <span id="aldrete_total_display" class="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+          Total: {% if record.aldrete_total is not None %}{{ record.aldrete_total }}/10{% else %}—/10{% endif %}
+        </span>
+      </div>
+      <div class="p-5 space-y-4">
+        {% for field_name, label, criteria in aldrete_fields|default:'' %}{% endfor %}
+        {% include "surgery/_aldrete_row.html" with name="aldrete_activity" label="Activity" hint="2=moves 4 limbs, 1=moves 2 limbs, 0=no movement" val=record.aldrete_activity %}
+        <!-- Direct render since template tag not available -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Activity</label>
+          <p class="text-xs text-slate-400 mb-2">2 = Moves 4 limbs &nbsp;|&nbsp; 1 = Moves 2 limbs &nbsp;|&nbsp; 0 = No movement</p>
+          <div class="flex gap-3">
+            {% for v in "0,1,2"|split:"," %}{% endfor %}
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_activity" value="0" {% if record.aldrete_activity == 0 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">0</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_activity" value="1" {% if record.aldrete_activity == 1 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">1</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_activity" value="2" {% if record.aldrete_activity == 2 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">2</span></label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Respiration</label>
+          <p class="text-xs text-slate-400 mb-2">2 = Breathes &amp; coughs freely &nbsp;|&nbsp; 1 = Dyspnoea or limited breathing &nbsp;|&nbsp; 0 = Apnoeic</p>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_respiration" value="0" {% if record.aldrete_respiration == 0 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">0</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_respiration" value="1" {% if record.aldrete_respiration == 1 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">1</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_respiration" value="2" {% if record.aldrete_respiration == 2 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">2</span></label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Circulation</label>
+          <p class="text-xs text-slate-400 mb-2">2 = BP &plusmn;20% pre-op &nbsp;|&nbsp; 1 = BP &plusmn;20–49% &nbsp;|&nbsp; 0 = BP &plusmn;&ge;50%</p>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_circulation" value="0" {% if record.aldrete_circulation == 0 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">0</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_circulation" value="1" {% if record.aldrete_circulation == 1 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">1</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_circulation" value="2" {% if record.aldrete_circulation == 2 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">2</span></label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Consciousness</label>
+          <p class="text-xs text-slate-400 mb-2">2 = Fully awake &nbsp;|&nbsp; 1 = Arousable on calling &nbsp;|&nbsp; 0 = Not responding</p>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_consciousness" value="0" {% if record.aldrete_consciousness == 0 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">0</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_consciousness" value="1" {% if record.aldrete_consciousness == 1 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">1</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_consciousness" value="2" {% if record.aldrete_consciousness == 2 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">2</span></label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SpO2</label>
+          <p class="text-xs text-slate-400 mb-2">2 = &ge;92% on room air &nbsp;|&nbsp; 1 = O2 needed to maintain &ge;90% &nbsp;|&nbsp; 0 = &lt;90% even with O2</p>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_spo2" value="0" {% if record.aldrete_spo2 == 0 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">0</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_spo2" value="1" {% if record.aldrete_spo2 == 1 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">1</span></label>
+            <label class="flex items-center gap-1.5"><input type="radio" name="aldrete_spo2" value="2" {% if record.aldrete_spo2 == 2 %}checked{% endif %} class="aldrete-radio" onchange="updateAldrete()"> <span class="text-sm text-slate-600 dark:text-slate-400">2</span></label>
+          </div>
+        </div>
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-3">
+          <p class="text-xs text-slate-500">Score &ge; 9/10 = criteria for PACU discharge met</p>
+          <span id="aldrete_badge" class="text-xs font-bold px-2 py-0.5 rounded-full hidden"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PACU Discharge ──────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+      <div class="px-5 py-3.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+        <span class="text-base">🚪</span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">PACU Discharge</h2>
+      </div>
+      <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Discharge Time</label>
+          <input type="datetime-local" name="discharge_time"
+                 value="{% if record.discharge_time %}{{ record.discharge_time|date:'Y-m-d' }}T{{ record.discharge_time|time:'H:i' }}{% endif %}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Discharge Destination</label>
+          <select name="discharge_destination"
+                  class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+            <option value="">— Select —</option>
+            {% for val, label in destination_choices %}
+            <option value="{{ val }}" {% if record.discharge_destination == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">PACU Duration (minutes)</label>
+          <input type="number" name="pacu_duration_minutes" value="{{ record.pacu_duration_minutes|default:'' }}"
+                 class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100">
+        </div>
+        <div class="sm:col-span-3">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" name="discharge_criteria_met" {% if record.discharge_criteria_met %}checked{% endif %} class="w-4 h-4 text-emerald-600 rounded">
+            <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-400">All PACU discharge criteria met — patient cleared to leave PACU</span>
+          </label>
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Complications in PACU</label>
+          <textarea name="complications" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Describe any complications during recovery...">{{ record.complications|default:'' }}</textarea>
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Monitoring Notes</label>
+          <textarea name="monitoring_notes" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Ongoing observation notes...">{{ record.monitoring_notes|default:'' }}</textarea>
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Additional Notes</label>
+          <textarea name="notes" rows="2"
+                    class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm px-3 py-2 text-slate-800 dark:text-slate-100 resize-none"
+                    placeholder="Any other notes for ward staff...">{{ record.notes|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Action Bar -->
+  <div class="mt-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-wrap items-center gap-3">
+    <button type="submit" name="action" value="draft" class="btn-secondary">Save as Draft</button>
+    <button type="submit" name="action" value="finalize"
+            class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition">
+      Finalize &amp; Sign
+    </button>
+    <a href="{% url 'surgery_order_detail' order.pk %}" class="btn-secondary ml-auto">Cancel</a>
+    {% if record and record.is_finalized %}
+    <p class="text-xs text-slate-400 w-full">Finalizing will create a new version (v{{ record.version|add:1 }}) of this record.</p>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+function updateAldrete() {
+  const names = ['aldrete_activity','aldrete_respiration','aldrete_circulation','aldrete_consciousness','aldrete_spo2'];
+  let total = 0, allSet = true;
+  names.forEach(n => {
+    const checked = document.querySelector(`input[name="${n}"]:checked`);
+    if (checked) total += parseInt(checked.value);
+    else allSet = false;
+  });
+  const display = document.getElementById('aldrete_total_display');
+  const badge   = document.getElementById('aldrete_badge');
+  if (allSet) {
+    display.textContent = `Total: ${total}/10`;
+    if (total >= 9) {
+      display.className = 'text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full';
+      badge.textContent = '✓ Discharge criteria met';
+      badge.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+      badge.classList.remove('hidden');
+    } else {
+      display.className = 'text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full';
+      badge.textContent = '⚠ Below discharge threshold';
+      badge.className = 'text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+      badge.classList.remove('hidden');
+    }
+  }
+}
+updateAldrete();
+</script>
+{% endblock %}

@@ -18,8 +18,9 @@ from .audit import log_action
 from .decorators import hms_permission_required
 from .inventory_bridge import record_pharmacy_stock_transaction
 from .models import (
-    AuditLog, Dispensing, Invoice, InvoiceItem, MAREntry, Medication,
-    MedicationBatch, Patient, PharmacyStock, Prescription, PrescriptionItem,
+    AuditLog, Admission, DepartmentStock, DepartmentStockBatch, DepositTransaction,
+    Dispensing, InpatientDepositAccount, Invoice, InvoiceItem, MAREntry, Medication,
+    MedicationBatch, MedicationOrder, Patient, PharmacyStock, Prescription, PrescriptionItem,
     RxDispenseRecord, StockTransaction, Visit,
 )
 
@@ -859,6 +860,92 @@ FREQUENCY_SCHEDULE = {
 }
 
 
+# Free-text frequency → scheduled hours (best-effort match)
+_FREQ_KEYWORD_HOURS = [
+    (['stat', 'immediately', 'now'],                        None),     # single immediate dose
+    (['prn', 'as needed', 'as-needed'],                     []),       # PRN — no schedule
+    (['four times', 'qid', 'q6h', 'every 6'],               [6, 12, 18, 22]),
+    (['three times', 'tds', 'tid', 'q8h', 'every 8'],       [6, 14, 22]),
+    (['twice', 'bd', 'bid', 'q12h', 'every 12'],            [8, 20]),
+    (['bedtime', 'nocte', 'nightly', 'hs'],                 [21]),
+    (['once', 'daily', 'od', 'qd'],                         [8]),
+    (['every 4', 'q4h'],                                    [0, 4, 8, 12, 16, 20]),
+]
+
+
+def _hours_for_frequency(freq_text: str) -> list[int] | None:
+    """Map a free-text frequency string to a list of scheduled hours.
+    Returns None for STAT (single immediate dose), [] for PRN (no schedule).
+    Defaults to [8] (once-daily) when nothing matches.
+    """
+    lower = freq_text.lower()
+    for keywords, hours in _FREQ_KEYWORD_HOURS:
+        if any(k in lower for k in keywords):
+            return hours
+    return [8]  # safe default: once daily at 08:00
+
+
+def _duration_days_from_text(duration_text: str) -> int:
+    """Parse '7 days', '2 weeks', '1 month' etc. → integer day count."""
+    import re
+    if not duration_text:
+        return 1
+    text = duration_text.lower().strip()
+    m = re.search(r'(\d+)\s*(day|week|month)', text)
+    if m:
+        n, unit = int(m.group(1)), m.group(2)
+        if 'week' in unit:
+            return n * 7
+        if 'month' in unit:
+            return n * 30
+        return n
+    # bare number → assume days
+    m2 = re.search(r'(\d+)', text)
+    return int(m2.group(1)) if m2 else 1
+
+
+def generate_mar_entries_from_medication_order(order: 'MedicationOrder', ordered_at=None):
+    """Create scheduled MAREntry rows for a ward MedicationOrder.
+    Called immediately when a doctor orders medication for an admitted patient.
+    No pharmacy step required.
+    """
+    from django.utils import timezone as tz
+    now = ordered_at or tz.now()
+    hours = _hours_for_frequency(order.frequency)
+
+    if hours is None:
+        # STAT — single immediate dose
+        return [MAREntry.objects.create(
+            medication_order=order,
+            visit=order.visit,
+            scheduled_time=now,
+            source=MAREntry.Source.PHARMACY,
+        )]
+    if hours == []:
+        # PRN — no pre-scheduled slots; nurse records ad-hoc
+        return []
+
+    duration = _duration_days_from_text(order.duration)
+    candidates = [
+        (now + timedelta(days=d)).replace(hour=h, minute=0, second=0, microsecond=0)
+        for d in range(duration)
+        for h in hours
+    ]
+    scheduled_times = sorted(dt for dt in candidates if dt >= now)
+    if not scheduled_times:
+        scheduled_times = [now]
+
+    return MAREntry.objects.bulk_create([
+        MAREntry(
+            medication_order=order,
+            visit=order.visit,
+            scheduled_time=dt,
+            source=MAREntry.Source.PHARMACY,
+        )
+        for dt in scheduled_times
+    ])
+
+
 def generate_mar_entries(item, dispensed_at):
     """Create the scheduled MAREntry rows for a just-dispensed
     PrescriptionItem, based on its frequency and duration — this is what
@@ -890,43 +977,198 @@ def generate_mar_entries(item, dispensed_at):
 
 @hms_permission_required('core.record_vital_signs')
 def mar_list(request, visit_id):
+    from .models import DepartmentStore
     visit = _get_visit(visit_id)
     entries = (
         MAREntry.objects
         .filter(visit=visit)
-        .select_related('prescription_item', 'administered_by')
+        .select_related(
+            'prescription_item',
+            'medication_order',
+            'administered_by',
+            'ward_stock_item__department_store',
+            'ward_stock_item__medication',
+        )
         .order_by('scheduled_time')
     )
+    ward_stores = DepartmentStore.objects.filter(
+        store_type=DepartmentStore.StoreType.WARD, is_active=True,
+    ).order_by('name')
     return render(request, 'prescription/mar.html', {
         'visit': visit,
         'entries': entries,
         'statuses': MAREntry.Status.choices,
+        'ward_stores': ward_stores,
     })
 
 
 @hms_permission_required('core.record_vital_signs')
 @require_POST
 def mar_update(request, entry_id):
-    entry = get_object_or_404(MAREntry, pk=entry_id)
+    from .models import DepartmentStore
+    entry = get_object_or_404(MAREntry.objects.select_related('visit__patient'), pk=entry_id)
     status = request.POST.get('status', '')
     dose_given = request.POST.get('dose_given', '').strip()
     notes = request.POST.get('notes', '').strip()
     patient_response = request.POST.get('patient_response', '').strip()
     reason_missed = request.POST.get('reason_missed', '').strip()
+    source = request.POST.get('source', MAREntry.Source.PHARMACY)
 
-    if status in dict(MAREntry.Status.choices):
-        entry.status = status
-        if status == MAREntry.Status.GIVEN:
+    if source not in dict(MAREntry.Source.choices):
+        source = MAREntry.Source.PHARMACY
+
+    if status not in dict(MAREntry.Status.choices):
+        messages.error(request, 'Invalid status.')
+        return redirect('mar_list', visit_id=entry.visit_id)
+
+    if status == MAREntry.Status.GIVEN and source == MAREntry.Source.WARD_STOCK:
+        # --- Ward stock path: deduct inventory + charge deposit ---
+        stock_item_id = request.POST.get('ward_stock_item_id', '').strip()
+        batch_id = request.POST.get('ward_stock_batch_id', '').strip()
+        try:
+            dept_stock = DepartmentStock.objects.select_related('medication', 'department_store').get(pk=stock_item_id)
+        except (DepartmentStock.DoesNotExist, ValueError):
+            messages.error(request, 'Ward stock item not found. Please select a valid item.')
+            return redirect('mar_list', visit_id=entry.visit_id)
+
+        batch = None
+        if batch_id:
+            try:
+                batch = DepartmentStockBatch.objects.get(pk=batch_id, dept_stock=dept_stock)
+            except (DepartmentStockBatch.DoesNotExist, ValueError):
+                pass
+
+        if dept_stock.quantity_available <= 0:
+            messages.error(request, f'Ward stock for "{dept_stock.item_name}" is exhausted.')
+            return redirect('mar_list', visit_id=entry.visit_id)
+
+        # Determine unit price for charge (use medication selling price if available)
+        med = dept_stock.medication
+        unit_price = Decimal('0')
+        if med:
+            try:
+                ps = med.pharmacy_stocks.filter(is_active=True).first()
+                if ps:
+                    unit_price = Decimal(str(ps.selling_price or 0))
+            except Exception:
+                pass
+
+        with transaction.atomic():
+            # Deduct ward stock
+            dept_stock.quantity_available -= 1
+            dept_stock.save(update_fields=['quantity_available', 'last_updated'])
+            if batch and batch.quantity_available > 0:
+                batch.quantity_available -= 1
+                batch.save(update_fields=['quantity_available'])
+
+            # Charge to inpatient deposit account if one exists
+            try:
+                admission = Admission.objects.get(
+                    visit=entry.visit, status=Admission.Status.ADMITTED,
+                )
+                deposit_account = admission.deposit_account
+                balance_after = deposit_account.available_balance - unit_price
+                if unit_price > 0:
+                    DepositTransaction.objects.create(
+                        account=deposit_account,
+                        tx_type=DepositTransaction.TxType.CHARGE_DEDUCTION,
+                        amount=unit_price,
+                        description=f'Ward stock: {dept_stock.item_name} — MAR dose',
+                        balance_after=balance_after,
+                        performed_by=request.user,
+                        notes=f'MAR entry #{entry.pk} — {entry.drug_name}',
+                    )
+                    deposit_account.total_charges += unit_price
+                    deposit_account.save(update_fields=['total_charges', 'updated_at'])
+            except (Admission.DoesNotExist, InpatientDepositAccount.DoesNotExist):
+                pass  # No deposit account — charge not recorded, stock still deducted
+
+            entry.status = status
             entry.administered_at = timezone.now()
             entry.administered_by = request.user
             entry.dose_given = dose_given
+            entry.source = MAREntry.Source.WARD_STOCK
+            entry.ward_stock_item = dept_stock
+            entry.ward_stock_batch = batch
+            entry.charge_amount = unit_price
+            entry.patient_response = patient_response
+            entry.reason_missed = reason_missed
+            entry.notes = notes
+            entry.save()
+
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.NURSING,
+            object_type='MAREntry', object_id=entry.pk,
+            object_repr=str(entry),
+            description=(
+                f'Ward stock administration: {dept_stock.item_name} given to '
+                f'{entry.visit.patient.full_name} (MAR #{entry.pk})'
+                + (f' — charged ETB {unit_price}' if unit_price else ' — no charge')
+            ),
+            request=request,
+        )
+        messages.success(request, f'Administered from ward stock ({dept_stock.item_name}). Inventory updated.')
+
+    elif status == MAREntry.Status.GIVEN and source == MAREntry.Source.PATIENT_SUPPLIED:
+        # --- Patient-supplied: record only, no billing, no inventory ---
+        entry.status = status
+        entry.administered_at = timezone.now()
+        entry.administered_by = request.user
+        entry.dose_given = dose_given
+        entry.source = MAREntry.Source.PATIENT_SUPPLIED
         entry.patient_response = patient_response
         entry.reason_missed = reason_missed
         entry.notes = notes
         entry.save()
-        messages.success(request, 'MAR entry updated.')
+        log_action(
+            request.user, AuditLog.Action.UPDATE, AuditLog.Module.NURSING,
+            object_type='MAREntry', object_id=entry.pk,
+            object_repr=str(entry),
+            description=f'Patient-supplied medication administered to {entry.visit.patient.full_name} — no inventory/billing impact.',
+            request=request,
+        )
+        messages.success(request, 'Patient-supplied medication recorded. No inventory or billing change.')
+
     else:
-        messages.error(request, 'Invalid status.')
+        # --- Pharmacy dispensed or direct medication_order (admitted ward) ---
+        with transaction.atomic():
+            entry.status = status
+            if status == MAREntry.Status.GIVEN:
+                entry.administered_at = timezone.now()
+                entry.administered_by = request.user
+                entry.dose_given = dose_given
+                entry.source = MAREntry.Source.PHARMACY
+
+                # Direct medication_order: charge deposit per dose administered
+                if entry.medication_order_id:
+                    unit_price = entry.medication_order.unit_price or Decimal('0')
+                    if unit_price > 0:
+                        try:
+                            admission = Admission.objects.get(
+                                visit=entry.visit, status=Admission.Status.ADMITTED,
+                            )
+                            deposit_account = admission.deposit_account
+                            balance_after = deposit_account.available_balance - unit_price
+                            DepositTransaction.objects.create(
+                                account=deposit_account,
+                                tx_type=DepositTransaction.TxType.CHARGE_DEDUCTION,
+                                amount=unit_price,
+                                description=f'{entry.drug_name} — MAR dose (direct order)',
+                                balance_after=balance_after,
+                                performed_by=request.user,
+                                notes=f'MAR entry #{entry.pk}',
+                            )
+                            deposit_account.total_charges += unit_price
+                            deposit_account.save(update_fields=['total_charges', 'updated_at'])
+                            entry.charge_amount = unit_price
+                        except (Admission.DoesNotExist, InpatientDepositAccount.DoesNotExist):
+                            pass
+
+            entry.patient_response = patient_response
+            entry.reason_missed = reason_missed
+            entry.notes = notes
+            entry.save()
+        messages.success(request, 'MAR entry updated.')
 
     return redirect('mar_list', visit_id=entry.visit_id)
 

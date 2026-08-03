@@ -166,14 +166,11 @@
     </div>
 
     <div class="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-      <button type="submit"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-colors">
+      <button type="submit" class="btn btn-primary" data-loading>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         {{ action }} Employee
       </button>
-      <a href="{% if employee %}{% url 'employee_detail' employee.id %}{% else %}{% url 'employee_list' %}{% endif %}"
-         class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium transition-colors">
-        Cancel
-      </a>
+      <a href="{% if employee %}{% url 'employee_detail' employee.id %}{% else %}{% url 'employee_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
 </div>
