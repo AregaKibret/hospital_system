@@ -5,7 +5,8 @@
       "PowerShell(netstat -ano)",
       "PowerShell(Start-Process -FilePath \"python\" -ArgumentList \"manage.py runserver 8000\" -WorkingDirectory \"c:\\\\Users\\\\agi1w\\\\hospital_system\" -NoNewWindow -PassThru)",
       "Bash(pip show *)",
-      "Bash(python manage.py makemigrations core --name employee_signature_management)"
+      "Bash(python manage.py makemigrations core --name employee_signature_management)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

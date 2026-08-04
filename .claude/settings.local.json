@@ -7,7 +7,19 @@
       "Read(*)",
       "Edit(*)",
       "Write(*)",
-      "Bash(python manage.py shell -c ' *)"
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(pip freeze *)",
+      "PowerShell(pip install waitress 2>&1)",
+      "PowerShell(Stop-Process -Id 16664 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -o /dev/null -w \"port 8001 status: %{http_code}\\\\n\" http://127.0.0.1:8001/)",
+      "Bash(curl -s -I http://127.0.0.1:8001/)",
+      "Bash(curl -s -I http://127.0.0.1:8000/)",
+      "Bash(curl -s -o /dev/null -w \"port 8000 status: %{http_code}\\\\n\" http://127.0.0.1:8000/)",
+      "Bash(curl -s -o /dev/null -w \"port 8000: %{http_code}\\\\n\" http://127.0.0.1:8000/)",
+      "Bash(curl -s -o /dev/null -w \"port 8001: %{http_code}\\\\n\" http://127.0.0.1:8001/)",
+      "Bash(curl -s -o /dev/null -w \"hospital_system \\(8000\\): %{http_code}\\\\n\" http://127.0.0.1:8000/)",
+      "Bash(curl -s -o /dev/null -w \"pharmacy dev server \\(8001\\): %{http_code}\\\\n\" http://127.0.0.1:8001/)"
     ]
   }
 }
